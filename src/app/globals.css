@@ -5,11 +5,23 @@
   --foreground: #171717;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@theme {
+  --color-soft: #fff5f5;
+  --color-accent: #059669;
+  --color-navy: #163351;
+  --color-heroBg: #F4FBF7;
+  --color-btnBg: #007bff;
+
+
+    /* breakpoints */
+
+  /* Mobile */
+  --breakpoint-xs: 23.4375rem; /* 375px */
+  --breakpoint-2xs: 26.5625rem; /* 425px */
+
+  /* Existing */
+  --breakpoint-xl2: 90rem; /* 1440px (MacBook Pro / Large Desktop) */
+  /* --breakpoint-2xl: 96rem; 1536px */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +34,45 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Arial, Helvetica, sans-serif;
+}
+
+@keyframes course-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.course-card-enter {
+  animation: course-card-enter 0.5s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .course-card-enter {
+    animation: none;
+  }
+}
+
+.homepage-course-swiper .swiper-pagination {
+  position: relative;
+  margin-top: 1.25rem;
+}
+
+.homepage-course-swiper .swiper-pagination-bullet {
+  width: 0.45rem;
+  height: 0.45rem;
+  background: rgba(22, 51, 81, 0.2);
+  opacity: 1;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.homepage-course-swiper .swiper-pagination-bullet-active {
+  background: #007bff;
+  transform: scale(1.25);
 }

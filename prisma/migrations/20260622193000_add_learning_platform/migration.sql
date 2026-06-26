@@ -1,0 +1,45 @@
+CREATE TYPE "EnrollmentStatus" AS ENUM ('ACTIVE', 'COMPLETED', 'CANCELLED', 'EXPIRED');
+CREATE TYPE "LessonType" AS ENUM ('VIDEO', 'READING', 'QUIZ');
+
+CREATE TABLE "CourseModule" ("id" TEXT NOT NULL, "courseId" TEXT NOT NULL, "title" TEXT NOT NULL, "description" TEXT, "displayOrder" INTEGER NOT NULL DEFAULT 0, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "CourseModule_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "Lesson" ("id" TEXT NOT NULL, "moduleId" TEXT NOT NULL, "slug" TEXT NOT NULL, "title" TEXT NOT NULL, "description" TEXT NOT NULL, "type" "LessonType" NOT NULL DEFAULT 'VIDEO', "youtubeVideoId" TEXT, "durationSeconds" INTEGER NOT NULL DEFAULT 0, "content" TEXT, "displayOrder" INTEGER NOT NULL DEFAULT 0, "isPreview" BOOLEAN NOT NULL DEFAULT false, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "Lesson_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "LessonResource" ("id" TEXT NOT NULL, "lessonId" TEXT NOT NULL, "title" TEXT NOT NULL, "url" TEXT NOT NULL, "displayOrder" INTEGER NOT NULL DEFAULT 0, CONSTRAINT "LessonResource_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "Enrollment" ("id" TEXT NOT NULL, "userId" TEXT NOT NULL, "courseId" TEXT NOT NULL, "status" "EnrollmentStatus" NOT NULL DEFAULT 'ACTIVE', "enrolledAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "expiresAt" TIMESTAMP(3), "completedAt" TIMESTAMP(3), "lastAccessedAt" TIMESTAMP(3), "lastLessonId" TEXT, CONSTRAINT "Enrollment_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "LessonProgress" ("id" TEXT NOT NULL, "userId" TEXT NOT NULL, "lessonId" TEXT NOT NULL, "completed" BOOLEAN NOT NULL DEFAULT false, "completedAt" TIMESTAMP(3), "watchedSeconds" INTEGER NOT NULL DEFAULT 0, "lastPositionSec" INTEGER NOT NULL DEFAULT 0, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "LessonProgress_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "Quiz" ("id" TEXT NOT NULL, "lessonId" TEXT NOT NULL, "title" TEXT NOT NULL, "description" TEXT, "passPercent" INTEGER NOT NULL DEFAULT 60, CONSTRAINT "Quiz_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "QuizQuestion" ("id" TEXT NOT NULL, "quizId" TEXT NOT NULL, "prompt" TEXT NOT NULL, "explanation" TEXT, "displayOrder" INTEGER NOT NULL DEFAULT 0, CONSTRAINT "QuizQuestion_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "QuizOption" ("id" TEXT NOT NULL, "questionId" TEXT NOT NULL, "text" TEXT NOT NULL, "isCorrect" BOOLEAN NOT NULL DEFAULT false, "displayOrder" INTEGER NOT NULL DEFAULT 0, CONSTRAINT "QuizOption_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "QuizAttempt" ("id" TEXT NOT NULL, "userId" TEXT NOT NULL, "quizId" TEXT NOT NULL, "score" INTEGER NOT NULL, "total" INTEGER NOT NULL, "percentage" INTEGER NOT NULL, "passed" BOOLEAN NOT NULL, "answers" JSONB NOT NULL, "submittedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "QuizAttempt_pkey" PRIMARY KEY ("id"));
+
+CREATE UNIQUE INDEX "CourseModule_courseId_displayOrder_key" ON "CourseModule"("courseId", "displayOrder");
+CREATE INDEX "CourseModule_courseId_displayOrder_idx" ON "CourseModule"("courseId", "displayOrder");
+CREATE UNIQUE INDEX "Lesson_slug_key" ON "Lesson"("slug");
+CREATE UNIQUE INDEX "Lesson_moduleId_displayOrder_key" ON "Lesson"("moduleId", "displayOrder");
+CREATE INDEX "Lesson_moduleId_displayOrder_idx" ON "Lesson"("moduleId", "displayOrder");
+CREATE INDEX "LessonResource_lessonId_displayOrder_idx" ON "LessonResource"("lessonId", "displayOrder");
+CREATE UNIQUE INDEX "Enrollment_userId_courseId_key" ON "Enrollment"("userId", "courseId");
+CREATE INDEX "Enrollment_userId_status_idx" ON "Enrollment"("userId", "status");
+CREATE INDEX "Enrollment_courseId_status_idx" ON "Enrollment"("courseId", "status");
+CREATE UNIQUE INDEX "LessonProgress_userId_lessonId_key" ON "LessonProgress"("userId", "lessonId");
+CREATE INDEX "LessonProgress_userId_completed_idx" ON "LessonProgress"("userId", "completed");
+CREATE INDEX "LessonProgress_lessonId_idx" ON "LessonProgress"("lessonId");
+CREATE UNIQUE INDEX "Quiz_lessonId_key" ON "Quiz"("lessonId");
+CREATE UNIQUE INDEX "QuizQuestion_quizId_displayOrder_key" ON "QuizQuestion"("quizId", "displayOrder");
+CREATE INDEX "QuizQuestion_quizId_displayOrder_idx" ON "QuizQuestion"("quizId", "displayOrder");
+CREATE UNIQUE INDEX "QuizOption_questionId_displayOrder_key" ON "QuizOption"("questionId", "displayOrder");
+CREATE INDEX "QuizOption_questionId_displayOrder_idx" ON "QuizOption"("questionId", "displayOrder");
+CREATE INDEX "QuizAttempt_userId_quizId_submittedAt_idx" ON "QuizAttempt"("userId", "quizId", "submittedAt");
+CREATE INDEX "QuizAttempt_quizId_idx" ON "QuizAttempt"("quizId");
+
+ALTER TABLE "CourseModule" ADD CONSTRAINT "CourseModule_courseId_fkey" FOREIGN KEY ("courseId") REFERENCES "Course"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Lesson" ADD CONSTRAINT "Lesson_moduleId_fkey" FOREIGN KEY ("moduleId") REFERENCES "CourseModule"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "LessonResource" ADD CONSTRAINT "LessonResource_lessonId_fkey" FOREIGN KEY ("lessonId") REFERENCES "Lesson"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Enrollment" ADD CONSTRAINT "Enrollment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Enrollment" ADD CONSTRAINT "Enrollment_courseId_fkey" FOREIGN KEY ("courseId") REFERENCES "Course"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "LessonProgress" ADD CONSTRAINT "LessonProgress_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "LessonProgress" ADD CONSTRAINT "LessonProgress_lessonId_fkey" FOREIGN KEY ("lessonId") REFERENCES "Lesson"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Quiz" ADD CONSTRAINT "Quiz_lessonId_fkey" FOREIGN KEY ("lessonId") REFERENCES "Lesson"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "QuizQuestion" ADD CONSTRAINT "QuizQuestion_quizId_fkey" FOREIGN KEY ("quizId") REFERENCES "Quiz"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "QuizOption" ADD CONSTRAINT "QuizOption_questionId_fkey" FOREIGN KEY ("questionId") REFERENCES "QuizQuestion"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "QuizAttempt" ADD CONSTRAINT "QuizAttempt_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "QuizAttempt" ADD CONSTRAINT "QuizAttempt_quizId_fkey" FOREIGN KEY ("quizId") REFERENCES "Quiz"("id") ON DELETE CASCADE ON UPDATE CASCADE;

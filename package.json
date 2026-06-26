@@ -1,26 +1,54 @@
 {
-  "name": "educare-frontend",
+  "name": "broad-academy",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:seed": "npx tsx prisma/seed.ts",
+    "db:seed:admin": "npx tsx prisma/seed-admin.ts",
+    "db:seed:courses": "npx tsx prisma/seed-courses.ts",
+    "db:seed:learning": "npx tsx prisma/seed-learning.ts",
+    "db:enroll": "npx tsx prisma/enroll-student.ts",
+    "db:promote-owner": "npx tsx prisma/promote-owner.ts",
+    "db:migrate": "npx prisma migrate deploy",
+    "db:generate": "npx prisma generate"
   },
   "dependencies": {
-    "next": "16.2.4",
+    "@hookform/resolvers": "^5.4.0",
+    "@prisma/adapter-neon": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.10.0",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "dotenv": "^17.4.2",
+    "framer-motion": "^12.38.0",
+    "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^1.11.0",
+    "next": "^16.2.9",
+    "nodemailer": "^9.0.1",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "react-hook-form": "^7.80.0",
+    "react-toastify": "^11.1.0",
+    "swiper": "^12.1.4",
+    "tailwind-merge": "^3.5.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.4",
+    "eslint-config-next": "^16.2.9",
+    "prisma": "^7.8.0",
     "tailwindcss": "^4",
+    "tsx": "^4.22.4",
     "typescript": "^5"
   }
 }
