@@ -110,7 +110,7 @@ const ContactForm = ({ source }: ContactFormProps) => {
       <motion.div
         initial={reduceMotion ? false : { opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="flex min-h-[420px] flex-col items-center justify-center rounded-3xl border border-white/80 bg-white p-8 text-center shadow-[0_20px_70px_rgba(22,51,81,0.08)] sm:p-10"
+        className="flex min-h-[360px] w-full min-w-0 flex-col items-center justify-center rounded-2xl border border-white/80 bg-white p-6 text-center shadow-[0_20px_70px_rgba(22,51,81,0.08)] sm:min-h-[420px] sm:rounded-3xl sm:p-8 lg:p-10"
       >
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/10 text-accent">
           <CheckCircle2 className="h-8 w-8" />
@@ -141,16 +141,18 @@ const ContactForm = ({ source }: ContactFormProps) => {
       viewport={{ once: true, amount: 0.25 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
       onSubmit={handleSubmit}
-      className="rounded-3xl border border-white/80 bg-white p-6 shadow-[0_20px_70px_rgba(22,51,81,0.08)] sm:p-8"
+      className="w-full min-w-0 rounded-2xl border border-white/80 bg-white p-4 shadow-[0_20px_70px_rgba(22,51,81,0.08)] sm:rounded-3xl sm:p-6 lg:p-8"
       noValidate
     >
-      <div className="mb-6 flex items-start gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-btnBg/10 text-btnBg">
+      <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-btnBg/10 text-btnBg sm:h-11 sm:w-11">
           <MessageSquareText className="h-5 w-5" />
         </div>
-        <div>
-          <h3 className="text-xl font-semibold text-navy">Send us a message</h3>
-          <p className="mt-1 text-sm text-slate-600">
+        <div className="min-w-0">
+          <h3 className="text-lg font-semibold text-navy sm:text-xl">
+            Send us a message
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
             Fill in the form and we&apos;ll respond as soon as possible.
           </p>
         </div>

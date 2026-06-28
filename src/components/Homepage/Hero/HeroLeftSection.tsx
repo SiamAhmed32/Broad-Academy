@@ -1,12 +1,10 @@
 "use client";
 
 import PrimaryButton from "@/components/reusables/PrimaryButton";
+import { WHATSAPP_COMMUNITY_URL } from "@/lib/site/community";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { MessageCircle } from "lucide-react";
 import React from "react";
-
-const WHATSAPP_COMMUNITY_INVITE_URL =
-  "https://chat.whatsapp.com/EXAMPLE_BROAD_ACADEMY_COMMUNITY";
 
 const HeroLeftSection = () => {
   const shouldReduceMotion = useReducedMotion();
@@ -80,7 +78,7 @@ const HeroLeftSection = () => {
         </PrimaryButton>
 
         <a
-          href={WHATSAPP_COMMUNITY_INVITE_URL}
+          href={WHATSAPP_COMMUNITY_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="flex cursor-pointer items-center gap-2 rounded-lg border border-[#25D366]/30 bg-[#25D366] px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/15 transition hover:-translate-y-0.5 hover:bg-[#20bd5a]"

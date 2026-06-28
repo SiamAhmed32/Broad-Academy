@@ -1,67 +1,90 @@
 "use client";
 
-import { Menu, X } from "lucide-react";
-import Link from "next/link";
+import { motion, useReducedMotion } from "framer-motion";
 import { useState } from "react";
 
-import { navActions, navLinks } from "@/components/data/navData";
 import { BrandLogo } from "@/components/Brand";
+import { MobileMenuDrawer } from "@/components/Layout/Navbar/MobileMenuDrawer";
+import { NavNotificationBell } from "@/components/Layout/Navbar/NavNotificationBell";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import type { NavSession } from "@/lib/nav/types";
-import { NavNotificationBell } from "./NavNotificationBell";
-import { UserNavMenu } from "./UserNavMenu";
+import { cn } from "@/lib/utils";
+
+function MenuToggle({ open }: { open: boolean }) {
+  const shouldReduceMotion = useReducedMotion();
+
+  return (
+    <span className="relative flex h-5 w-5 items-center justify-center" aria-hidden>
+      {[0, 1, 2].map((index) => (
+        <motion.span
+          key={index}
+          className="absolute h-0.5 w-5 rounded-full bg-white"
+          initial={false}
+          animate={
+            open
+              ? index === 0
+                ? { rotate: 45, y: 0 }
+                : index === 1
+                  ? { opacity: 0, scaleX: 0 }
+                  : { rotate: -45, y: 0 }
+              : {
+                  rotate: 0,
+                  y: index === 0 ? -6 : index === 2 ? 6 : 0,
+                  opacity: 1,
+                  scaleX: 1,
+                }
+          }
+          transition={
+            shouldReduceMotion
+              ? { duration: 0 }
+              : { duration: 0.24, ease: [0.32, 0.72, 0, 1] }
+          }
+          style={{ transformOrigin: "center" }}
+        />
+      ))}
+    </span>
+  );
+}
 
 const MobileNav = ({ navSession }: { navSession: NavSession | null }) => {
   const [open, setOpen] = useState(false);
 
   return (
-    <nav className="relative px-4 py-3 md:hidden">
-      <div className="flex items-center justify-between">
-        <BrandLogo inverse />
-        <div className="flex items-center gap-2">
+    <nav className="md:hidden" aria-label="Mobile site header">
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <BrandLogo inverse compact />
+
+        <div className="flex items-center gap-1.5">
           {navSession ? (
-            <>
-              <UserNavMenu session={navSession} />
-              <NavNotificationBell navSession={navSession} placement="mobile" />
-            </>
+            <NavNotificationBell navSession={navSession} placement="mobile" />
           ) : null}
-          <button
-            type="button"
-            onClick={() => setOpen((value) => !value)}
-            aria-expanded={open}
-            aria-label={open ? "Close navigation" : "Open navigation"}
-            className="rounded-xl border border-white/15 p-2.5 text-white transition hover:bg-white/5"
-          >
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <button
+                type="button"
+                aria-expanded={open}
+                aria-label={open ? "Close menu" : "Open menu"}
+                className={cn(
+                  "relative flex h-10 w-10 items-center justify-center rounded-xl border transition",
+                  open
+                    ? "border-white/25 bg-white/15 text-white"
+                    : "border-white/15 bg-white/5 text-white hover:bg-white/10",
+                )}
+              >
+                <MenuToggle open={open} />
+              </button>
+            </SheetTrigger>
+
+            <SheetContent className="p-0">
+              <MobileMenuDrawer
+                navSession={navSession}
+                onNavigate={() => setOpen(false)}
+              />
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
-
-      {open ? (
-        <div className="absolute inset-x-3 top-[4.5rem] z-50 rounded-2xl border border-navy/10 bg-white p-3 shadow-2xl">
-          {navLinks.map((link) => (
-            <Link
-              key={link.title}
-              href={link.href}
-              onClick={() => setOpen(false)}
-              className="block rounded-xl px-4 py-3 text-sm font-semibold text-navy transition hover:bg-btnBg/5 hover:text-btnBg"
-            >
-              {link.title}
-            </Link>
-          ))}
-          {!navSession
-            ? navActions.map((link) => (
-                <Link
-                  key={link.title}
-                  href={link.href}
-                  onClick={() => setOpen(false)}
-                  className="block rounded-xl px-4 py-3 text-sm font-semibold text-navy transition hover:bg-btnBg/5 hover:text-btnBg"
-                >
-                  {link.title}
-                </Link>
-              ))
-            : null}
-        </div>
-      ) : null}
     </nav>
   );
 };
