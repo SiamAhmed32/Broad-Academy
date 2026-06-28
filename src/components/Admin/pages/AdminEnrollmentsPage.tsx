@@ -66,13 +66,27 @@ const emptyPagination: AdminPaginationMeta = {
   totalPages: 1,
 };
 
-export default function AdminEnrollmentsPage() {
+export default function AdminEnrollmentsPage({
+  section,
+  showPageHeader = true,
+  showGrantForm = true,
+  onQueueTotalChange,
+  onEnrollmentTotalChange,
+}: {
+  section?: "queue" | "enrollments";
+  showPageHeader?: boolean;
+  showGrantForm?: boolean;
+  onQueueTotalChange?: (total: number) => void;
+  onEnrollmentTotalChange?: (total: number) => void;
+} = {}) {
   const shouldReduceMotion = useReducedMotion();
   const router = useRouter();
   const searchParams = useSearchParams();
   const deepLinkRequestId = searchParams.get("request");
 
-  const [activeTab, setActiveTab] = useState<"queue" | "enrollments">("queue");
+  const [activeTab, setActiveTab] = useState<"queue" | "enrollments">(
+    section ?? "queue",
+  );
   const [courses, setCourses] = useState<Course[]>([]);
 
   const [requests, setRequests] = useState<EnrollmentRequestDetail[]>([]);
@@ -127,9 +141,10 @@ export default function AdminEnrollmentsPage() {
     if (res.success && res.data) {
       setRequests(res.data.requests);
       setRequestPagination(res.data.pagination);
+      onQueueTotalChange?.(res.data.pagination.total);
     }
     setRequestsLoading(false);
-  }, [requestCourseId, requestPage, requestSearch, requestStatus]);
+  }, [onQueueTotalChange, requestCourseId, requestPage, requestSearch, requestStatus]);
 
   const loadEnrollments = useCallback(async () => {
     setEnrollmentsLoading(true);
@@ -149,19 +164,22 @@ export default function AdminEnrollmentsPage() {
     if (res.success && res.data) {
       setEnrollments(res.data.enrollments);
       setEnrollmentPagination(res.data.pagination);
+      onEnrollmentTotalChange?.(res.data.pagination.total);
     }
     setEnrollmentsLoading(false);
-  }, [enrollmentCourseId, enrollmentPage, enrollmentSearch, enrollmentStatus]);
+  }, [enrollmentCourseId, enrollmentPage, enrollmentSearch, enrollmentStatus, onEnrollmentTotalChange]);
 
   useEffect(() => {
+    if (section === "enrollments") return;
     const timer = setTimeout(() => void loadRequests(), 280);
     return () => clearTimeout(timer);
-  }, [loadRequests]);
+  }, [loadRequests, section]);
 
   useEffect(() => {
+    if (section === "queue") return;
     const timer = setTimeout(() => void loadEnrollments(), 280);
     return () => clearTimeout(timer);
-  }, [loadEnrollments]);
+  }, [loadEnrollments, section]);
 
   useEffect(() => {
     adminFetch<{ courses: Course[] }>("/api/admin/courses?limit=100&compact=true").then((res) => {
@@ -195,7 +213,7 @@ export default function AdminEnrollmentsPage() {
   function closeRequestModal() {
     setSelectedRequest(null);
     if (deepLinkRequestId) {
-      router.replace("/admin/enrollments", { scroll: false });
+      router.replace("/admin/students?tab=requests", { scroll: false });
     }
   }
 
@@ -265,15 +283,20 @@ export default function AdminEnrollmentsPage() {
     void loadEnrollments();
   }
 
+  const visibleTab = section ?? activeTab;
+
   return (
     <div>
-      <AdminPageHeader
-        title="Course access"
-        description="Review payment proofs at scale with search, filters, and pagination. Open details in a modal to approve or reject."
-      />
+      {showPageHeader ? (
+        <AdminPageHeader
+          title="Course access"
+          description="Review payment proofs at scale with search, filters, and pagination. Open details in a modal to approve or reject."
+        />
+      ) : null}
 
-      <EnrollmentGuideSettings />
+      {showGrantForm && visibleTab === "queue" ? <EnrollmentGuideSettings /> : null}
 
+      {showGrantForm && visibleTab === "queue" ? (
       <motion.div
         initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -342,7 +365,9 @@ export default function AdminEnrollmentsPage() {
           </form>
         </AdminCard>
       </motion.div>
+      ) : null}
 
+      {!section ? (
       <div className="mb-4 inline-flex rounded-xl border border-slate-200 bg-white p-1">
         <TabButton
           active={activeTab === "queue"}
@@ -357,8 +382,9 @@ export default function AdminEnrollmentsPage() {
           count={enrollmentPagination.total}
         />
       </div>
+      ) : null}
 
-      {activeTab === "queue" ? (
+      {visibleTab === "queue" ? (
         <AdminCard className="overflow-hidden p-0">
           <div className="border-b border-slate-200 px-5 py-4">
             <AdminCardTitle>Payment verification queue</AdminCardTitle>

@@ -87,6 +87,7 @@ export default function StudentPortal({
     avatarUrl: profile.avatarUrl,
     role: "STUDENT",
     hasEnrollment,
+    canViewNotifications: hasEnrollment,
     studentId: profile.studentId,
     unreadCount: 0,
   };

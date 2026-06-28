@@ -9,11 +9,17 @@ import {
   ChevronLeft,
   Clock,
   Loader2,
-  Users,
-  X,
   Minus,
   Trophy,
+  Users,
+  X,
 } from "lucide-react";
+
+import Container from "@/components/reusables/Container";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 type Option = {
   id: string;
@@ -79,15 +85,15 @@ export default function ExamResultClient({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950">
-        <Loader2 size={32} className="animate-spin text-indigo-400" />
+      <div className="flex min-h-[60vh] items-center justify-center bg-[#f6f8fb]">
+        <Loader2 size={32} className="animate-spin text-accent" />
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400">
+      <div className="flex min-h-[60vh] items-center justify-center bg-[#f6f8fb] text-slate-500">
         Result not found.
       </div>
     );
@@ -101,160 +107,163 @@ export default function ExamResultClient({
   const negativeScore = attempt.wrongQty * exam.negativeMarking;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Result hero */}
-      <div className="relative overflow-hidden bg-navy px-4 py-16">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(5,150,105,0.18),transparent_55%)]" />
+    <div className="min-h-screen bg-[#f6f8fb]">
+      <div className="relative overflow-hidden bg-navy px-4 py-14 sm:py-16">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(5,150,105,0.2),transparent_55%)]" />
 
-        <div className="relative max-w-3xl mx-auto text-center">
+        <Container className="relative text-center">
           <Link
             href={`/exams/${slug}`}
-            className="mb-8 inline-flex items-center gap-1 text-sm text-white/70 transition-colors hover:text-white"
+            className="mb-8 inline-flex items-center gap-1 text-sm text-white/70 transition hover:text-white"
           >
             <ChevronLeft size={14} />
             Back to Exam
           </Link>
 
           <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
+            initial={{ scale: 0.85, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", duration: 0.6 }}
           >
             <div
-              className={`w-24 h-24 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl font-extrabold border-4 ${
+              className={cn(
+                "mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full border-4 text-3xl font-extrabold",
                 passed
                   ? "border-accent bg-accent/15 text-emerald-100"
-                  : "border-red-400 bg-red-500/15 text-red-100"
-              }`}
+                  : "border-red-400 bg-red-500/15 text-red-100",
+              )}
             >
               {percentage}%
             </div>
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
+            transition={{ delay: 0.25 }}
           >
-            <h1 className="text-3xl font-extrabold text-white mb-2">
-              {passed ? "🎉 Well Done!" : "Keep Practicing!"}
+            <h1 className="mb-2 text-3xl font-extrabold text-white sm:text-4xl">
+              {passed ? "Well Done!" : "Keep Practicing!"}
             </h1>
-            <p className="text-white/70 mb-2">{exam.title}</p>
-            <div className="text-5xl font-extrabold text-white mb-1">
+            <p className="mb-2 text-white/70">{exam.title}</p>
+            <div className="mb-1 text-5xl font-extrabold text-white">
               {attempt.score}
               <span className="text-2xl text-white/45">/{attempt.total}</span>
             </div>
           </motion.div>
 
-          {/* Stats row */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45 }}
-            className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 max-w-2xl mx-auto"
+            transition={{ delay: 0.4 }}
+            className="mx-auto mt-8 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4"
           >
-            <div className="bg-emerald-900/20 border border-emerald-500/30 rounded-xl p-4">
-              <div className="text-2xl font-bold text-emerald-400">{attempt.correctQty}</div>
-              <div className="text-xs text-slate-400 mt-1">Correct</div>
-            </div>
-            <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4">
-              <div className="text-2xl font-bold text-red-400">{attempt.wrongQty}</div>
-              <div className="text-xs text-slate-400 mt-1">Wrong</div>
-            </div>
-            <div className="bg-slate-800/50 border border-white/10 rounded-xl p-4">
-              <div className="text-2xl font-bold text-slate-400">{attempt.skippedQty}</div>
-              <div className="text-xs text-slate-400 mt-1">Skipped</div>
-            </div>
-            <div className="bg-indigo-900/20 border border-indigo-500/30 rounded-xl p-4">
-              <Clock size={18} className="text-indigo-400 mx-auto mb-1" />
-              <div className="text-lg font-bold text-indigo-400">{formatTime(attempt.timeTakenSec)}</div>
-              <div className="text-xs text-slate-400">Time</div>
-            </div>
+            {[
+              { label: "Correct", value: attempt.correctQty, tone: "emerald" },
+              { label: "Wrong", value: attempt.wrongQty, tone: "red" },
+              { label: "Skipped", value: attempt.skippedQty, tone: "slate" },
+              { label: "Time", value: formatTime(attempt.timeTakenSec), tone: "accent", icon: Clock },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm"
+              >
+                {stat.icon ? (
+                  <stat.icon size={18} className="mx-auto mb-1 text-accent" />
+                ) : null}
+                <div className="text-xl font-bold text-white sm:text-2xl">{stat.value}</div>
+                <div className="mt-1 text-xs text-white/60">{stat.label}</div>
+              </div>
+            ))}
           </motion.div>
 
-          {/* Rank badge */}
-          {totalParticipants > 0 && (
+          {totalParticipants > 0 ? (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="mt-4 inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-amber-900/20 border border-amber-500/30 text-amber-300"
+              transition={{ delay: 0.55 }}
+              className="mt-6 inline-flex items-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-6 py-3 text-amber-200"
             >
               <Trophy size={20} className="text-amber-400" />
-              <span className="font-bold text-lg">Rank #{rank}</span>
-              <span className="text-slate-400 text-sm">of {totalParticipants}</span>
+              <span className="text-lg font-bold">Rank #{rank}</span>
+              <span className="text-sm text-white/60">of {totalParticipants}</span>
             </motion.div>
-          )}
-        </div>
+          ) : null}
+        </Container>
       </div>
 
-      {/* Tab toggle */}
-      <div className="sticky top-16 z-30 border-b border-slate-200 bg-white/90 backdrop-blur-xl">
-        <div className="max-w-4xl mx-auto px-4 flex">
-          {(["overview", "review"] as const).map((v) => (
-            <button
-              key={v}
-              id={`result-tab-${v}`}
-              onClick={() => setView(v)}
-              className={`px-6 py-4 text-sm font-semibold border-b-2 transition-all capitalize ${
-                view === v
-                  ? "border-accent text-navy"
-                  : "border-transparent text-slate-500 hover:text-navy"
-              }`}
-            >
-              {v === "overview" ? "📊 Overview" : "📝 Review Answers"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-4 py-10">
-        {view === "overview" ? (
-          <div className="space-y-4">
-            {/* Score breakdown card */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="font-bold text-navy mb-4">Score Breakdown</h2>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Correct ({attempt.correctQty}) × {marksPerQ.toFixed(2)} marks</span>
-                  <span className="text-accent font-semibold">+{positiveScore.toFixed(2)}</span>
-                </div>
-                {exam.negativeMarking > 0 && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400">
-                      Wrong ({attempt.wrongQty}) × {marksPerQ.toFixed(2)} × {exam.negativeMarking} (negative)
-                    </span>
-                    <span className="text-red-400 font-semibold">
-                      -{negativeScore.toFixed(2)}
-                    </span>
-                  </div>
+      <div className="sticky top-16 z-30 border-b border-navy/10 bg-white/95 backdrop-blur-md">
+        <Container>
+          <div className="flex">
+            {(["overview", "review"] as const).map((v) => (
+              <button
+                key={v}
+                id={`result-tab-${v}`}
+                type="button"
+                onClick={() => setView(v)}
+                className={cn(
+                  "border-b-2 px-6 py-4 text-sm font-semibold capitalize transition",
+                  view === v
+                    ? "border-accent text-navy"
+                    : "border-transparent text-slate-500 hover:text-navy",
                 )}
-                <div className="border-t border-slate-200 pt-3 flex justify-between items-center">
-                  <span className="text-navy font-semibold">Final Score</span>
+              >
+                {v === "overview" ? "Overview" : "Review Answers"}
+              </button>
+            ))}
+          </div>
+        </Container>
+      </div>
+
+      <Container className="py-10">
+        {view === "overview" ? (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-auto max-w-2xl space-y-4"
+          >
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Score Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-600">
+                    Correct ({attempt.correctQty}) × {marksPerQ.toFixed(2)} marks
+                  </span>
+                  <span className="font-semibold text-accent">+{positiveScore.toFixed(2)}</span>
+                </div>
+                {exam.negativeMarking > 0 ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">
+                      Wrong ({attempt.wrongQty}) × {exam.negativeMarking} negative mark
+                    </span>
+                    <span className="font-semibold text-red-600">−{negativeScore.toFixed(2)}</span>
+                  </div>
+                ) : null}
+                <div className="flex items-center justify-between border-t border-slate-200 pt-3">
+                  <span className="font-semibold text-navy">Final Score</span>
                   <span className="text-2xl font-extrabold text-accent">{attempt.score}</span>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* Action buttons */}
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <Link
                 href={`/exams/${slug}/leaderboard`}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 bg-white text-navy text-sm font-semibold transition-colors hover:bg-slate-50"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-navy shadow-sm transition hover:bg-slate-50"
               >
-                <Users size={16} /> View Leaderboard
+                <Users size={16} />
+                View Leaderboard
               </Link>
-              <button
-                onClick={() => setView("review")}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-accent text-white text-sm font-semibold transition-colors hover:bg-accent/90"
-              >
-                <Award size={16} /> Review My Answers
-              </button>
+              <Button className="flex-1" onClick={() => setView("review")}>
+                <Award size={16} />
+                Review My Answers
+              </Button>
             </div>
-          </div>
+          </motion.div>
         ) : (
-          /* Answer review */
-          <div className="space-y-6">
+          <div className="mx-auto max-w-3xl space-y-5">
             {questions.map((q, qi) => {
               const givenAnswerId = attempt.answers[q.id] ?? null;
               const givenOption = q.options.find((o) => o.id === givenAnswerId);
@@ -266,93 +275,106 @@ export default function ExamResultClient({
                   key={q.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(qi * 0.05, 1) }}
-                  className={`rounded-2xl border p-5 space-y-4 ${
-                    isSkipped
-                      ? "border-slate-600/50 bg-white/3"
-                      : isCorrect
-                        ? "border-emerald-500/40 bg-emerald-900/10"
-                        : "border-red-500/40 bg-red-900/10"
-                  }`}
+                  transition={{ delay: Math.min(qi * 0.04, 0.8) }}
                 >
-                  <div className="flex items-start gap-3">
-                    <span
-                      className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
-                        isSkipped
-                          ? "bg-slate-700 text-slate-400"
-                          : isCorrect
-                            ? "bg-emerald-600 text-white"
-                            : "bg-red-600 text-white"
-                      }`}
-                    >
-                      {isSkipped ? (
-                        <Minus size={14} />
-                      ) : isCorrect ? (
-                        <Check size={14} />
-                      ) : (
-                        <X size={14} />
-                      )}
-                    </span>
-                    <p className="text-white font-medium leading-relaxed flex-1">{q.prompt}</p>
-                  </div>
-
-                  {q.imageUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={q.imageUrl}
-                      alt="Question"
-                      className="rounded-xl max-h-48 object-contain bg-black/40"
-                    />
-                  )}
-
-                  <div className="space-y-2 ml-11">
-                    {q.options.map((opt) => {
-                      const isGiven = opt.id === givenAnswerId;
-                      const isRight = opt.isCorrect;
-                      return (
-                        <div
-                          key={opt.id}
-                          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
-                            isRight
-                              ? "bg-emerald-900/30 border border-emerald-500/40 text-emerald-300"
-                              : isGiven && !isRight
-                                ? "bg-red-900/30 border border-red-500/40 text-red-300"
-                                : "text-slate-400"
-                          }`}
+                  <Card
+                    className={cn(
+                      isSkipped
+                        ? ""
+                        : isCorrect
+                          ? "border-emerald-200 bg-emerald-50/30"
+                          : "border-red-200 bg-red-50/30",
+                    )}
+                  >
+                    <CardContent className="space-y-4 p-5 sm:p-6">
+                      <div className="flex items-start gap-3">
+                        <span
+                          className={cn(
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold",
+                            isSkipped
+                              ? "bg-slate-100 text-slate-500"
+                              : isCorrect
+                                ? "bg-accent text-white"
+                                : "bg-red-600 text-white",
+                          )}
                         >
-                          {isRight ? (
-                            <Check size={13} className="text-emerald-400 flex-shrink-0" />
-                          ) : isGiven ? (
-                            <X size={13} className="text-red-400 flex-shrink-0" />
+                          {isSkipped ? (
+                            <Minus size={14} />
+                          ) : isCorrect ? (
+                            <Check size={14} />
                           ) : (
-                            <span className="w-3 flex-shrink-0" />
+                            <X size={14} />
                           )}
-                          <span className="flex-1">{opt.text}</span>
-                          {isGiven && !isRight && (
-                            <span className="ml-auto text-xs text-red-400 whitespace-nowrap">Your answer</span>
-                          )}
-                          {isRight && (
-                            <span className="ml-auto text-xs text-emerald-400 whitespace-nowrap">Correct</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                        </span>
+                        <p className="flex-1 font-medium leading-relaxed text-navy">{q.prompt}</p>
+                      </div>
 
-                  {q.explanation && (
-                    <div className="ml-11 bg-indigo-900/20 border border-indigo-500/30 rounded-lg p-3 text-sm text-indigo-200">
-                      <span className="text-indigo-400 font-semibold text-xs uppercase tracking-wide block mb-1">
-                        Explanation
-                      </span>
-                      {q.explanation}
-                    </div>
-                  )}
+                      {q.imageUrl ? (
+                        <div className="ml-11 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={q.imageUrl}
+                            alt="Question"
+                            className="max-h-48 w-full object-contain"
+                          />
+                        </div>
+                      ) : null}
+
+                      <div className="ml-11 space-y-2">
+                        {q.options.map((opt) => {
+                          const isGiven = opt.id === givenAnswerId;
+                          const isRight = opt.isCorrect;
+                          return (
+                            <div
+                              key={opt.id}
+                              className={cn(
+                                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm",
+                                isRight
+                                  ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
+                                  : isGiven && !isRight
+                                    ? "border border-red-200 bg-red-50 text-red-700"
+                                    : "text-slate-600",
+                              )}
+                            >
+                              {isRight ? (
+                                <Check size={13} className="shrink-0 text-accent" />
+                              ) : isGiven ? (
+                                <X size={13} className="shrink-0 text-red-600" />
+                              ) : (
+                                <span className="w-3 shrink-0" />
+                              )}
+                              <span className="flex-1">{opt.text}</span>
+                              {isGiven && !isRight ? (
+                                <span className="ml-auto whitespace-nowrap rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                                  Your answer
+                                </span>
+                              ) : null}
+                              {isRight ? (
+                                <Badge variant="success" className="ml-auto text-xs">
+                                  Correct
+                                </Badge>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {q.explanation ? (
+                        <div className="ml-11 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700">
+                          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-accent">
+                            Explanation
+                          </span>
+                          {q.explanation}
+                        </div>
+                      ) : null}
+                    </CardContent>
+                  </Card>
                 </motion.div>
               );
             })}
           </div>
         )}
-      </div>
+      </Container>
     </div>
   );
 }

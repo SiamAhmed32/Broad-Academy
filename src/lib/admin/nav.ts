@@ -8,7 +8,6 @@ import {
   MessageSquare,
   Star,
   Shield,
-  UserCheck,
   Users,
   Megaphone,
   Mail,
@@ -22,6 +21,8 @@ export type AdminNavItem = {
   description: string;
   href: string;
   permission: AdminPermission;
+  /** Show this item when the user has any of these permissions (defaults to [permission]). */
+  anyOfPermissions?: AdminPermission[];
   icon: LucideIcon;
   group: "content" | "people" | "support" | "system";
 };
@@ -110,19 +111,15 @@ export const adminNavItems: AdminNavItem[] = [
     group: "support",
   },
   {
-    label: "Students",
-    description: "View and manage students",
+    label: "People & Access",
+    description: "Users, requests & enrollments",
     href: "/admin/students",
     permission: ADMIN_PERMISSIONS.STUDENTS,
+    anyOfPermissions: [
+      ADMIN_PERMISSIONS.STUDENTS,
+      ADMIN_PERMISSIONS.ENROLLMENTS,
+    ],
     icon: Users,
-    group: "people",
-  },
-  {
-    label: "Course Access",
-    description: "Grant or revoke enrollments",
-    href: "/admin/enrollments",
-    permission: ADMIN_PERMISSIONS.ENROLLMENTS,
-    icon: UserCheck,
     group: "people",
   },
   {

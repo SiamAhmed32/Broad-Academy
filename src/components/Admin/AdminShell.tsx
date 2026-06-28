@@ -44,7 +44,11 @@ export default function AdminShell({
   const roleLabel = ADMIN_ROLE_LABELS[resolveAdminRole(user.adminRole)];
 
   const visibleNav = useMemo(
-    () => adminNavItems.filter((item) => permissions.includes(item.permission)),
+    () =>
+      adminNavItems.filter((item) => {
+        const required = item.anyOfPermissions ?? [item.permission];
+        return required.some((permission) => permissions.includes(permission));
+      }),
     [permissions],
   );
 

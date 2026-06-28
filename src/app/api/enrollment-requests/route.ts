@@ -279,7 +279,7 @@ export async function POST(request: NextRequest) {
       content: `${user.fullName} submitted payment proof for "${course.title}".`,
       type: "ENROLLMENT_SUBMITTED",
       category: "ALERT",
-      link: `/admin/enrollments?request=${saved.id}`,
+      link: `/admin/students?tab=requests&request=${saved.id}`,
     }).catch((error) => {
       console.error("Failed to notify admins about enrollment request:", error);
     });

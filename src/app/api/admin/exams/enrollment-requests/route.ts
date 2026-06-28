@@ -9,33 +9,34 @@ import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 
-const requestDetailInclude = {
+const requestListInclude = {
   user: {
     select: { id: true, fullName: true, email: true, phone: true },
   },
   exam: { select: { id: true, title: true, slug: true, price: true } },
-  reviewedBy: { select: { fullName: true } },
 } as const;
 
-export async function GET(request: NextRequest) {
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.EXAMS);
-  if (error) return error;
+type ExamRequestRow = Awaited<
+  ReturnType<
+    typeof db.examEnrollmentRequest.findMany<{ include: typeof requestListInclude }>
+  >
+>[number];
 
-  const parsed = adminListQuerySchema.safeParse(
-    Object.fromEntries(request.nextUrl.searchParams.entries()),
-  );
-  if (!parsed.success) return errorResponse("Invalid query.", 422);
+function buildWhereClause({
+  id,
+  search,
+  status,
+}: {
+  id?: string;
+  search?: string;
+  status?: string;
+}) {
+  if (id) return { id };
 
-  const { search, status, page, limit } = parsed.data;
-
-  const where = {
+  return {
     ...(status
       ? {
-          status: status as
-            | "PENDING"
-            | "APPROVED"
-            | "REJECTED"
-            | "CANCELLED",
+          status: status as "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED",
         }
       : {}),
     ...(search
@@ -51,25 +52,74 @@ export async function GET(request: NextRequest) {
         }
       : {}),
   };
+}
 
+async function serializeExamRequests(requests: ExamRequestRow[]) {
+  const reviewerIds = [
+    ...new Set(
+      requests
+        .map((request) => request.reviewedById)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const reviewers =
+    reviewerIds.length > 0
+      ? await db.user.findMany({
+          where: { id: { in: reviewerIds } },
+          select: { id: true, fullName: true },
+        })
+      : [];
+
+  const reviewerNames = new Map(reviewers.map((user) => [user.id, user.fullName]));
+
+  return requests.map((request) => ({
+    ...request,
+    submittedAt: request.submittedAt.toISOString(),
+    reviewedAt: request.reviewedAt?.toISOString() ?? null,
+    reviewedBy: request.reviewedById
+      ? { fullName: reviewerNames.get(request.reviewedById) ?? "Staff" }
+      : null,
+  }));
+}
+
+export async function GET(request: NextRequest) {
+  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.EXAMS);
+  if (error) return error;
+
+  const parsed = adminListQuerySchema.safeParse(
+    Object.fromEntries(request.nextUrl.searchParams.entries()),
+  );
+  if (!parsed.success) return errorResponse("Invalid query.", 422);
+
+  const { id, search, status, page, limit } = parsed.data;
+  const where = buildWhereClause({ id, search, status });
   const { skip, take } = paginate(page, limit);
 
-  const [requests, total] = await Promise.all([
-    db.examEnrollmentRequest.findMany({
-      where,
-      include: requestDetailInclude,
-      orderBy: { submittedAt: "desc" },
-      skip,
-      take,
-    }),
-    db.examEnrollmentRequest.count({ where }),
-  ]);
+  try {
+    const [requests, total] = await Promise.all([
+      db.examEnrollmentRequest.findMany({
+        where,
+        include: requestListInclude,
+        orderBy: { submittedAt: "desc" },
+        skip,
+        take,
+      }),
+      db.examEnrollmentRequest.count({ where }),
+    ]);
 
-  return NextResponse.json({
-    success: true,
-    data: {
-      requests,
-      pagination: paginationMeta(total, page, limit),
-    },
-  });
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          requests: await serializeExamRequests(requests),
+          pagination: paginationMeta(total, page, limit),
+        },
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (err) {
+    console.error("Failed to load exam enrollment requests:", err);
+    return errorResponse("Could not load exam access requests.", 500);
+  }
 }

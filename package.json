@@ -21,6 +21,7 @@
     "@hookform/resolvers": "^5.4.0",
     "@prisma/adapter-neon": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@radix-ui/react-dialog": "^1.1.17",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
     "clsx": "^2.1.1",

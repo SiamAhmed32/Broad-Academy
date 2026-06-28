@@ -117,9 +117,10 @@ model User {
   learningWatchLock          LearningWatchLock?
   studentGameStats           StudentGameStats?
   studentGameSessions        StudentGameSession[]
-  examEnrollments            ExamEnrollment[]
-  examEnrollmentRequests     ExamEnrollmentRequest[]
-  examAttempts               ExamAttempt[]
+  examEnrollments                ExamEnrollment[]
+  examEnrollmentRequests         ExamEnrollmentRequest[] @relation("ExamEnrollmentRequester")
+  reviewedExamEnrollmentRequests ExamEnrollmentRequest[] @relation("ExamEnrollmentReviewer")
+  examAttempts                   ExamAttempt[]
 
   @@index([role])
   @@index([adminRole])
@@ -827,13 +828,15 @@ model ExamEnrollmentRequest {
   reviewedById         String?
   reviewNote           String?
   reviewedAt           DateTime?
-  user                 User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                 User                        @relation("ExamEnrollmentRequester", fields: [userId], references: [id], onDelete: Cascade)
   exam                 Exam                        @relation(fields: [examId], references: [id], onDelete: Cascade)
+  reviewedBy           User?                       @relation("ExamEnrollmentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   @@unique([userId, examId])
   @@unique([bkashTransactionId])
   @@index([status, submittedAt])
   @@index([examId, status])
+  @@index([reviewedById])
 }
 
 model ExamAttempt {

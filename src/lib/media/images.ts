@@ -29,3 +29,53 @@ export function isManagedCloudinaryImage(value: string) {
     return false;
   }
 }
+
+export function cloudinaryDisplayImage(value: string, maxWidth = 1400) {
+  try {
+    const url = new URL(value);
+    if (url.hostname !== "res.cloudinary.com") return value;
+
+    const parts = url.pathname.split("/").filter(Boolean);
+    const uploadIndex = parts.indexOf("upload");
+    if (uploadIndex === -1) return value;
+
+    const existingTransform = parts[uploadIndex + 1] ?? "";
+    if (existingTransform.startsWith("w_") || existingTransform.startsWith("c_")) {
+      return value;
+    }
+
+    parts.splice(uploadIndex + 1, 0, `w_${maxWidth},c_limit,f_auto,q_auto`);
+    url.pathname = `/${parts.join("/")}`;
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
+export function cloudinaryCoverImage(
+  value: string,
+  width = 960,
+  height = 600,
+) {
+  try {
+    const url = new URL(value);
+    if (url.hostname !== "res.cloudinary.com") return value;
+
+    const parts = url.pathname.split("/").filter(Boolean);
+    const uploadIndex = parts.indexOf("upload");
+    if (uploadIndex === -1) return value;
+
+    const existingTransform = parts[uploadIndex + 1] ?? "";
+    if (existingTransform.startsWith("c_")) return value;
+
+    parts.splice(
+      uploadIndex + 1,
+      0,
+      `c_fill,g_auto,w_${width},h_${height},f_auto,q_auto`,
+    );
+    url.pathname = `/${parts.join("/")}`;
+    return url.toString();
+  } catch {
+    return value;
+  }
+}

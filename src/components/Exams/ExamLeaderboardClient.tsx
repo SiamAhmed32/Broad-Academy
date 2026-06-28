@@ -1,11 +1,11 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
+  ArrowLeft,
   Check,
-  ChevronLeft,
   Clock,
   Crown,
   Loader2,
@@ -14,6 +14,9 @@ import {
   Trophy,
   X,
 } from "lucide-react";
+
+import Container from "@/components/reusables/Container";
+import { cn } from "@/lib/utils";
 
 type LeaderboardEntry = {
   rank: number;
@@ -40,18 +43,19 @@ function formatTime(sec: number) {
   return `${m}m ${s}s`;
 }
 
-function RankIcon({ rank }: { rank: number }) {
-  if (rank === 1) return <Crown size={20} className="text-amber-400" />;
-  if (rank === 2) return <Medal size={18} className="text-slate-300" />;
+function RankBadge({ rank }: { rank: number }) {
+  if (rank === 1) return <Crown size={18} className="text-amber-500" />;
+  if (rank === 2) return <Medal size={18} className="text-slate-400" />;
   if (rank === 3) return <Medal size={18} className="text-amber-700" />;
   return (
-    <span className="text-slate-500 font-bold text-sm w-5 text-center">
-      #{rank}
+    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-heroBg text-xs font-bold text-navy">
+      {rank}
     </span>
   );
 }
 
 export default function ExamLeaderboardClient({ slug }: { slug: string }) {
+  const reduceMotion = useReducedMotion();
   const [data, setData] = useState<LeaderboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -66,15 +70,15 @@ export default function ExamLeaderboardClient({ slug }: { slug: string }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950">
-        <Loader2 size={32} className="animate-spin text-indigo-400" />
+      <div className="flex min-h-[60vh] items-center justify-center bg-[#f6f8fb]">
+        <Loader2 size={32} className="animate-spin text-accent" />
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400">
+      <div className="flex min-h-[60vh] items-center justify-center bg-[#f6f8fb] text-navy/50">
         Leaderboard not available.
       </div>
     );
@@ -84,167 +88,175 @@ export default function ExamLeaderboardClient({ slug }: { slug: string }) {
   const top3 = leaderboard.slice(0, 3);
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      {/* Header */}
-      <div className="relative py-16 px-4 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-950/30 via-slate-950 to-slate-950" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_0%,rgba(245,158,11,0.1),transparent)]" />
-        <div className="relative max-w-4xl mx-auto text-center">
+    <main className="overflow-hidden bg-[#f6f8fb] pb-20">
+      <section className="relative bg-navy pb-24 pt-7 text-white sm:pb-28 sm:pt-10">
+        <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,.22)_1px,transparent_0)] [background-size:32px_32px]" />
+        <div className="absolute -right-20 top-8 h-80 w-80 rounded-full bg-btnBg/20 blur-3xl" />
+        <div className="absolute -left-20 bottom-0 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
+
+        <Container className="relative text-center">
           <Link
             href={`/exams/${slug}`}
-            className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-white mb-6 transition-colors"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-white/65 transition hover:text-white"
           >
-            <ChevronLeft size={14} /> Back to Exam
+            <ArrowLeft className="h-4 w-4" />
+            Back to exam
           </Link>
-          <div className="w-16 h-16 rounded-full bg-amber-900/30 border-2 border-amber-500/50 flex items-center justify-center mx-auto mb-4">
-            <Trophy size={28} className="text-amber-400" />
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-2">
-            Leaderboard
-          </h1>
-          <p className="text-slate-400">{exam.title}</p>
-          <p className="text-slate-500 text-sm mt-1">
-            {leaderboard.length} participant{leaderboard.length !== 1 ? "s" : ""}
-          </p>
-        </div>
-      </div>
 
-      <div className="max-w-3xl mx-auto px-4 pb-16">
-        {/* Podium – top 3 */}
-        {top3.length >= 1 && (
-          <div className="flex items-end justify-center gap-3 mb-10">
-            {/* 2nd place */}
-            {top3[1] && (
+          <motion.div
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: "easeOut" }}
+            className="mt-10"
+          >
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20">
+              <Trophy size={28} className="text-amber-400" />
+            </div>
+            <h1 className="text-4xl font-semibold tracking-[-0.05em] sm:text-5xl">
+              Leaderboard
+            </h1>
+            <p className="mt-3 text-base text-white/68">{exam.title}</p>
+            <span className="mt-5 inline-flex rounded-full border border-white/15 bg-white/8 px-4 py-1.5 text-xs font-bold text-white/78">
+              {leaderboard.length} participant{leaderboard.length !== 1 ? "s" : ""}
+            </span>
+          </motion.div>
+        </Container>
+      </section>
+
+      <Container className="relative -mt-14">
+        {top3.length >= 1 ? (
+          <div className="flex items-end justify-center gap-3 sm:gap-4">
+            {top3[1] ? (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="flex-1 max-w-36 text-center"
+                transition={{ delay: 0.15 }}
+                className="w-full max-w-[140px] text-center"
               >
-                <div className="bg-slate-800/80 border border-slate-600/50 rounded-t-2xl pt-6 pb-4 px-3">
-                  <Medal size={24} className="text-slate-300 mx-auto mb-2" />
-                  <div className="text-sm font-bold text-white truncate">
-                    {top3[1].fullName}
+                <div className="overflow-hidden rounded-[1.5rem] border border-navy/10 bg-white shadow-[0_14px_45px_rgba(22,51,81,.08)]">
+                  <div className="p-4">
+                    <Medal size={22} className="mx-auto text-slate-400" />
+                    <p className="mt-2 truncate text-sm font-semibold text-navy">
+                      {top3[1].fullName}
+                    </p>
+                    <p className="mt-1 text-xl font-bold text-navy">{top3[1].score}</p>
+                    <p className="text-xs text-navy/45">{formatTime(top3[1].timeTakenSec)}</p>
                   </div>
-                  <div className="text-xl font-extrabold text-white mt-1">
-                    {top3[1].score}
+                  <div className="flex h-14 items-center justify-center bg-heroBg text-2xl font-black text-navy/50">
+                    2
                   </div>
-                  <div className="text-xs text-slate-400">
-                    {formatTime(top3[1].timeTakenSec)}
-                  </div>
-                </div>
-                <div className="h-16 bg-slate-700/50 border-x border-b border-slate-600/50 flex items-center justify-center text-2xl font-black text-slate-400 rounded-b-xl">
-                  2
                 </div>
               </motion.div>
-            )}
+            ) : null}
 
-            {/* 1st place */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="flex-1 max-w-44 text-center"
+              transition={{ delay: 0.05 }}
+              className="w-full max-w-[160px] text-center"
             >
-              <div className="bg-gradient-to-b from-amber-900/50 to-amber-900/20 border border-amber-500/50 rounded-t-2xl pt-8 pb-4 px-3">
-                <Crown size={28} className="text-amber-400 mx-auto mb-2" />
-                <div className="text-sm font-bold text-white truncate">
-                  {top3[0].fullName}
+              <div className="overflow-hidden rounded-[1.5rem] border border-amber-200 bg-white shadow-[0_20px_55px_rgba(22,51,81,.12)]">
+                <div className="bg-gradient-to-b from-amber-50 to-white p-5">
+                  <Crown size={26} className="mx-auto text-amber-500" />
+                  <p className="mt-2 truncate text-sm font-semibold text-navy">
+                    {top3[0].fullName}
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-accent">{top3[0].score}</p>
+                  <p className="text-xs text-navy/45">{formatTime(top3[0].timeTakenSec)}</p>
                 </div>
-                <div className="text-2xl font-extrabold text-amber-400 mt-1">
-                  {top3[0].score}
+                <div className="flex h-20 items-center justify-center bg-accent text-3xl font-black text-white">
+                  1
                 </div>
-                <div className="text-xs text-slate-400">
-                  {formatTime(top3[0].timeTakenSec)}
-                </div>
-              </div>
-              <div className="h-24 bg-amber-900/30 border-x border-b border-amber-500/40 flex items-center justify-center text-3xl font-black text-amber-400 rounded-b-xl">
-                1
               </div>
             </motion.div>
 
-            {/* 3rd place */}
-            {top3[2] && (
+            {top3[2] ? (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="flex-1 max-w-36 text-center"
+                transition={{ delay: 0.25 }}
+                className="w-full max-w-[140px] text-center"
               >
-                <div className="bg-slate-800/80 border border-amber-800/40 rounded-t-2xl pt-5 pb-4 px-3">
-                  <Medal size={22} className="text-amber-700 mx-auto mb-2" />
-                  <div className="text-sm font-bold text-white truncate">
-                    {top3[2].fullName}
+                <div className="overflow-hidden rounded-[1.5rem] border border-navy/10 bg-white shadow-[0_14px_45px_rgba(22,51,81,.08)]">
+                  <div className="p-4">
+                    <Medal size={20} className="mx-auto text-amber-700" />
+                    <p className="mt-2 truncate text-sm font-semibold text-navy">
+                      {top3[2].fullName}
+                    </p>
+                    <p className="mt-1 text-xl font-bold text-navy">{top3[2].score}</p>
+                    <p className="text-xs text-navy/45">{formatTime(top3[2].timeTakenSec)}</p>
                   </div>
-                  <div className="text-xl font-extrabold text-white mt-1">
-                    {top3[2].score}
+                  <div className="flex h-10 items-center justify-center bg-amber-50 text-xl font-black text-amber-700">
+                    3
                   </div>
-                  <div className="text-xs text-slate-400">
-                    {formatTime(top3[2].timeTakenSec)}
-                  </div>
-                </div>
-                <div className="h-10 bg-amber-900/20 border-x border-b border-amber-800/30 flex items-center justify-center text-xl font-black text-amber-700 rounded-b-xl">
-                  3
                 </div>
               </motion.div>
-            )}
+            ) : null}
           </div>
-        )}
+        ) : null}
 
-        {/* Full leaderboard list */}
-        {leaderboard.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
-            No participants yet.
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {leaderboard.map((entry, i) => (
-              <motion.div
-                key={entry.attemptId}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: Math.min(i * 0.04, 1) }}
-                className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${
-                  entry.rank <= 3
-                    ? "border-amber-500/20 bg-amber-900/10"
-                    : "border-white/10 bg-white/3 hover:bg-white/5"
-                }`}
-              >
-                <div className="w-8 flex justify-center flex-shrink-0">
-                  <RankIcon rank={entry.rank} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-white truncate">
-                    {entry.fullName}
+        <motion.section
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
+          className={cn(
+            "rounded-[1.8rem] border border-navy/10 bg-white p-4 shadow-[0_14px_45px_rgba(22,51,81,.06)] sm:p-6",
+            top3.length >= 1 ? "mt-8" : "mt-0",
+          )}
+        >
+          {leaderboard.length === 0 ? (
+            <p className="py-12 text-center text-navy/50">No participants yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {leaderboard.map((entry, i) => (
+                <motion.div
+                  key={entry.attemptId}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: Math.min(i * 0.03, 0.8) }}
+                  className={cn(
+                    "flex items-center gap-4 rounded-2xl border p-4 transition",
+                    entry.rank <= 3
+                      ? "border-amber-100 bg-amber-50/40"
+                      : "border-navy/8 bg-[#fafcfe] hover:border-accent/20 hover:bg-white",
+                  )}
+                >
+                  <div className="flex w-8 shrink-0 justify-center">
+                    <RankBadge rank={entry.rank} />
                   </div>
-                  <div className="text-xs text-slate-500 flex items-center gap-3 mt-0.5 flex-wrap">
-                    <span className="flex items-center gap-1">
-                      <Check size={11} className="text-emerald-400" />
-                      {entry.correctQty}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <X size={11} className="text-red-400" />
-                      {entry.wrongQty}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Minus size={11} className="text-slate-500" />
-                      {entry.skippedQty}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock size={11} />
-                      {formatTime(entry.timeTakenSec)}
-                    </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-navy">
+                      {entry.fullName}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-navy/45">
+                      <span className="inline-flex items-center gap-1">
+                        <Check size={11} className="text-emerald-600" />
+                        {entry.correctQty}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <X size={11} className="text-red-500" />
+                        {entry.wrongQty}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Minus size={11} />
+                        {entry.skippedQty}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Clock size={11} />
+                        {formatTime(entry.timeTakenSec)}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <div className="text-lg font-bold text-white">{entry.score}</div>
-                  <div className="text-xs text-slate-500">/{entry.total}</div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-lg font-bold text-navy">{entry.score}</p>
+                    <p className="text-xs text-navy/45">/{entry.total}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </motion.section>
+      </Container>
+    </main>
   );
 }

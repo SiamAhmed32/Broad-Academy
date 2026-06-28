@@ -27,6 +27,7 @@ export async function getNavSession(user: SessionUser): Promise<NavSession> {
       avatarUrl: null,
       role: "ADMIN",
       hasEnrollment: false,
+      canViewNotifications: true,
       studentId: null,
       unreadCount,
     };
@@ -53,6 +54,7 @@ export async function getNavSession(user: SessionUser): Promise<NavSession> {
     avatarUrl: user.avatarUrl ?? null,
     role: "STUDENT",
     hasEnrollment,
+    canViewNotifications: hasEnrollment,
     studentId: user.studentId ?? null,
     unreadCount: hasEnrollment ? unreadCount : 0,
   };

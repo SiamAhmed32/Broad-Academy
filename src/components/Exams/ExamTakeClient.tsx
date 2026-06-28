@@ -1,18 +1,32 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
+  Check,
   ChevronLeft,
   ChevronRight,
   Clock,
-  Check,
   Loader2,
   Send,
-  X,
 } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
+import QuestionImageViewer from "@/components/Exams/QuestionImageViewer";
+import { cn } from "@/lib/utils";
 
 type Option = {
   id: string;
@@ -77,7 +91,6 @@ export default function ExamTakeClient({ slug }: { slug: string }) {
     load();
   }, [slug]);
 
-  // Countdown timer
   useEffect(() => {
     if (!exam || loading) return;
     const interval = setInterval(() => {
@@ -93,35 +106,37 @@ export default function ExamTakeClient({ slug }: { slug: string }) {
     return () => clearInterval(interval);
   }, [exam, loading]);
 
-  // Auto-submit when time is up
+  const handleSubmit = useCallback(
+    async (forced = false) => {
+      if (submitting) return;
+      setSubmitting(true);
+      setConfirmSubmit(false);
+
+      const timeTakenSec = Math.floor((Date.now() - startTimeRef.current) / 1000);
+
+      const res = await fetch(`/api/exams/${slug}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers, timeTakenSec }),
+      });
+      const json = await res.json();
+
+      if (json.success) {
+        router.push(`/exams/${slug}/result/${json.data.id}`);
+      } else {
+        setError(json.message ?? "Submission failed.");
+        setSubmitting(false);
+        if (forced) setAutoSubmit(false);
+      }
+    },
+    [answers, slug, router, submitting],
+  );
+
   useEffect(() => {
     if (autoSubmit) {
-      handleSubmit(true);
+      void handleSubmit(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoSubmit]);
-
-  const handleSubmit = useCallback(async (forced = false) => {
-    if (submitting) return;
-    setSubmitting(true);
-    setConfirmSubmit(false);
-
-    const timeTakenSec = Math.floor((Date.now() - startTimeRef.current) / 1000);
-
-    const res = await fetch(`/api/exams/${slug}/submit`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answers, timeTakenSec }),
-    });
-    const json = await res.json();
-
-    if (json.success) {
-      router.push(`/exams/${slug}/result/${json.data.id}`);
-    } else {
-      setError(json.message ?? "Submission failed.");
-      setSubmitting(false);
-    }
-  }, [answers, slug, router, submitting]);
+  }, [autoSubmit, handleSubmit]);
 
   function selectAnswer(questionId: string, optionId: string) {
     setAnswers((prev) => ({
@@ -132,81 +147,80 @@ export default function ExamTakeClient({ slug }: { slug: string }) {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-slate-950 flex items-center justify-center">
-        <Loader2 size={32} className="animate-spin text-indigo-400" />
+      <div className="fixed inset-0 flex items-center justify-center bg-[#f6f8fb]">
+        <Loader2 size={32} className="animate-spin text-accent" />
       </div>
     );
   }
 
-  if (error) {
+  if (error && !exam) {
     return (
-      <div className="fixed inset-0 bg-slate-950 flex items-center justify-center p-4">
-        <div className="text-center max-w-md">
-          <AlertCircle size={48} className="mx-auto text-red-400 mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Cannot Start Exam</h2>
-          <p className="text-slate-400 mb-6">{error}</p>
-          <button onClick={() => router.back()} className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors">
+      <div className="fixed inset-0 flex items-center justify-center bg-[#f6f8fb] p-4">
+        <Card className="max-w-md p-8 text-center">
+          <AlertCircle size={48} className="mx-auto text-red-500" />
+          <h2 className="mt-4 text-xl font-bold text-navy">Cannot Start Exam</h2>
+          <p className="mt-2 text-slate-600">{error}</p>
+          <Button className="mt-6" onClick={() => router.back()}>
             Go Back
-          </button>
-        </div>
+          </Button>
+        </Card>
       </div>
     );
   }
 
   const currentQuestion = questions[currentIdx];
   const answeredCount = Object.values(answers).filter(Boolean).length;
-  const progress = (currentIdx / Math.max(questions.length - 1, 1)) * 100;
-  const isWarningTime = timeLeft <= 120; // 2 min warning
+  const progress = questions.length
+    ? ((currentIdx + 1) / questions.length) * 100
+    : 0;
+  const isWarningTime = timeLeft <= 120;
   const isDangerTime = timeLeft <= 30;
 
   return (
-    <div className="fixed inset-0 bg-slate-950 flex flex-col overflow-hidden">
-      {/* Top bar */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-6 h-16 border-b border-white/10 bg-slate-900/80 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <div className="text-sm text-slate-400 hidden sm:block">
-            Question <span className="text-white font-semibold">{currentIdx + 1}</span> of <span className="text-white font-semibold">{questions.length}</span>
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#f6f8fb]">
+      <header className="shrink-0 border-b border-navy/10 bg-white">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-navy">
+              Question {currentIdx + 1} of {questions.length}
+            </p>
+            <p className="hidden text-xs text-slate-500 sm:block">
+              {answeredCount}/{questions.length} answered
+            </p>
           </div>
-          <div className="text-xs text-slate-500 hidden sm:block">
-            {answeredCount}/{questions.length} answered
+
+          <div
+            className={cn(
+              "flex items-center gap-2 rounded-xl px-4 py-2 font-mono text-base font-bold",
+              isDangerTime
+                ? "animate-pulse border border-red-200 bg-red-50 text-red-600"
+                : isWarningTime
+                  ? "border border-amber-200 bg-amber-50 text-amber-700"
+                  : "border border-slate-200 bg-heroBg text-navy",
+            )}
+          >
+            <Clock size={16} className={isDangerTime ? "text-red-500" : "text-accent"} />
+            {formatCountdown(timeLeft)}
           </div>
+
+          <Button
+            id="exam-submit-btn"
+            size="sm"
+            onClick={() => setConfirmSubmit(true)}
+            disabled={submitting}
+          >
+            {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+            <span className="hidden sm:inline">Submit</span>
+          </Button>
         </div>
+        <Progress value={progress} className="h-1 rounded-none" />
+      </header>
 
-        {/* Timer */}
-        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-mono font-bold text-lg transition-all ${
-          isDangerTime ? "bg-red-900/50 text-red-300 border border-red-500/50 animate-pulse" :
-          isWarningTime ? "bg-amber-900/40 text-amber-300 border border-amber-500/40" :
-          "bg-white/5 text-white border border-white/10"
-        }`}>
-          <Clock size={16} className={isDangerTime ? "text-red-400" : isWarningTime ? "text-amber-400" : "text-indigo-400"} />
-          {formatCountdown(timeLeft)}
-        </div>
-
-        <button
-          id="exam-submit-btn"
-          onClick={() => setConfirmSubmit(true)}
-          disabled={submitting}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors disabled:opacity-60"
-        >
-          {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-          <span className="hidden sm:inline">Submit</span>
-        </button>
-      </div>
-
-      {/* Progress bar */}
-      <div className="flex-shrink-0 h-1 bg-white/10">
-        <motion.div
-          className="h-full bg-gradient-to-r from-indigo-500 to-violet-500"
-          animate={{ width: `${progress}%` }}
-          transition={{ duration: 0.3 }}
-        />
-      </div>
-
-      {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Question navigator sidebar */}
-        <div className="hidden lg:flex flex-col w-64 border-r border-white/10 bg-slate-900/50 overflow-y-auto p-4">
-          <div className="text-xs text-slate-500 uppercase tracking-wide mb-3 font-semibold">Questions</div>
+        <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-navy/10 bg-white p-4 lg:block">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Questions
+          </p>
           <div className="grid grid-cols-5 gap-1.5">
             {questions.map((q, i) => {
               const answered = !!answers[q.id];
@@ -215,12 +229,16 @@ export default function ExamTakeClient({ slug }: { slug: string }) {
                 <button
                   key={q.id}
                   id={`nav-q-${i + 1}`}
+                  type="button"
                   onClick={() => setCurrentIdx(i)}
-                  className={`aspect-square rounded-lg text-xs font-semibold transition-all ${
-                    isCurrent ? "bg-indigo-600 text-white ring-2 ring-indigo-400" :
-                    answered ? "bg-emerald-600/80 text-white" :
-                    "bg-white/5 text-slate-400 hover:bg-white/10"
-                  }`}
+                  className={cn(
+                    "aspect-square rounded-lg text-xs font-semibold transition",
+                    isCurrent
+                      ? "bg-accent text-white ring-2 ring-accent/30"
+                      : answered
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                  )}
                 >
                   {i + 1}
                 </button>
@@ -229,177 +247,216 @@ export default function ExamTakeClient({ slug }: { slug: string }) {
           </div>
           <div className="mt-4 space-y-2 text-xs text-slate-500">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-emerald-600/80" />
+              <div className="h-3 w-3 rounded bg-emerald-100 ring-1 ring-emerald-200" />
               Answered ({answeredCount})
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-white/5" />
+              <div className="h-3 w-3 rounded bg-slate-100 ring-1 ring-slate-200" />
               Skipped ({questions.length - answeredCount})
             </div>
           </div>
-        </div>
+        </aside>
 
-        {/* Question area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex flex-1 flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentQuestion?.id}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.2 }}
-                className="max-w-3xl mx-auto px-4 sm:px-8 py-8"
+                className="mx-auto max-w-3xl px-4 py-6 sm:px-8 sm:py-8"
               >
-                {/* Question number */}
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="flex-shrink-0 w-9 h-9 rounded-xl bg-indigo-600/30 border border-indigo-500/50 flex items-center justify-center text-sm font-bold text-indigo-300">
-                    {currentIdx + 1}
-                  </span>
-                  <div className="text-xs text-slate-500">
-                    {answeredCount} of {questions.length} answered
-                  </div>
-                </div>
+                <Card>
+                  <CardContent className="p-6 sm:p-8">
+                    <div className="mb-6 flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary">Q{currentIdx + 1}</Badge>
+                      <span className="text-xs text-slate-500">
+                        {answeredCount} of {questions.length} answered
+                      </span>
+                    </div>
 
-                {/* Question image */}
-                {currentQuestion?.imageUrl && (
-                  <div className="mb-6 rounded-xl overflow-hidden border border-white/10">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={currentQuestion.imageUrl}
-                      alt="Question"
-                      className="w-full max-h-64 object-contain bg-black/50"
-                    />
-                  </div>
-                )}
+                    {currentQuestion?.imageUrl ? (
+                      <QuestionImageViewer
+                        src={currentQuestion.imageUrl}
+                        alt={`Question ${currentIdx + 1} illustration`}
+                      />
+                    ) : null}
 
-                {/* Question prompt */}
-                <div className="text-lg sm:text-xl font-semibold text-white leading-relaxed mb-8">
-                  {currentQuestion?.prompt}
-                </div>
+                    <h2 className="text-lg font-semibold leading-relaxed text-navy sm:text-xl">
+                      {currentQuestion?.prompt}
+                    </h2>
 
-                {/* Options */}
-                <div className="space-y-3">
-                  {currentQuestion?.options.map((option, oi) => {
-                    const isSelected = answers[currentQuestion.id] === option.id;
-                    const letter = String.fromCharCode(65 + oi); // A, B, C, D
-                    return (
-                      <motion.button
-                        key={option.id}
-                        id={`option-${oi}`}
-                        whileHover={{ scale: 1.01 }}
-                        whileTap={{ scale: 0.99 }}
-                        onClick={() => selectAnswer(currentQuestion.id, option.id)}
-                        className={`w-full flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all duration-200 ${
-                          isSelected
-                            ? "border-indigo-500 bg-indigo-900/30 text-white"
-                            : "border-white/10 bg-white/3 text-slate-200 hover:border-indigo-500/40 hover:bg-white/8"
-                        }`}
-                      >
-                        <span className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-all ${
-                          isSelected ? "bg-indigo-600 text-white" : "bg-white/10 text-slate-400"
-                        }`}>
-                          {isSelected ? <Check size={14} /> : letter}
-                        </span>
-                        <span className="text-base leading-relaxed pt-0.5">{option.text}</span>
-                      </motion.button>
-                    );
-                  })}
-                </div>
+                    <div className="mt-8 space-y-3">
+                      {currentQuestion?.options.map((option, oi) => {
+                        const isSelected = answers[currentQuestion.id] === option.id;
+                        const letter = String.fromCharCode(65 + oi);
+                        return (
+                          <motion.button
+                            key={option.id}
+                            id={`option-${oi}`}
+                            type="button"
+                            whileHover={{ scale: 1.005 }}
+                            whileTap={{ scale: 0.995 }}
+                            onClick={() => selectAnswer(currentQuestion.id, option.id)}
+                            className={cn(
+                              "flex w-full items-start gap-4 rounded-xl border-2 p-4 text-left transition",
+                              isSelected
+                                ? "border-accent bg-accent/5 text-navy"
+                                : "border-slate-200 bg-white text-navy hover:border-accent/40 hover:bg-heroBg/50",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold",
+                                isSelected
+                                  ? "bg-accent text-white"
+                                  : "bg-slate-100 text-slate-600",
+                              )}
+                            >
+                              {isSelected ? <Check size={14} /> : letter}
+                            </span>
+                            <span className="pt-1 text-base leading-relaxed">{option.text}</span>
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
               </motion.div>
             </AnimatePresence>
           </div>
 
-          {/* Bottom navigation */}
-          <div className="flex-shrink-0 border-t border-white/10 bg-slate-900/80 backdrop-blur-sm px-4 sm:px-8 py-4 flex items-center justify-between">
-            <button
-              id="prev-question-btn"
-              onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
-              disabled={currentIdx === 0}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft size={16} />
-              Previous
-            </button>
+          <footer className="shrink-0 border-t border-navy/10 bg-white px-4 py-4 sm:px-8">
+            <div className="mx-auto flex max-w-3xl items-center justify-between gap-4">
+              <Button
+                id="prev-question-btn"
+                variant="outline"
+                onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+                disabled={currentIdx === 0}
+              >
+                <ChevronLeft size={16} />
+                Previous
+              </Button>
 
-            <div className="lg:hidden text-xs text-slate-500">
-              {currentIdx + 1} / {questions.length}
+              <span className="text-xs text-slate-500 lg:hidden">
+                {currentIdx + 1} / {questions.length}
+              </span>
+
+              {currentIdx < questions.length - 1 ? (
+                <Button
+                  id="next-question-btn"
+                  onClick={() => setCurrentIdx((i) => Math.min(questions.length - 1, i + 1))}
+                >
+                  Next
+                  <ChevronRight size={16} />
+                </Button>
+              ) : (
+                <Button id="finish-exam-btn" onClick={() => setConfirmSubmit(true)}>
+                  Finish Exam
+                  <Send size={14} />
+                </Button>
+              )}
             </div>
-
-            {currentIdx < questions.length - 1 ? (
-              <button
-                id="next-question-btn"
-                onClick={() => setCurrentIdx((i) => Math.min(questions.length - 1, i + 1))}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors"
-              >
-                Next
-                <ChevronRight size={16} />
-              </button>
-            ) : (
-              <button
-                id="finish-exam-btn"
-                onClick={() => setConfirmSubmit(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-sm font-semibold transition-all"
-              >
-                Finish Exam
-                <Send size={14} />
-              </button>
-            )}
-          </div>
-        </div>
+          </footer>
+        </main>
       </div>
 
-      {/* Confirm submit dialog */}
-      <AnimatePresence>
-        {confirmSubmit && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-slate-900 border border-white/20 rounded-2xl p-6 w-full max-w-sm shadow-2xl"
-            >
-              <div className="text-center mb-5">
-                <div className="w-14 h-14 rounded-full bg-amber-900/30 border border-amber-500/40 flex items-center justify-center mx-auto mb-3">
-                  <Send size={24} className="text-amber-400" />
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">Submit Exam?</h3>
-                <p className="text-slate-400 text-sm">
-                  You&apos;ve answered <strong className="text-white">{answeredCount}</strong> of{" "}
-                  <strong className="text-white">{questions.length}</strong> questions.
+      <Dialog
+        open={confirmSubmit}
+        onOpenChange={(nextOpen) => {
+          if (!submitting) setConfirmSubmit(nextOpen);
+        }}
+      >
+        <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
+          <DialogHeader className="space-y-2 border-b border-navy/8 px-6 py-5 pr-14">
+            <DialogTitle>Submit exam?</DialogTitle>
+            <DialogDescription>
+              Review your progress before sending your answers for grading.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 px-6 py-5">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                  Answered
                 </p>
-                {questions.length - answeredCount > 0 && (
-                  <p className="text-amber-400 text-sm mt-1">
-                    {questions.length - answeredCount} question{questions.length - answeredCount !== 1 ? "s" : ""} unanswered
-                  </p>
+                <p className="mt-1 text-2xl font-bold text-navy">{answeredCount}</p>
+              </div>
+              <div
+                className={cn(
+                  "rounded-xl border px-4 py-3",
+                  questions.length - answeredCount > 0
+                    ? "border-amber-200 bg-amber-50"
+                    : "border-slate-200 bg-slate-50",
                 )}
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setConfirmSubmit(false)}
-                  className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium transition-colors"
+              >
+                <p
+                  className={cn(
+                    "text-xs font-semibold uppercase tracking-wide",
+                    questions.length - answeredCount > 0
+                      ? "text-amber-700"
+                      : "text-slate-500",
+                  )}
                 >
-                  Continue
-                </button>
-                <button
-                  id="confirm-submit-btn"
-                  onClick={() => handleSubmit()}
-                  disabled={submitting}
-                  className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
-                  {submitting ? "Submitting..." : "Submit"}
-                </button>
+                  Unanswered
+                </p>
+                <p className="mt-1 text-2xl font-bold text-navy">
+                  {questions.length - answeredCount}
+                </p>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </div>
+
+            {questions.length - answeredCount > 0 ? (
+              <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm leading-6 text-amber-950">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <p>
+                  {questions.length - answeredCount === 1 ? (
+                    <>
+                      <strong className="font-semibold">1 question remains</strong> unanswered.
+                      You can still submit, but it will score zero.
+                    </>
+                  ) : (
+                    <>
+                      <strong className="font-semibold">
+                        {questions.length - answeredCount} questions remain
+                      </strong>{" "}
+                      unanswered. You can still submit, but they will score zero.
+                    </>
+                  )}
+                </p>
+              </div>
+            ) : (
+              <div className="flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm leading-6 text-emerald-900">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                <p>All questions are answered. You&apos;re ready to submit.</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 border-t border-navy/8 px-6 py-4 sm:justify-between">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setConfirmSubmit(false)}
+              disabled={submitting}
+            >
+              Keep working
+            </Button>
+            <Button
+              id="confirm-submit-btn"
+              className="w-full sm:w-auto"
+              onClick={() => void handleSubmit()}
+              disabled={submitting}
+            >
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+              {submitting ? "Submitting..." : "Submit exam"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

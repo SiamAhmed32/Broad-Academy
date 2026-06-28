@@ -4,6 +4,22 @@ import type { NotificationListResponse, NotificationView } from "./types";
 
 type CategoryFilter = "all" | string;
 
+const EXAM_ACCESS_NOTIFICATION_TYPES = new Set([
+  "EXAM_ENROLLED",
+  "EXAM_REJECTED",
+]);
+
+function notifyExamAccessChange(data: NotificationListResponse) {
+  if (typeof window === "undefined") return;
+  if (
+    data.notifications.some((notification) =>
+      EXAM_ACCESS_NOTIFICATION_TYPES.has(notification.type),
+    )
+  ) {
+    window.dispatchEvent(new CustomEvent("exam-access-changed"));
+  }
+}
+
 type CacheEntry = NotificationListResponse & { fetchedAt: number };
 
 const FRESH_MS = 45_000;
@@ -94,6 +110,7 @@ export async function fetchNotificationList(
 
       const data = payload.data as NotificationListResponse;
       storeList(view, category, data);
+      if (view === "inbox") notifyExamAccessChange(data);
       return data;
     } catch {
       return cached

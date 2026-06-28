@@ -1,14 +1,14 @@
-import { Suspense } from "react";
+import { redirect } from "next/navigation";
 
-import AdminEnrollmentsPage from "@/components/Admin/pages/AdminEnrollmentsPage";
-import { requireStaff } from "@/lib/admin/guard";
-import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
-
-export default async function Page() {
-  await requireStaff(ADMIN_PERMISSIONS.ENROLLMENTS);
-  return (
-    <Suspense fallback={null}>
-      <AdminEnrollmentsPage />
-    </Suspense>
-  );
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; request?: string }>;
+}) {
+  const params = await searchParams;
+  const tab =
+    params.tab === "requests" || params.tab === "enrolled" ? params.tab : "requests";
+  const query = new URLSearchParams({ tab });
+  if (params.request) query.set("request", params.request);
+  redirect(`/admin/students?${query.toString()}`);
 }

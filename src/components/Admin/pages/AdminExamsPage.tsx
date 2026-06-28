@@ -31,7 +31,14 @@ import {
   type AdminPaginationMeta,
   useAdminToast,
 } from "@/components/Admin";
-import Modal from "@/components/reusables/Modal";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { adminFetch, formatAdminDate, slugifyInput } from "@/lib/admin/client";
 
 type ExamStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
@@ -106,6 +113,8 @@ export default function AdminExamsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<Exam | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const dialogBodyRef = useRef<HTMLDivElement>(null);
+  const savingRef = useRef(false);
 
   const loadExams = useCallback(async (
     q: string,
@@ -154,7 +163,7 @@ export default function AdminExamsPage() {
     setEditingExam(exam);
     setForm({
       title: exam.title,
-      slug: exam.slug,
+      slug: slugifyInput(exam.title),
       code: exam.code ?? "EXAM",
       description: exam.description ?? "",
       bannerUrl: exam.bannerUrl ?? "",
@@ -170,13 +179,31 @@ export default function AdminExamsPage() {
     setModalOpen(true);
   }
 
+  function resetExamDialogState() {
+    setEditingExam(null);
+    setForm(emptyForm);
+    setFormError("");
+    setFieldErrors({});
+  }
+
+  function closeExamDialog() {
+    setModalOpen(false);
+    resetExamDialogState();
+  }
+
+  function preventDismissWhileSaving(event: Event) {
+    if (savingRef.current) {
+      event.preventDefault();
+    }
+  }
+
   function handleFormChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) {
     const { name, value } = e.target;
     setForm((prev) => {
       const next = { ...prev, [name]: value };
-      if (name === "title" && !editingExam) {
+      if (name === "title") {
         next.slug = slugifyInput(value);
       }
       return next;
@@ -184,41 +211,63 @@ export default function AdminExamsPage() {
     setFieldErrors((prev) => {
       const next = { ...prev };
       delete next[name];
+      if (name === "title") delete next.slug;
       return next;
     });
   }
 
   async function handleSave() {
+    savingRef.current = true;
     setSaving(true);
     setFormError("");
     setFieldErrors({});
 
+    const editingId = editingExam?.id;
+    const isEditing = Boolean(editingId);
     const payload = {
-      ...form,
+      title: form.title.trim(),
+      slug: slugifyInput(form.title.trim()),
+      code: form.code.trim() || "EXAM",
+      description: form.description.trim() || null,
+      bannerUrl: form.bannerUrl.trim() || null,
       price: Number(form.price),
       originalPrice: form.originalPrice !== "" ? Number(form.originalPrice) : null,
       durationMinutes: Number(form.durationMinutes),
       totalMarks: Number(form.totalMarks),
       negativeMarking: Number(form.negativeMarking),
+      status: form.status,
+      ...(editingExam
+        ? {
+            startsAt: editingExam.startsAt,
+            endsAt: editingExam.endsAt,
+          }
+        : {}),
     };
 
-    const url = editingExam ? `/api/admin/exams/${editingExam.id}` : "/api/admin/exams";
-    const method = editingExam ? "PUT" : "POST";
+    const url = editingId ? `/api/admin/exams/${editingId}` : "/api/admin/exams";
+    const method = editingId ? "PUT" : "POST";
 
-    const result = await adminFetch<Exam>(url, {
-      method,
-      body: JSON.stringify(payload),
-    });
+    try {
+      const result = await adminFetch<Exam>(url, {
+        method,
+        body: JSON.stringify(payload),
+      });
 
-    if (result.success) {
-      setModalOpen(false);
-      showToast(editingExam ? "Exam updated." : "Exam created.");
-      loadExams(search, statusFilter, priceFilter, page);
-    } else {
-      setFormError(result.message ?? "Failed to save exam.");
-      if (result.fields) setFieldErrors(result.fields);
+      if (!result.success) {
+        setFormError(result.message ?? "Failed to save exam.");
+        if (result.fields) setFieldErrors(result.fields);
+        showToast(result.message ?? "Failed to save exam.", true);
+        dialogBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+
+      showToast(isEditing ? "Exam updated." : "Exam created.");
+      closeExamDialog();
+      void loadExams(search, statusFilter, priceFilter, page);
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   async function handleDelete() {
@@ -410,88 +459,142 @@ export default function AdminExamsPage() {
 
       <AdminPagination pagination={pagination} onPageChange={setPage} />
 
-      {/* Create/Edit Modal */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} size="lg">
-        <div className="space-y-5">
-          <div>
-            <h2 className="text-xl font-bold text-navy">
-              {editingExam ? "Edit Exam" : "Create New Exam"}
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Exams are available as soon as they are published.
-            </p>
-          </div>
+      {/* Create/Edit Dialog — mount only while open so Radix can't reopen after save */}
+      {modalOpen ? (
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) closeExamDialog();
+          }}
+        >
+          <DialogContent
+            className="flex max-h-[90vh] max-w-2xl flex-col gap-0 overflow-hidden p-0"
+            onPointerDownOutside={preventDismissWhileSaving}
+            onEscapeKeyDown={preventDismissWhileSaving}
+          >
+            <div className="flex min-h-0 flex-1 flex-col">
+              <DialogHeader className="border-b border-slate-100 px-6 py-5">
+                <DialogTitle>
+                  {editingExam ? "Edit Exam" : "Create New Exam"}
+                </DialogTitle>
+                <DialogDescription>
+                  Exams are available as soon as they are published.
+                </DialogDescription>
+              </DialogHeader>
 
-          {formError && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
-              {formError}
+              <div
+                ref={dialogBodyRef}
+                className="flex-1 space-y-6 overflow-y-auto px-6 py-5"
+              >
+            {formError ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {formError}
+              </div>
+            ) : null}
+
+            <section className="space-y-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Basic information
+              </h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <AdminField label="Title" error={fieldErrors.title?.[0]} className="sm:col-span-2">
+                  <AdminInput name="title" value={form.title} onChange={handleFormChange} placeholder="e.g. SSC Math Olympiad 2025" />
+                </AdminField>
+
+                <AdminField label="Slug" error={fieldErrors.slug?.[0]} hint="Auto-generated from the title">
+                  <AdminInput
+                    name="slug"
+                    value={form.slug}
+                    readOnly
+                    disabled
+                    placeholder="auto-generated-from-title"
+                  />
+                </AdminField>
+
+                <AdminField label="Code" error={fieldErrors.code?.[0]} hint="Short identifier for reports">
+                  <AdminInput name="code" value={form.code} onChange={handleFormChange} placeholder="EXAM" />
+                </AdminField>
+
+                <AdminField label="Description" error={fieldErrors.description?.[0]} className="sm:col-span-2">
+                  <AdminTextarea name="description" value={form.description} onChange={handleFormChange} rows={3} placeholder="Brief description of this exam..." />
+                </AdminField>
+
+                <AdminField label="Banner Image" error={fieldErrors.bannerUrl?.[0]} className="sm:col-span-2">
+                  <AdminImageUpload
+                    label="Exam Banner"
+                    value={form.bannerUrl}
+                    onChange={(url) => setForm((p) => ({ ...p, bannerUrl: url }))}
+                    purpose="exam-banner"
+                    aspect="cover"
+                  />
+                </AdminField>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Pricing &amp; duration
+              </h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <AdminField label="Price (৳)" error={fieldErrors.price?.[0]} hint="Set to 0 for a free exam">
+                  <AdminInput type="number" name="price" value={form.price} onChange={handleFormChange} min={0} placeholder="0 for free" />
+                </AdminField>
+
+                <AdminField label="Original Price (৳)" error={fieldErrors.originalPrice?.[0]} hint="Optional strikethrough price">
+                  <AdminInput type="number" name="originalPrice" value={form.originalPrice} onChange={handleFormChange} min={0} placeholder="Optional" />
+                </AdminField>
+
+                <AdminField label="Duration (minutes)" error={fieldErrors.durationMinutes?.[0]}>
+                  <AdminInput type="number" name="durationMinutes" value={form.durationMinutes} onChange={handleFormChange} min={1} />
+                </AdminField>
+
+                <AdminField label="Total Marks" error={fieldErrors.totalMarks?.[0]}>
+                  <AdminInput type="number" name="totalMarks" value={form.totalMarks} onChange={handleFormChange} min={1} />
+                </AdminField>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Scoring &amp; status
+              </h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <AdminField label="Negative Marking" error={fieldErrors.negativeMarking?.[0]} hint="0 = no penalty per wrong answer">
+                  <AdminInput type="number" name="negativeMarking" value={form.negativeMarking} onChange={handleFormChange} min={0} max={1} step={0.25} placeholder="0 = none" />
+                </AdminField>
+
+                <AdminField label="Status" error={fieldErrors.status?.[0]}>
+                  <AdminSelect name="status" value={form.status} onChange={handleFormChange}>
+                    <option value="DRAFT">Draft</option>
+                    <option value="PUBLISHED">Published</option>
+                    <option value="ARCHIVED">Archived</option>
+                  </AdminSelect>
+                </AdminField>
+              </div>
+            </section>
             </div>
-          )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <AdminField label="Title" error={fieldErrors.title?.[0]} className="sm:col-span-2">
-              <AdminInput name="title" value={form.title} onChange={handleFormChange} placeholder="e.g. SSC Math Olympiad 2025" />
-            </AdminField>
-
-            <AdminField label="Slug" error={fieldErrors.slug?.[0]}>
-              <AdminInput name="slug" value={form.slug} onChange={handleFormChange} placeholder="ssc-math-olympiad-2025" />
-            </AdminField>
-
-            <AdminField label="Code" error={fieldErrors.code?.[0]}>
-              <AdminInput name="code" value={form.code} onChange={handleFormChange} placeholder="EXAM" />
-            </AdminField>
-
-            <AdminField label="Description" error={fieldErrors.description?.[0]} className="sm:col-span-2">
-              <AdminTextarea name="description" value={form.description} onChange={handleFormChange} rows={3} placeholder="Brief description of this exam..." />
-            </AdminField>
-
-            <AdminField label="Banner Image" error={fieldErrors.bannerUrl?.[0]} className="sm:col-span-2">
-              <AdminImageUpload
-                label="Exam Banner"
-                value={form.bannerUrl}
-                onChange={(url) => setForm((p) => ({ ...p, bannerUrl: url }))}
-                purpose="exam-banner"
-                aspect="cover"
-              />
-            </AdminField>
-
-            <AdminField label="Price (৳)" error={fieldErrors.price?.[0]}>
-              <AdminInput type="number" name="price" value={form.price} onChange={handleFormChange} min={0} placeholder="0 for free" />
-            </AdminField>
-
-            <AdminField label="Original Price (৳)" error={fieldErrors.originalPrice?.[0]}>
-              <AdminInput type="number" name="originalPrice" value={form.originalPrice} onChange={handleFormChange} min={0} placeholder="Optional" />
-            </AdminField>
-
-            <AdminField label="Duration (minutes)" error={fieldErrors.durationMinutes?.[0]}>
-              <AdminInput type="number" name="durationMinutes" value={form.durationMinutes} onChange={handleFormChange} min={1} />
-            </AdminField>
-
-            <AdminField label="Total Marks" error={fieldErrors.totalMarks?.[0]}>
-              <AdminInput type="number" name="totalMarks" value={form.totalMarks} onChange={handleFormChange} min={1} />
-            </AdminField>
-
-            <AdminField label="Negative Marking" error={fieldErrors.negativeMarking?.[0]}>
-              <AdminInput type="number" name="negativeMarking" value={form.negativeMarking} onChange={handleFormChange} min={0} max={1} step={0.25} placeholder="0 = none" />
-            </AdminField>
-
-            <AdminField label="Status" error={fieldErrors.status?.[0]}>
-              <AdminSelect name="status" value={form.status} onChange={handleFormChange}>
-                <option value="DRAFT">Draft</option>
-                <option value="PUBLISHED">Published</option>
-                <option value="ARCHIVED">Archived</option>
-              </AdminSelect>
-            </AdminField>
-          </div>
-
-          <div className="sticky bottom-0 -mx-1 flex justify-end gap-3 border-t border-slate-100 bg-white/95 px-1 pt-4 backdrop-blur">
-            <AdminButton variant="ghost" onClick={() => setModalOpen(false)}>Cancel</AdminButton>
-            <AdminButton onClick={handleSave} isLoading={saving}>
-              {editingExam ? "Update Exam" : "Create Exam"}
-            </AdminButton>
-          </div>
-        </div>
-      </Modal>
+              <DialogFooter className="border-t border-slate-100 bg-slate-50/80 px-6 py-4">
+                <AdminButton
+                  type="button"
+                  variant="ghost"
+                  onClick={closeExamDialog}
+                  disabled={saving}
+                >
+                  Cancel
+                </AdminButton>
+                <AdminButton
+                  type="button"
+                  onClick={() => void handleSave()}
+                  isLoading={saving}
+                >
+                  {editingExam ? "Update Exam" : "Create Exam"}
+                </AdminButton>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       {/* Delete confirmation */}
       <AdminConfirmDialog

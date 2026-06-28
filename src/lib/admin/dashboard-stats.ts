@@ -5,6 +5,7 @@ export async function getAdminDashboardStats() {
     students,
     activeEnrollments,
     pendingEnrollmentRequests,
+    pendingExamEnrollmentRequests,
     revenueAggregate,
     pendingCounselling,
     newContactMessages,
@@ -16,6 +17,9 @@ export async function getAdminDashboardStats() {
     db.enrollment.count({ where: { status: "ACTIVE" } }),
     db.enrollmentRequest.count({
       where: { status: { in: ["PENDING", "REVIEWING"] } },
+    }),
+    db.examEnrollmentRequest.count({
+      where: { status: "PENDING" },
     }),
     db.enrollmentRequest.aggregate({
       where: { status: "APPROVED" },
@@ -32,6 +36,7 @@ export async function getAdminDashboardStats() {
     students,
     activeEnrollments,
     pendingEnrollmentRequests,
+    pendingExamEnrollmentRequests,
     totalRevenue: revenueAggregate._sum.paidAmount ?? 0,
     pendingCounselling,
     newContactMessages,

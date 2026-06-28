@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   const exams = await db.exam.findMany({
     where: { status: "PUBLISHED" },
-    orderBy: { startsAt: "desc" },
+    orderBy: { createdAt: "desc" },
     select: {
       id: true,
       slug: true,
@@ -19,8 +19,6 @@ export async function GET(request: NextRequest) {
       originalPrice: true,
       durationMinutes: true,
       totalMarks: true,
-      startsAt: true,
-      endsAt: true,
     },
   });
 

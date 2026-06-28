@@ -260,7 +260,27 @@ export const adminStudentUpdateSchema = z.object({
   role: z.enum(["STUDENT", "ADMIN"]).optional(),
   adminRole: z.enum(["OWNER", "ADMIN", "SUB_ADMIN", "MANAGER", "TEACHER"]).nullable().optional(),
   permissions: z.array(z.string()).optional(),
+  message: z.string().trim().max(1000).optional(),
 });
+
+export const adminStudentStatusPatchSchema = z
+  .object({
+    id: z.string().min(1),
+    status: z.enum(["ACTIVE", "SUSPENDED"]),
+    message: z.string().trim().max(1000).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.status === "SUSPENDED") {
+      const message = data.message?.trim() ?? "";
+      if (message.length < 10) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Include a message of at least 10 characters when suspending an account.",
+          path: ["message"],
+        });
+      }
+    }
+  });
 
 export const adminStaffUpdateSchema = z.object({
   adminRole: z.enum(["OWNER", "ADMIN", "SUB_ADMIN", "MANAGER", "TEACHER"]),
@@ -290,6 +310,23 @@ export const adminListQuerySchema = z.object({
     .default(false),
   page: z.coerce.number().int().min(1).max(10_000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(15),
+});
+
+export const adminUserListQuerySchema = adminListQuerySchema.extend({
+  role: z.enum(["all", "STUDENT", "ADMIN"]).default("all"),
+  enrollment: z
+    .enum(["all", "enrolled", "pending_request", "not_enrolled"])
+    .default("all"),
+  sort: z
+    .enum([
+      "created_desc",
+      "created_asc",
+      "name_asc",
+      "name_desc",
+      "last_login_desc",
+      "enrollments_desc",
+    ])
+    .default("created_desc"),
 });
 
 const examDateSchema = z

@@ -23,7 +23,7 @@ export async function sendEnrollmentSubmittedEmails(data: {
   const admin = process.env.ENROLLMENT_ADMIN_EMAIL || from;
   const transporter = getMailTransporter();
   const siteUrl = getSiteUrl();
-  const reviewUrl = `${siteUrl}/admin/enrollments?request=${encodeURIComponent(data.requestId)}`;
+  const reviewUrl = `${siteUrl}/admin/students?tab=requests&request=${encodeURIComponent(data.requestId)}`;
   const courseUrl = `${siteUrl}/courses/${encodeURIComponent(data.courseSlug)}`;
 
   await Promise.all([
@@ -103,7 +103,7 @@ export async function sendEnrollmentSubmittedEmails(data: {
         cta: { label: "Review & give access", href: reviewUrl },
         secondaryCta: {
           label: "Open payment verification queue",
-          href: `${siteUrl}/admin/enrollments`,
+          href: `${siteUrl}/admin/students?tab=requests`,
         },
         note: "Use Approve & activate after confirming the screenshot, amount, and transaction ID.",
       }),

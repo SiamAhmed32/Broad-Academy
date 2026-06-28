@@ -13,6 +13,7 @@ import {
   ReceiptText,
   TrendingUp,
   Users,
+  ClipboardCheck,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -24,6 +25,7 @@ type Stats = {
   students: number;
   activeEnrollments: number;
   pendingEnrollmentRequests: number;
+  pendingExamEnrollmentRequests: number;
   totalRevenue: number;
   pendingCounselling: number;
   newContactMessages: number;
@@ -35,7 +37,10 @@ type Stats = {
 export default function AdminDashboard({ user }: { user: AdminUser }) {
   const reduceMotion = useReducedMotion();
   const permissions = getPermissionsForUser(user);
-  const cards = adminNavItems.filter((item) => permissions.includes(item.permission));
+  const cards = adminNavItems.filter((item) => {
+    const required = item.anyOfPermissions ?? [item.permission];
+    return required.some((permission) => permissions.includes(permission));
+  });
   const uniqueCards = cards.filter(
     (item, index, array) => array.findIndex((x) => x.href === item.href) === index,
   );
@@ -55,7 +60,8 @@ export default function AdminDashboard({ user }: { user: AdminUser }) {
         { label: "Active students", value: stats.students, icon: Users, tone: "bg-sky-50 text-sky-700" },
         { label: "Course enrollments", value: stats.activeEnrollments, icon: BookOpenCheck, tone: "bg-emerald-50 text-emerald-700" },
         { label: "Revenue verified", value: `৳${stats.totalRevenue.toLocaleString()}`, icon: TrendingUp, tone: "bg-violet-50 text-violet-700" },
-        { label: "Pending payments", value: stats.pendingEnrollmentRequests, icon: ReceiptText, tone: "bg-amber-50 text-amber-800", href: "/admin/enrollments" },
+        { label: "Course payments", value: stats.pendingEnrollmentRequests, icon: ReceiptText, tone: "bg-amber-50 text-amber-800", href: "/admin/students?tab=requests" },
+        { label: "Exam payments", value: stats.pendingExamEnrollmentRequests, icon: ClipboardCheck, tone: "bg-amber-50 text-amber-800", href: "/admin/exams/requests" },
         { label: "Counselling queue", value: stats.pendingCounselling, icon: CalendarDays, tone: "bg-blue-50 text-blue-700", href: "/admin/counselling" },
         { label: "New messages", value: stats.newContactMessages, icon: Mail, tone: "bg-rose-50 text-rose-700", href: "/admin/contact" },
         { label: "Document reviews", value: stats.pendingDocuments, icon: FileText, tone: "bg-orange-50 text-orange-800", href: "/admin/documents" },

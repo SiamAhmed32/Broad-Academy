@@ -1,24 +1,36 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AlertCircle,
+  ArrowLeft,
   Award,
-  Calendar,
   Check,
   ChevronRight,
-  Clock,
+  Clock3,
   FileQuestion,
-  Lock,
   Loader2,
+  Lock,
+  Sparkles,
   Trophy,
   Upload,
-  X,
   Zap,
 } from "lucide-react";
+
+import Container from "@/components/reusables/Container";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cloudinaryCoverImage } from "@/lib/media/images";
+import { cn } from "@/lib/utils";
 
 type ExamAttempt = {
   id: string;
@@ -76,23 +88,90 @@ function getExamState(exam: ExamLobbyData["exam"]) {
   return "live";
 }
 
-function StatBox({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
+function Pill({
+  children,
+  accent = false,
+}: {
+  children: React.ReactNode;
+  accent?: boolean;
+}) {
   return (
-    <div className="flex flex-col items-center gap-1 p-4 rounded-xl bg-white/5 border border-white/10">
-      <div className="text-indigo-400">{icon}</div>
-      <div className="text-xl font-bold text-white">{value}</div>
-      <div className="text-xs text-slate-400">{label}</div>
+    <span
+      className={cn(
+        "rounded-full border px-3.5 py-1.5 text-xs font-bold",
+        accent
+          ? "border-[#8cf0d0]/30 bg-[#8cf0d0]/12 text-[#8cf0d0]"
+          : "border-white/15 bg-white/8 text-white/78",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function Metric({
+  icon: Icon,
+  value,
+  label,
+}: {
+  icon: typeof Clock3;
+  value: string;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 p-4 sm:block sm:p-5">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-heroBg text-accent">
+        <Icon className="h-5 w-5" />
+      </span>
+      <div className="sm:mt-4">
+        <strong className="block text-sm font-bold text-navy">{value}</strong>
+        <span className="mt-0.5 block text-xs text-navy/42">{label}</span>
+      </div>
     </div>
   );
 }
 
-// Payment form modal
+function AnimatedSection({
+  children,
+  reduceMotion,
+  className = "",
+}: {
+  children: React.ReactNode;
+  reduceMotion: boolean | null;
+  className?: string;
+}) {
+  return (
+    <motion.section
+      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.12 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className={cn(
+        "rounded-[1.8rem] border border-navy/10 bg-white shadow-[0_14px_45px_rgba(22,51,81,.06)]",
+        className,
+      )}
+    >
+      {children}
+    </motion.section>
+  );
+}
+
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">
+      {children}
+    </p>
+  );
+}
+
 function PaymentModal({
+  open,
   exam,
   bkashNumber,
   onClose,
   onSuccess,
 }: {
+  open: boolean;
   exam: ExamLobbyData["exam"];
   bkashNumber: string;
   onClose: () => void;
@@ -111,23 +190,42 @@ function PaymentModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const inputClass =
+    "h-11 w-full rounded-xl border border-navy/10 bg-heroBg px-3.5 text-sm text-navy outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-slate-50";
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Payment screenshot must be a JPG, PNG, or WebP image.");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Payment screenshot must be 5 MB or smaller.");
+      e.target.value = "";
+      return;
+    }
+    setError("");
     setProof(file);
     setProofPreview(URL.createObjectURL(file));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!proof) { setError("Upload your bKash payment screenshot."); return; }
+    if (!proof) {
+      setError("Upload your bKash payment screenshot.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     setFieldErrors({});
 
     const fd = new FormData();
-    Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v); });
+    Object.entries(form).forEach(([k, v]) => {
+      if (v) fd.append(k, v);
+    });
     fd.append("paymentProof", proof);
 
     const res = await fetch(`/api/exams/${exam.slug}/checkout`, {
@@ -145,165 +243,374 @@ function PaymentModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="relative w-full max-w-lg bg-slate-900 border border-white/15 rounded-2xl p-6 overflow-y-auto max-h-[90vh]"
-      >
-        <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
-          <X size={20} />
-        </button>
+    <Dialog open={open} onOpenChange={(next) => !next && !submitting && onClose()}>
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Complete Payment</DialogTitle>
+          <DialogDescription>
+            Send <strong className="text-navy">BDT {exam.price}</strong> to bKash{" "}
+            <strong className="font-mono text-accent">{bkashNumber}</strong>
+          </DialogDescription>
+        </DialogHeader>
 
-        <h2 className="text-xl font-bold text-white mb-1">Complete Payment</h2>
-        <p className="text-slate-400 text-sm mb-5">
-          Send <strong className="text-white">৳{exam.price}</strong> to bKash:{" "}
-          <strong className="text-emerald-400 font-mono text-base">{bkashNumber}</strong>
-        </p>
-
-        {error && (
-          <div className="bg-red-900/40 border border-red-500/40 rounded-lg p-3 text-sm text-red-300 mb-4 flex gap-2">
-            <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+        {error ? (
+          <div className="flex gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
             <span>{error}</span>
           </div>
-        )}
+        ) : null}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-slate-400 mb-1 block">Your Phone</label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block space-y-1.5 text-sm">
+              <span className="font-medium text-navy">Your Phone</span>
               <input
-                className="w-full bg-white/5 border border-white/15 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:border-indigo-500 outline-none"
+                className={inputClass}
                 placeholder="01XXXXXXXXX"
                 value={form.studentPhone}
+                disabled={submitting}
                 onChange={(e) => setForm((p) => ({ ...p, studentPhone: e.target.value }))}
               />
-              {fieldErrors.studentPhone && <p className="text-red-400 text-xs mt-1">{fieldErrors.studentPhone[0]}</p>}
-            </div>
-            <div>
-              <label className="text-xs text-slate-400 mb-1 block">Guardian Phone</label>
+              {fieldErrors.studentPhone ? (
+                <span className="text-xs text-red-600">{fieldErrors.studentPhone[0]}</span>
+              ) : null}
+            </label>
+            <label className="block space-y-1.5 text-sm">
+              <span className="font-medium text-navy">Guardian Phone</span>
               <input
-                className="w-full bg-white/5 border border-white/15 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:border-indigo-500 outline-none"
+                className={inputClass}
                 placeholder="01XXXXXXXXX"
                 value={form.guardianPhone}
+                disabled={submitting}
                 onChange={(e) => setForm((p) => ({ ...p, guardianPhone: e.target.value }))}
               />
-              {fieldErrors.guardianPhone && <p className="text-red-400 text-xs mt-1">{fieldErrors.guardianPhone[0]}</p>}
-            </div>
+              {fieldErrors.guardianPhone ? (
+                <span className="text-xs text-red-600">{fieldErrors.guardianPhone[0]}</span>
+              ) : null}
+            </label>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-slate-400 mb-1 block">bKash Sender Number</label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block space-y-1.5 text-sm">
+              <span className="font-medium text-navy">bKash Sender Number</span>
               <input
-                className="w-full bg-white/5 border border-white/15 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:border-indigo-500 outline-none"
+                className={inputClass}
                 placeholder="01XXXXXXXXX"
                 value={form.bkashSenderNumber}
+                disabled={submitting}
                 onChange={(e) => setForm((p) => ({ ...p, bkashSenderNumber: e.target.value }))}
               />
-              {fieldErrors.bkashSenderNumber && <p className="text-red-400 text-xs mt-1">{fieldErrors.bkashSenderNumber[0]}</p>}
-            </div>
-            <div>
-              <label className="text-xs text-slate-400 mb-1 block">Transaction ID</label>
+              {fieldErrors.bkashSenderNumber ? (
+                <span className="text-xs text-red-600">{fieldErrors.bkashSenderNumber[0]}</span>
+              ) : null}
+            </label>
+            <label className="block space-y-1.5 text-sm">
+              <span className="font-medium text-navy">Transaction ID</span>
               <input
-                className="w-full bg-white/5 border border-white/15 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 font-mono focus:border-indigo-500 outline-none uppercase"
+                className={cn(inputClass, "font-mono uppercase")}
                 placeholder="8RABXXXXXX"
                 value={form.bkashTransactionId}
-                onChange={(e) => setForm((p) => ({ ...p, bkashTransactionId: e.target.value.toUpperCase() }))}
+                disabled={submitting}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, bkashTransactionId: e.target.value.toUpperCase() }))
+                }
               />
-              {fieldErrors.bkashTransactionId && <p className="text-red-400 text-xs mt-1">{fieldErrors.bkashTransactionId[0]}</p>}
-            </div>
+              {fieldErrors.bkashTransactionId ? (
+                <span className="text-xs text-red-600">{fieldErrors.bkashTransactionId[0]}</span>
+              ) : null}
+            </label>
           </div>
 
-          <div>
-            <label className="text-xs text-slate-400 mb-1 block">Class (1-12)</label>
+          <label className="block space-y-1.5 text-sm">
+            <span className="font-medium text-navy">Class (1-12)</span>
             <input
               type="number"
-              className="w-full bg-white/5 border border-white/15 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:border-indigo-500 outline-none"
+              className={inputClass}
               placeholder="e.g. 10"
               min={1}
               max={12}
               value={form.classLevel}
+              disabled={submitting}
               onChange={(e) => setForm((p) => ({ ...p, classLevel: e.target.value }))}
             />
-            {fieldErrors.classLevel && <p className="text-red-400 text-xs mt-1">{fieldErrors.classLevel[0]}</p>}
-          </div>
+            {fieldErrors.classLevel ? (
+              <span className="text-xs text-red-600">{fieldErrors.classLevel[0]}</span>
+            ) : null}
+          </label>
 
-          <div>
-            <label className="text-xs text-slate-400 mb-1 block">Payment Screenshot</label>
-            <label className="flex flex-col items-center justify-center gap-2 w-full h-36 rounded-xl border-2 border-dashed border-white/20 hover:border-indigo-500/50 cursor-pointer transition-colors bg-white/3 overflow-hidden">
+          <label className="block space-y-1.5 text-sm">
+            <span className="font-medium text-navy">Payment Screenshot</span>
+            <label className="flex h-40 w-full cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border border-dashed border-navy/15 bg-heroBg transition hover:border-accent/50">
               {proofPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={proofPreview} alt="Payment proof" className="w-full h-full object-contain" />
+                <img src={proofPreview} alt="Payment proof" className="h-full w-full object-contain" />
               ) : (
                 <>
-                  <Upload size={24} className="text-slate-500" />
-                  <span className="text-sm text-slate-500">Click to upload screenshot</span>
-                  <span className="text-xs text-slate-600">JPG, PNG, WebP · Max 5MB</span>
+                  <Upload size={24} className="text-accent" />
+                  <span className="text-sm font-semibold text-navy">Click to upload screenshot</span>
+                  <span className="text-xs text-navy/45">JPG, PNG, WebP — Max 5MB</span>
                 </>
               )}
-              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile} className="sr-only" />
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleFile}
+                disabled={submitting}
+                className="sr-only"
+              />
             </label>
-            {fieldErrors.paymentProof && <p className="text-red-400 text-xs mt-1">{fieldErrors.paymentProof[0]}</p>}
-          </div>
+            {fieldErrors.paymentProof ? (
+              <span className="text-xs text-red-600">{fieldErrors.paymentProof[0]}</span>
+            ) : null}
+          </label>
 
-          <div>
-            <label className="text-xs text-slate-400 mb-1 block">Note (optional)</label>
+          <label className="block space-y-1.5 text-sm">
+            <span className="font-medium text-navy">Note (optional)</span>
             <textarea
-              className="w-full bg-white/5 border border-white/15 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:border-indigo-500 outline-none resize-none"
+              className={cn(inputClass, "min-h-20 resize-none py-2.5")}
               placeholder="Any note for the admin..."
               rows={2}
               value={form.studentNote}
+              disabled={submitting}
               onChange={(e) => setForm((p) => ({ ...p, studentNote: e.target.value }))}
             />
-          </div>
+          </label>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-semibold transition-colors flex items-center justify-center gap-2"
-          >
+          <Button type="submit" className="w-full" size="lg" disabled={submitting}>
             {submitting ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
-            {submitting ? "Submitting..." : "Submit Payment Proof"}
-          </button>
+            {submitting ? "Uploading proof..." : "Submit Payment Proof"}
+          </Button>
         </form>
-      </motion.div>
-    </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ExamActionPanel({
+  data,
+  exam,
+  slug,
+  isFree,
+  examState,
+  canTake,
+  hasPendingRequest,
+  hasRejectedRequest,
+  submitted,
+  onStart,
+  onPay,
+}: {
+  data: ExamLobbyData;
+  exam: ExamLobbyData["exam"];
+  slug: string;
+  isFree: boolean;
+  examState: string;
+  canTake: boolean;
+  hasPendingRequest: boolean;
+  hasRejectedRequest: boolean;
+  submitted: boolean;
+  onStart: () => void;
+  onPay: () => void;
+}) {
+  const discount =
+    exam.originalPrice && exam.originalPrice > exam.price
+      ? Math.round((1 - exam.price / exam.originalPrice) * 100)
+      : null;
+
+  return (
+    <>
+      {!isFree && discount ? (
+        <span className="rounded-full bg-accent/10 px-3 py-1.5 text-xs font-bold text-accent">
+          Save {discount}%
+        </span>
+      ) : null}
+
+      <div className="mt-4">
+        {isFree ? (
+          <>
+            <span className="text-3xl font-bold tracking-[-0.05em] text-accent">Free</span>
+            <p className="mt-1 text-sm text-navy/45">Open to all registered students</p>
+          </>
+        ) : (
+          <div className="flex items-baseline gap-3">
+            <span className="text-3xl font-bold tracking-[-0.05em] text-navy">
+              ৳{exam.price.toLocaleString("en-US")}
+            </span>
+            {exam.originalPrice ? (
+              <span className="text-base text-navy/35 line-through">
+                ৳{exam.originalPrice.toLocaleString("en-US")}
+              </span>
+            ) : null}
+          </div>
+        )}
+        {!isFree ? (
+          <p className="mt-1 text-xs text-navy/45">Pay via bKash · verified within 24 hours</p>
+        ) : null}
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {data.hasAccess ? (
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700">
+            <Check size={15} className="shrink-0" />
+            You have access to this exam
+          </div>
+        ) : null}
+
+        {hasPendingRequest ? (
+          <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+            <Loader2 size={15} className="shrink-0 animate-spin" />
+            Payment submitted — awaiting verification
+          </div>
+        ) : null}
+
+        {hasRejectedRequest ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+            <p className="font-medium">Payment rejected</p>
+            {data.request?.reviewNote ? (
+              <p className="mt-1 text-xs">{data.request.reviewNote}</p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {submitted && !data.hasAccess && !hasPendingRequest ? (
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700">
+            <Check size={15} className="shrink-0" />
+            Payment submitted! We&apos;ll verify within 24 hours.
+          </div>
+        ) : null}
+
+        {canTake ? (
+          <Button id="exam-start-btn" size="lg" className="w-full" onClick={onStart}>
+            <Zap size={18} />
+            Start Exam
+          </Button>
+        ) : !data.authenticated ? (
+          <Button id="exam-login-btn" size="lg" className="w-full" onClick={onStart}>
+            <Lock size={18} />
+            Log in to {isFree ? "Take Exam" : "Register"}
+          </Button>
+        ) : !isFree && !data.hasAccess && !hasPendingRequest ? (
+          <Button id="exam-pay-btn" size="lg" className="w-full" onClick={onPay}>
+            <Upload size={18} />
+            Submit Payment Proof
+          </Button>
+        ) : examState === "upcoming" ? (
+          <div className="rounded-xl bg-heroBg px-4 py-3 text-center text-sm text-navy/60">
+            This exam is not open yet.
+          </div>
+        ) : examState === "ended" ? (
+          <div className="rounded-xl bg-heroBg px-4 py-3 text-center text-sm text-navy/60">
+            This exam has ended.
+          </div>
+        ) : null}
+      </div>
+
+      <div className="my-6 h-px bg-navy/8" />
+
+      <Link
+        href={`/exams/${slug}/leaderboard`}
+        className="flex items-center justify-between rounded-xl border border-navy/8 bg-heroBg px-4 py-3 text-sm font-semibold text-navy transition hover:border-accent/25 hover:bg-white"
+      >
+        <span className="flex items-center gap-2">
+          <Trophy size={16} className="text-amber-500" />
+          View Leaderboard
+        </span>
+        <ChevronRight size={14} className="text-navy/35" />
+      </Link>
+
+      <div className="mt-5 space-y-3">
+        <p className="text-sm font-bold text-navy">This exam includes</p>
+        {[
+          `${exam._count.questions} MCQ questions`,
+          `${exam.durationMinutes} minutes duration`,
+          `${exam.totalMarks} total marks`,
+          exam.negativeMarking > 0
+            ? `${exam.negativeMarking} negative marking per wrong`
+            : "No negative marking",
+        ].map((item) => (
+          <div key={item} className="flex items-center gap-3 text-sm text-navy/60">
+            <Check size={14} className="shrink-0 text-accent" />
+            {item}
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
 export default function ExamLobbyClient({ slug }: { slug: string }) {
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
   const [data, setData] = useState<ExamLobbyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [paymentModal, setPaymentModal] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  useEffect(() => {
-    fetch(`/api/exams/${slug}`)
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.success) setData(res.data);
-      })
-      .finally(() => setLoading(false));
+  const loadExamLobby = useCallback(async () => {
+    const res = await fetch(`/api/exams/${slug}`, { cache: "no-store" });
+    const json = await res.json();
+    if (json.success) {
+      setData(json.data);
+      if (json.data.hasAccess) setSubmitted(false);
+    }
+    return json;
   }, [slug]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void loadExamLobby().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadExamLobby]);
+
+  useEffect(() => {
+    if (!data?.authenticated || data.hasAccess) return;
+
+    const waitingForApproval = data.request?.status === "PENDING";
+    const pollMs = waitingForApproval ? 12_000 : 30_000;
+
+    function refreshIfVisible() {
+      if (document.visibilityState !== "visible") return;
+      void loadExamLobby();
+    }
+
+    const intervalId = window.setInterval(refreshIfVisible, pollMs);
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    window.addEventListener("exam-access-changed", refreshIfVisible);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+      window.removeEventListener("exam-access-changed", refreshIfVisible);
+    };
+  }, [data?.authenticated, data?.hasAccess, data?.request?.status, loadExamLobby]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 size={32} className="animate-spin text-indigo-400" />
+      <div className="flex min-h-[60vh] items-center justify-center bg-[#f6f8fb]">
+        <Loader2 size={32} className="animate-spin text-accent" />
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-400">
-        <div className="text-center">
-          <FileQuestion size={48} className="mx-auto mb-4 text-slate-600" />
-          <h2 className="text-xl font-semibold mb-2">Exam not found</h2>
-          <Link href="/exams" className="text-indigo-400 hover:text-indigo-300">← Back to Exams</Link>
+      <div className="flex min-h-[60vh] items-center justify-center bg-[#f6f8fb] px-4">
+        <div className="max-w-md rounded-[1.8rem] border border-navy/10 bg-white p-8 text-center shadow-[0_14px_45px_rgba(22,51,81,.06)]">
+          <FileQuestion size={48} className="mx-auto mb-4 text-navy/20" />
+          <h2 className="text-xl font-semibold text-navy">Exam not found</h2>
+          <Link
+            href="/exams"
+            className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-accent"
+          >
+            <ArrowLeft size={14} /> Back to Exams
+          </Link>
         </div>
       </div>
     );
@@ -312,6 +619,9 @@ export default function ExamLobbyClient({ slug }: { slug: string }) {
   const { exam } = data;
   const examState = getExamState(exam);
   const isFree = exam.price === 0;
+  const bannerSrc = exam.bannerUrl
+    ? cloudinaryCoverImage(exam.bannerUrl, 960, 540)
+    : null;
 
   function handleStartExam() {
     if (!data?.authenticated) {
@@ -332,247 +642,264 @@ export default function ExamLobbyClient({ slug }: { slug: string }) {
   function onPaymentSuccess() {
     setPaymentModal(false);
     setSubmitted(true);
-    // Refresh data
-    fetch(`/api/exams/${slug}`)
-      .then((r) => r.json())
-      .then((res) => { if (res.success) setData(res.data); });
+    void loadExamLobby();
   }
 
   const canTake = data.hasAccess && examState === "live";
-  const hasPendingRequest = data.request?.status === "PENDING";
-  const hasRejectedRequest = data.request?.status === "REJECTED";
+  const hasPendingRequest =
+    !data.hasAccess && data.request?.status === "PENDING";
+  const hasRejectedRequest =
+    !data.hasAccess && data.request?.status === "REJECTED";
+
+  const actionProps = {
+    data,
+    exam,
+    slug,
+    isFree,
+    examState,
+    canTake,
+    hasPendingRequest,
+    hasRejectedRequest,
+    submitted,
+    onStart: handleStartExam,
+    onPay: handlePayment,
+  };
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      {/* Hero banner */}
-      <div className="relative h-72 sm:h-96 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-violet-950 to-slate-950" />
-        {exam.bannerUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={exam.bannerUrl} alt={exam.title} className="absolute inset-0 w-full h-full object-cover opacity-30" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
-        <div className="relative h-full flex items-end max-w-7xl mx-auto px-4 pb-8">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="flex items-center gap-2 mb-3">
-              <Link href="/exams" className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
-                ← Exams
-              </Link>
-              {exam.code && <span className="text-xs text-slate-500 font-mono">/ {exam.code}</span>}
-            </div>
-            <div className="flex items-center gap-3 flex-wrap mb-2">
+    <main className="overflow-hidden bg-[#f6f8fb] pb-24 lg:pb-0">
+      <section className="relative bg-navy pb-28 pt-7 text-white sm:pb-32 sm:pt-10 lg:pb-40">
+        <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,.22)_1px,transparent_0)] [background-size:32px_32px]" />
+        <div className="absolute -right-20 top-8 h-80 w-80 rounded-full bg-btnBg/20 blur-3xl" />
+        <div className="absolute -left-20 bottom-0 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
+
+        <Container className="relative">
+          <Link
+            href="/exams"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-white/65 transition hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            All exams
+          </Link>
+
+          <motion.div
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: "easeOut" }}
+            className="mt-10 max-w-3xl"
+          >
+            <div className="flex flex-wrap gap-2">
+              <Pill accent>
+                <Sparkles className="mr-1 inline h-3 w-3" />
+                MCQ Exam
+              </Pill>
               {isFree ? (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-600/90 text-white">
-                  <Zap size={11} className="inline mr-1" />FREE
-                </span>
+                <Pill accent>Free competition</Pill>
               ) : (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-600/90 text-white">
-                  <Lock size={11} className="inline mr-1" />PAID — ৳{exam.price}
-                </span>
+                <Pill>Premium exam</Pill>
               )}
-              {examState === "live" && (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block mr-1" />
-                  Live Now
-                </span>
+              {examState === "live" ? (
+                <Pill accent>
+                  <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#8cf0d0]" />
+                  Available now
+                </Pill>
+              ) : examState === "upcoming" ? (
+                <Pill>Coming soon</Pill>
+              ) : (
+                <Pill>Ended</Pill>
               )}
-              {examState === "upcoming" && (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  <Calendar size={11} className="inline mr-1" />Upcoming
-                </span>
-              )}
-              {examState === "ended" && (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-500/20 text-slate-400 border border-slate-500/30">
-                  Ended
-                </span>
-              )}
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-white">{exam.title}</h1>
-          </motion.div>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="max-w-7xl mx-auto px-4 pb-16 -mt-2">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left: Details */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatBox icon={<FileQuestion size={20} />} label="Questions" value={exam._count.questions} />
-              <StatBox icon={<Clock size={20} />} label="Duration" value={`${exam.durationMinutes}m`} />
-              <StatBox icon={<Award size={20} />} label="Total Marks" value={exam.totalMarks} />
-              <StatBox icon={<X size={20} className="text-red-400" />} label="Negative" value={exam.negativeMarking > 0 ? `-${exam.negativeMarking}` : "None"} />
+              {exam.code ? <Pill>{exam.code}</Pill> : null}
             </div>
 
-            {/* Description */}
-            {exam.description && (
-              <div className="rounded-2xl bg-white/5 border border-white/10 p-6">
-                <h2 className="font-bold text-white mb-3">About This Exam</h2>
-                <p className="text-slate-300 leading-relaxed">{exam.description}</p>
-              </div>
+            <h1 className="mt-6 text-4xl font-semibold leading-[1.08] tracking-[-0.05em] sm:text-5xl lg:text-6xl">
+              {exam.title}
+            </h1>
+
+            {exam.description ? (
+              <p className="mt-5 max-w-2xl text-base leading-8 text-white/68 sm:text-lg line-clamp-3">
+                {exam.description}
+              </p>
+            ) : (
+              <p className="mt-5 max-w-2xl text-base leading-8 text-white/68 sm:text-lg">
+                Test your knowledge, track your score, and compete on the leaderboard.
+              </p>
             )}
 
-            {/* Previous attempts */}
-            {data.attempts.length > 0 && (
-              <div className="rounded-2xl bg-white/5 border border-white/10 p-6">
-                <h2 className="font-bold text-white mb-4">Your Attempts</h2>
-                <div className="space-y-3">
+            <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-white/72">
+              <span className="flex items-center gap-2">
+                <FileQuestion className="h-4 w-4 text-[#8cf0d0]" />
+                <strong className="text-white">{exam._count.questions}</strong> questions
+              </span>
+              <span className="flex items-center gap-2">
+                <Clock3 className="h-4 w-4 text-[#8cf0d0]" />
+                {exam.durationMinutes} minutes
+              </span>
+              <span className="flex items-center gap-2">
+                <Award className="h-4 w-4 text-[#8cf0d0]" />
+                {exam.totalMarks} marks
+              </span>
+            </div>
+          </motion.div>
+        </Container>
+      </section>
+
+      <Container className="relative -mt-20 pb-20 lg:-mt-28">
+        <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_370px] xl:gap-10">
+          <div className="space-y-7">
+            <AnimatedSection reduceMotion={reduceMotion} className="p-0">
+              <div className="grid gap-px overflow-hidden rounded-[1.8rem] bg-navy/8 sm:grid-cols-2 lg:grid-cols-4">
+                <Metric
+                  icon={FileQuestion}
+                  value={`${exam._count.questions}`}
+                  label="Questions"
+                />
+                <Metric
+                  icon={Clock3}
+                  value={`${exam.durationMinutes} min`}
+                  label="Duration"
+                />
+                <Metric
+                  icon={Award}
+                  value={`${exam.totalMarks}`}
+                  label="Total marks"
+                />
+                <Metric
+                  icon={AlertCircle}
+                  value={exam.negativeMarking > 0 ? `-${exam.negativeMarking}` : "None"}
+                  label="Negative marking"
+                />
+              </div>
+            </AnimatedSection>
+
+            {exam.description ? (
+              <AnimatedSection reduceMotion={reduceMotion} className="p-6 sm:p-8">
+                <Eyebrow>About this exam</Eyebrow>
+                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-navy sm:text-3xl">
+                  What to expect
+                </h2>
+                <p className="mt-5 text-sm leading-7 text-navy/65 sm:text-base">
+                  {exam.description}
+                </p>
+              </AnimatedSection>
+            ) : null}
+
+            {data.attempts.length > 0 ? (
+              <AnimatedSection reduceMotion={reduceMotion} className="p-6 sm:p-8">
+                <Eyebrow>Your history</Eyebrow>
+                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-navy sm:text-3xl">
+                  Previous attempts
+                </h2>
+                <div className="mt-6 space-y-3">
                   {data.attempts.map((attempt, i) => (
                     <Link
                       key={attempt.id}
                       href={`/exams/${slug}/result/${attempt.id}`}
-                      className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 hover:border-indigo-500/40 transition-colors group"
+                      className="group flex items-center justify-between rounded-2xl border border-navy/8 bg-[#fafcfe] p-4 transition hover:border-accent/25 hover:bg-white"
                     >
                       <div>
-                        <div className="text-sm font-semibold text-white">
+                        <p className="text-sm font-semibold text-navy">
                           Attempt #{data.attempts.length - i}
-                        </div>
-                        <div className="text-xs text-slate-400">
-                          {new Date(attempt.submittedAt).toLocaleString("en-BD")} · {formatTime(attempt.timeTakenSec)}
-                        </div>
+                        </p>
+                        <p className="mt-0.5 text-xs text-navy/45">
+                          {new Date(attempt.submittedAt).toLocaleString("en-BD")} ·{" "}
+                          {formatTime(attempt.timeTakenSec)}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3">
                         <div className="text-right">
-                          <div className="text-lg font-bold text-indigo-400">{attempt.score}/{attempt.total}</div>
-                          <div className="text-xs text-slate-500">
+                          <p className="text-lg font-bold text-accent">
+                            {attempt.score}/{attempt.total}
+                          </p>
+                          <p className="text-xs text-navy/45">
                             ✓{attempt.correctQty} ✗{attempt.wrongQty} –{attempt.skippedQty}
-                          </div>
+                          </p>
                         </div>
-                        <ChevronRight size={16} className="text-slate-500 group-hover:text-white transition-colors" />
+                        <ChevronRight
+                          size={16}
+                          className="text-navy/30 transition group-hover:text-accent"
+                        />
                       </div>
                     </Link>
                   ))}
                 </div>
-              </div>
+              </AnimatedSection>
+            ) : null}
+          </div>
+
+          <motion.aside
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, delay: 0.12 }}
+            className="hidden overflow-hidden rounded-[1.8rem] border border-navy/10 bg-white shadow-[0_24px_70px_rgba(22,51,81,.16)] lg:sticky lg:top-24 lg:block"
+          >
+            <div className="relative aspect-video overflow-hidden bg-navy">
+              {bannerSrc ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={bannerSrc}
+                    alt={exam.title}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-navy/22" />
+                </>
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-navy via-[#0f2740] to-navy" />
+              )}
+              <span className="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-white text-accent shadow-xl">
+                <Zap className="h-6 w-6" />
+              </span>
+            </div>
+            <div className="p-6">
+              <ExamActionPanel {...actionProps} />
+            </div>
+          </motion.aside>
+        </div>
+      </Container>
+
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-navy/10 bg-white/95 p-3 shadow-[0_-10px_35px_rgba(22,51,81,.12)] backdrop-blur lg:hidden">
+        <Container className="flex items-center justify-between gap-4 px-1 sm:px-4">
+          <div>
+            {isFree ? (
+              <>
+                <span className="block text-xs text-navy/45">Entry</span>
+                <strong className="text-xl text-accent">Free</strong>
+              </>
+            ) : (
+              <>
+                <span className="block text-xs text-navy/45">Exam fee</span>
+                <strong className="text-xl text-navy">
+                  ৳{exam.price.toLocaleString("en-US")}
+                </strong>
+              </>
             )}
           </div>
-
-          {/* Right: Access Card */}
-          <div className="space-y-4">
-            <div className="sticky top-24">
-              <div className="rounded-2xl bg-gradient-to-b from-white/8 to-white/3 border border-white/15 p-6 space-y-5">
-                <div className="text-center">
-                  {isFree ? (
-                    <div>
-                      <div className="text-4xl font-extrabold text-emerald-400 mb-1">Free</div>
-                      <div className="text-sm text-slate-400">Open to all registered students</div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="flex items-baseline justify-center gap-2">
-                        <span className="text-4xl font-extrabold text-white">৳{exam.price}</span>
-                        {exam.originalPrice && (
-                          <span className="text-lg text-slate-500 line-through">৳{exam.originalPrice}</span>
-                        )}
-                      </div>
-                      <div className="text-sm text-slate-400 mt-1">Pay via bKash</div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Access status */}
-                {data.hasAccess && (
-                  <div className="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-900/20 border border-emerald-500/30 rounded-lg p-3">
-                    <Check size={16} />
-                    <span>You have access to this exam</span>
-                  </div>
-                )}
-
-                {hasPendingRequest && (
-                  <div className="flex items-center gap-2 text-sm text-amber-400 bg-amber-900/20 border border-amber-500/30 rounded-lg p-3">
-                    <Loader2 size={16} className="animate-spin" />
-                    <span>Payment submitted — awaiting verification</span>
-                  </div>
-                )}
-
-                {hasRejectedRequest && (
-                  <div className="flex items-start gap-2 text-sm text-red-400 bg-red-900/20 border border-red-500/30 rounded-lg p-3">
-                    <X size={16} className="flex-shrink-0 mt-0.5" />
-                    <div>
-                      <div>Payment rejected</div>
-                      {data.request?.reviewNote && (
-                        <div className="text-xs text-red-300 mt-1">{data.request.reviewNote}</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {submitted && (
-                  <div className="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-900/20 border border-emerald-500/30 rounded-lg p-3">
-                    <Check size={16} />
-                    <span>Payment submitted! We&apos;ll verify within 24 hours.</span>
-                  </div>
-                )}
-
-                {/* CTA */}
-                {canTake ? (
-                  <button
-                    id="exam-start-btn"
-                    onClick={handleStartExam}
-                    className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-lg transition-all shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2"
-                  >
-                    <Zap size={20} />
-                    Start Exam
-                  </button>
-                ) : !data.authenticated ? (
-                  <button
-                    id="exam-login-btn"
-                    onClick={handleStartExam}
-                    className="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all flex items-center justify-center gap-2"
-                  >
-                    <Lock size={18} />
-                    Log In to {isFree ? "Take Exam" : "Register"}
-                  </button>
-                ) : !isFree && !data.hasAccess && !hasPendingRequest ? (
-                  <button
-                    id="exam-pay-btn"
-                    onClick={handlePayment}
-                    className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold transition-all shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2"
-                  >
-                    <Upload size={18} />
-                    Submit Payment Proof
-                  </button>
-                ) : examState === "upcoming" ? (
-                  <div className="text-center text-sm text-slate-400 bg-white/5 rounded-xl p-4">
-                    <Calendar size={20} className="mx-auto mb-2 text-amber-400" />
-                    This exam is not open yet.
-                  </div>
-                ) : examState === "ended" ? (
-                  <div className="text-center text-sm text-slate-400 bg-white/5 rounded-xl p-4">
-                    This exam has ended.
-                    <Link href={`/exams/${slug}/leaderboard`} className="block mt-2 text-indigo-400 hover:text-indigo-300">
-                      View Leaderboard →
-                    </Link>
-                  </div>
-                ) : null}
-
-                {/* Leaderboard link */}
-                <Link
-                  href={`/exams/${slug}/leaderboard`}
-                  className="flex items-center justify-between text-sm text-slate-400 hover:text-white transition-colors p-3 rounded-lg bg-white/5 hover:bg-white/10"
-                >
-                  <div className="flex items-center gap-2">
-                    <Trophy size={16} className="text-amber-400" />
-                    View Leaderboard
-                  </div>
-                  <ChevronRight size={14} />
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
+          {canTake ? (
+            <Button id="exam-start-btn-mobile" onClick={handleStartExam}>
+              Start Exam
+            </Button>
+          ) : !data.authenticated ? (
+            <Button id="exam-login-btn-mobile" onClick={handleStartExam}>
+              Log in
+            </Button>
+          ) : !isFree && !data.hasAccess && !hasPendingRequest ? (
+            <Button id="exam-pay-btn-mobile" onClick={handlePayment}>
+              Pay &amp; Register
+            </Button>
+          ) : hasPendingRequest ? (
+            <span className="text-xs font-semibold text-amber-700">Awaiting verification</span>
+          ) : null}
+        </Container>
       </div>
 
-      {/* Payment modal */}
-      {paymentModal && data.bkashNumber && (
+      {paymentModal && data.bkashNumber ? (
         <PaymentModal
+          open={paymentModal}
           exam={exam}
           bkashNumber={data.bkashNumber}
           onClose={() => setPaymentModal(false)}
           onSuccess={onPaymentSuccess}
         />
-      )}
-    </div>
+      ) : null}
+    </main>
   );
 }

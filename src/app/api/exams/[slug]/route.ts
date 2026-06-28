@@ -36,7 +36,7 @@ export async function GET(
         bkashNumber: process.env.BKASH_PAYMENT_NUMBER?.trim() || null,
         paymentConfigured: Boolean(process.env.BKASH_PAYMENT_NUMBER?.trim()),
       },
-    });
+    }, { headers: { "Cache-Control": "no-store" } });
   }
 
   // User is authenticated student, resolve access & history
@@ -97,5 +97,5 @@ export async function GET(
       paymentConfigured: Boolean(process.env.BKASH_PAYMENT_NUMBER?.trim()),
       profilePhone: user.phone,
     },
-  });
+  }, { headers: { "Cache-Control": "no-store" } });
 }
