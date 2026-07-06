@@ -37,8 +37,14 @@ export async function sendVerificationEmail({
   fullName: string;
   token: string;
 }) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  const verifyUrl = `${siteUrl}/verify-email?token=${token}`;
+  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  const siteUrl =
+    configuredSiteUrl && configuredSiteUrl.length > 0
+      ? configuredSiteUrl
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "https://broad-academy-kfbd.vercel.app";
+  const verifyUrl = `${siteUrl.replace(/\/$/, "")}/verify-email?token=${token}`;
   const fromUser = process.env.GMAIL;
   if (!fromUser) throw new Error("GMAIL is not configured.");
 
