@@ -37,7 +37,13 @@ export const enrollmentReviewSchema = z
   .object({
     id: z.string().trim().min(1),
     action: z.enum(["REVIEWING", "APPROVE", "REJECT"]),
-    reviewNote: z.string().trim().max(1000).optional().transform((value) => value || null),
+    reviewNote: z
+      .string()
+      .trim()
+      .max(1000)
+      .optional()
+      .nullable()
+      .transform((value) => value || null),
   })
   .superRefine((value, context) => {
     if (value.action === "REJECT" && (!value.reviewNote || value.reviewNote.length < 3)) {

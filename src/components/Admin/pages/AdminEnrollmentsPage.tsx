@@ -249,7 +249,11 @@ export default function AdminEnrollmentsPage({
       "/api/admin/enrollment-requests",
       {
       method: "PATCH",
-      body: JSON.stringify({ id: request.id, action, reviewNote }),
+      body: JSON.stringify({
+        id: request.id,
+        action,
+        ...(reviewNote?.trim() ? { reviewNote: reviewNote.trim() } : {}),
+      }),
       },
     );
     setReviewing(false);
