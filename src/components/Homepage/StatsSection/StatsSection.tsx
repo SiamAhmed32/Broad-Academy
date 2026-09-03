@@ -9,6 +9,7 @@ import {
   Users,
   UsersRound,
 } from "lucide-react";
+import Link from "next/link";
 
 import { Container } from "@/components/reusables";
 
@@ -123,13 +124,13 @@ const StatsSection = () => {
             করি।
           </p>
 
-          <button
-            type="button"
+          <Link
+            href="/about"
             className="mt-6 inline-flex items-center gap-2 rounded-xl border border-[#125BFF] bg-[#125BFF] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#125BFF]/90"
           >
             আরও জানুন
             <ArrowRight className="h-4 w-4" />
-          </button>
+          </Link>
         </motion.div>
 
         <div className="mt-10 grid items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-4">
