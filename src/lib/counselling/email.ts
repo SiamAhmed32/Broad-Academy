@@ -1,4 +1,5 @@
 import { getMailTransporter } from "@/lib/email";
+import { absoluteUrl } from "@/lib/site/url";
 
 interface BookingEmailData {
   fullName: string;
@@ -154,7 +155,7 @@ export async function sendBookingStatusUpdateEmail({
     bodyText = `Hello ${fullName}, your counselling session on ${formattedDate} is completed. Your academic advisor has uploaded post-session notes and files.`;
     actionHtml = `
       <div style="margin-top:24px;text-align:center">
-        <a href="${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/dashboard?tab=counselling" target="_blank" style="background:#059669;color:#ffffff;padding:12px 24px;border-radius:12px;text-decoration:none;font-weight:bold;display:inline-block">View Session Summary</a>
+        <a href="${absoluteUrl("/dashboard?tab=counselling")}" target="_blank" style="background:#007bff;color:#ffffff;padding:12px 24px;border-radius:12px;text-decoration:none;font-weight:bold;display:inline-block">View Session Summary</a>
       </div>
     `;
   } else {
@@ -191,7 +192,7 @@ export async function sendCounsellingFeeQuotedEmail({
   const { user } = getEmailConfig();
   const appName = "Broad Academy";
   const formattedDate = formatSessionDate(preferredDate);
-  const portalUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/dashboard?tab=counselling`;
+  const portalUrl = absoluteUrl("/dashboard?tab=counselling");
   const bkashNumber = process.env.BKASH_PAYMENT_NUMBER?.trim() || "Contact support";
 
   await getMailTransporter().sendMail({

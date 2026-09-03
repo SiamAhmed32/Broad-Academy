@@ -71,7 +71,7 @@ export function UserNavMenu({
         aria-haspopup="menu"
         aria-label="Account menu"
       >
-        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-btnBg to-accent text-sm font-bold text-white shadow-sm">
+        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-btnBg to-btnBgDark text-sm font-bold text-white shadow-sm">
           {session.avatarUrl ? (
             <Image
               src={session.avatarUrl}

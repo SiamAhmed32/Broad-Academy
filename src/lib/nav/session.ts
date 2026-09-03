@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { db } from "@/lib/db";
 import { activeEnrollmentFilter } from "@/lib/students/access";
 import type { NavSession } from "./types";
@@ -11,7 +13,15 @@ type SessionUser = {
   avatarUrl?: string | null;
 };
 
-export async function getNavSession(user: SessionUser): Promise<NavSession> {
+/**
+ * cache()'d per request: both the root layout and Layout.tsx call this for
+ * the same user on every request that goes through Layout, so without
+ * memoizing it here the enrollment + notification counts would be queried
+ * twice.
+ */
+export const getNavSession = cache(async function getNavSession(
+  user: SessionUser,
+): Promise<NavSession> {
   if (user.role === "ADMIN") {
     const unreadCount = await db.notification.count({
       where: {
@@ -58,4 +68,4 @@ export async function getNavSession(user: SessionUser): Promise<NavSession> {
     studentId: user.studentId ?? null,
     unreadCount: hasEnrollment ? unreadCount : 0,
   };
-}
+});

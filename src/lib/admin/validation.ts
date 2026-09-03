@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { isSafeStoredImageReference } from "@/lib/media/images";
+import { STUDENT_PROGRESS_STATUSES } from "@/lib/students/progress";
 import { extractYouTubeVideoId } from "@/lib/video/youtube";
 
 const slugSchema = z
@@ -147,99 +148,6 @@ export const adminQuizSchema = z.object({
 });
 
 
-export const adminAnnouncementSchema = z.object({
-  text: z.string().trim().min(5, "Announcement text must be at least 5 characters.").max(300),
-  badge: z.string().trim().max(30).optional().nullable(),
-  ctaText: z.string().trim().max(30).optional().nullable(),
-  ctaLink: z.string().trim().max(200).optional().nullable(),
-  isActive: z.boolean().default(false),
-  bgGradient: z.string().trim().min(5).max(150).default("from-violet-600 to-indigo-600"),
-  textColor: z.string().trim().min(3).max(50).default("text-white"),
-});
-
-const optionalCampaignDate = z
-  .string()
-  .trim()
-  .optional()
-  .nullable()
-  .transform((value) => (value ? new Date(value) : null))
-  .refine((value) => value === null || !Number.isNaN(value.getTime()), "Enter a valid date and time.");
-
-export const adminPopupCampaignSchema = z
-  .object({
-    title: z.string().trim().min(3).max(120),
-    content: z.string().trim().min(10).max(1000),
-    badge: z.string().trim().max(30).optional().nullable(),
-    imageUrl: z
-      .string()
-      .trim()
-      .max(500)
-      .refine(
-        (value) => !value || isSafeStoredImageReference(value),
-        "Upload the campaign image using the secure uploader.",
-      )
-      .optional()
-      .nullable(),
-    ctaText: z.string().trim().max(40).optional().nullable(),
-    ctaLink: z
-      .string()
-      .trim()
-      .max(300)
-      .refine(
-        (value) =>
-          !value ||
-          (value.startsWith("/") && !value.startsWith("//")) ||
-          value.startsWith("https://"),
-        "Use an internal path or a secure https:// link.",
-      )
-      .optional()
-      .nullable(),
-    status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).default("DRAFT"),
-    audience: z.enum(["ALL", "GUESTS", "STUDENTS"]).default("ALL"),
-    frequency: z
-      .enum(["ONCE_PER_CAMPAIGN", "ONCE_PER_SESSION", "EVERY_VISIT"])
-      .default("ONCE_PER_CAMPAIGN"),
-    startsAt: optionalCampaignDate,
-    endsAt: optionalCampaignDate,
-    priority: z.coerce.number().int().min(0).max(100).default(0),
-    originalPrice: z.coerce.number().int().min(1).optional().nullable(),
-    salePrice: z.coerce.number().int().min(1).optional().nullable(),
-    countdownEndsAt: optionalCampaignDate,
-    theme: z.enum(["LIGHT", "DARK_ROYAL", "DARK_MYSTIC"]).default("LIGHT"),
-  })
-  .superRefine((data, ctx) => {
-    if (data.endsAt && data.startsAt && data.endsAt <= data.startsAt) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "End time must be after the start time.",
-        path: ["endsAt"],
-      });
-    }
-    if (data.ctaText && !data.ctaLink) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Add a destination for the button.",
-        path: ["ctaLink"],
-      });
-    }
-    if (data.ctaLink && !data.ctaText) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Add button text for this destination.",
-        path: ["ctaText"],
-      });
-    }
-    if (data.salePrice && data.originalPrice && data.salePrice >= data.originalPrice) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Sale price must be lower than the original price.",
-        path: ["salePrice"],
-      });
-    }
-
-  });
-
-
 export const adminTestimonialSchema = z.object({
   fullName: z.string().trim().min(2).max(80),
   identity: z.string().trim().min(2).max(120),
@@ -310,6 +218,56 @@ export const adminListQuerySchema = z.object({
     .default(false),
   page: z.coerce.number().int().min(1).max(10_000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(15),
+});
+
+/** Treat blank query-string values as "not provided". */
+const optionalQueryString = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().trim().max(100).optional(),
+);
+
+export const STUDENT_PROGRESS_SORTS = [
+  "progress_asc",
+  "progress_desc",
+  "last_active_desc",
+  "last_active_asc",
+  "name_asc",
+  "name_desc",
+  "class_asc",
+] as const;
+
+export const adminStudentProgressQuerySchema = z.object({
+  search: optionalQueryString,
+  courseId: optionalQueryString,
+  classLevel: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.coerce.number().int().min(1).max(20).optional(),
+  ),
+  status: z.enum([...STUDENT_PROGRESS_STATUSES, "all"]).default("all"),
+  sort: z.enum(STUDENT_PROGRESS_SORTS).default("progress_asc"),
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(15),
+});
+
+export const adminExamMonitoringQuerySchema = z.object({
+  search: optionalQueryString,
+  courseId: optionalQueryString,
+  examId: optionalQueryString,
+  classLevel: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.coerce.number().int().min(1).max(20).optional(),
+  ),
+  /** Calendar day the attempt was submitted on. */
+  date: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a YYYY-MM-DD date.")
+      .optional(),
+  ),
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(8),
 });
 
 export const adminUserListQuerySchema = adminListQuerySchema.extend({

@@ -6,10 +6,12 @@ import {
   buildInstructorWhere,
   publicInstructorCardSelect,
   publicInstructorSelect,
+  teamMemberSelect,
 } from "@/lib/instructors/queries";
 import type {
   InstructorsListResponse,
   InstructorDetailResponse,
+  TeamListResponse,
 } from "@/lib/instructors/types";
 
 export async function fetchInstructorsList(options?: {
@@ -94,6 +96,30 @@ async function fetchInstructorsListFromDatabase(options: {
     },
   } satisfies InstructorsListResponse["data"];
 }
+
+export async function fetchTeamMembers() {
+  return fetchCachedTeamMembers();
+}
+
+const fetchCachedTeamMembers = unstable_cache(
+  async (): Promise<TeamListResponse> => {
+    const members = await db.instructor.findMany({
+      where: { status: "ACTIVE" },
+      select: teamMemberSelect,
+      orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
+    });
+
+    return {
+      instructors: members.filter((member) => member.memberType === "INSTRUCTOR"),
+      mentors: members.filter((member) => member.memberType === "MENTOR"),
+    };
+  },
+  ["team-members-v1"],
+  {
+    revalidate: 120,
+    tags: ["instructors"],
+  },
+);
 
 export async function fetchInstructorBySlug(slug: string) {
   return fetchCachedInstructorBySlug(slug);

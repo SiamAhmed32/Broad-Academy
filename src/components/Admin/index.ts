@@ -2,6 +2,7 @@
 
 export { default as AdminShell } from "./AdminShell";
 export { AdminPageHeader } from "./AdminPageHeader";
+export { AdminAvatar } from "./ui/AdminAvatar";
 export { AdminBadge } from "./ui/AdminBadge";
 export { AdminButton } from "./ui/AdminButton";
 export { AdminCard, AdminCardHeader, AdminCardTitle } from "./ui/AdminCard";

@@ -43,6 +43,18 @@ export const publicInstructorCardSelect = {
   featured: true,
 } satisfies Prisma.InstructorSelect;
 
+export const teamMemberSelect = {
+  id: true,
+  slug: true,
+  fullName: true,
+  title: true,
+  shortBio: true,
+  avatarUrl: true,
+  memberType: true,
+  facebookUrl: true,
+  youtubeUrl: true,
+} satisfies Prisma.InstructorSelect;
+
 export function buildInstructorWhere(query: InstructorListQuery): Prisma.InstructorWhereInput {
   const where: Prisma.InstructorWhereInput = {
     status: "ACTIVE",

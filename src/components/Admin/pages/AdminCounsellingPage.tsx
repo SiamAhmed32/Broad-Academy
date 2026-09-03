@@ -205,6 +205,27 @@ export default function AdminCounsellingPage() {
     return () => window.clearTimeout(timer);
   }, [loadBookings]);
 
+  useEffect(() => {
+    const handleFocus = () => {
+      if (document.visibilityState === "visible") {
+        void loadBookings();
+      }
+    };
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void loadBookings();
+      }
+    }, 15_000);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
+      window.clearInterval(interval);
+    };
+  }, [loadBookings]);
+
   function changeView(nextView: ListView) {
     setView(nextView);
     setPage(1);
@@ -329,9 +350,14 @@ export default function AdminCounsellingPage() {
             <option value="session-latest">Session date: latest</option>
             <option value="name-asc">Student name A–Z</option>
           </AdminSelect>
-          <AdminButton variant="ghost" onClick={clearFilters}>
-            Clear filters
-          </AdminButton>
+          <div className="flex items-center gap-2">
+            <AdminButton variant="ghost" onClick={clearFilters}>
+              Clear filters
+            </AdminButton>
+            <AdminButton variant="secondary" onClick={() => void loadBookings()} isLoading={loading}>
+              <RotateCcw className="h-4 w-4" /> Refresh
+            </AdminButton>
+          </div>
         </div>
       </AdminCard>
 
@@ -628,7 +654,31 @@ function SessionWorkspace({
           ) : null}
 
           <div className="space-y-4 rounded-2xl border border-slate-200 p-4">
-            <h3 className="font-semibold text-navy">Session management</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-navy">Session management</h3>
+              {booking.paymentStatus === "PAID" ? (
+                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                  Payment verified
+                </span>
+              ) : null}
+            </div>
+
+            {booking.paymentStatus === "PAID" && status === "PENDING" ? (
+              <div className="flex flex-col gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs text-emerald-900 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-bold">Payment is verified!</p>
+                  <p className="mt-0.5 text-emerald-800/80">You can now confirm this session and add the Google Meet link.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStatus("CONFIRMED")}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 active:scale-95"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Set Confirmed
+                </button>
+              </div>
+            ) : null}
+
             <AdminField label="Session status">
               <AdminSelect value={status} onChange={(event) => setStatus(event.target.value as BookingStatus)}>
                 <option value="PENDING">Pending</option>
@@ -685,9 +735,32 @@ function SessionWorkspace({
             </AdminField>
             {!booking.archivedAt ? <div className="mt-4 flex flex-wrap gap-2">
               {booking.paymentStatus === "PROOF_SUBMITTED" ? (
-                <AdminButton size="sm" isLoading={actionLoading === "mark_paid"} onClick={() => void paymentAction("mark_paid")}>
-                  <CheckCircle2 className="h-4 w-4" /> Mark paid
-                </AdminButton>
+                <>
+                  <AdminButton size="sm" isLoading={actionLoading === "mark_paid"} onClick={() => void paymentAction("mark_paid")}>
+                    <CheckCircle2 className="h-4 w-4" /> Mark paid
+                  </AdminButton>
+                  <AdminButton
+                    size="sm"
+                    variant="primary"
+                    isLoading={actionLoading === "mark_paid_and_confirm"}
+                    onClick={async () => {
+                      setActionLoading("mark_paid_and_confirm");
+                      setStatus("CONFIRMED");
+                      await patch(
+                        {
+                          paymentAction: "mark_paid",
+                          status: "CONFIRMED",
+                          meetingLink: meetingLink.trim() || null,
+                          paymentNote: paymentNote.trim() || null,
+                        },
+                        "Payment verified and session confirmed!",
+                      );
+                      setActionLoading("");
+                    }}
+                  >
+                    <CheckCircle2 className="h-4 w-4" /> Mark paid & confirm
+                  </AdminButton>
+                </>
               ) : null}
               {!["PAID", "WAIVED"].includes(booking.paymentStatus) ? (
                 <AdminButton size="sm" variant="ghost" isLoading={actionLoading === "waive"} onClick={() => void paymentAction("waive")}>

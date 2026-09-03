@@ -246,7 +246,7 @@ export default function AdminExamQuestionsPage({ examId, examTitle }: { examId: 
         description={examTitle ?? "Manage exam questions"}
         actions={
           <div className="flex gap-3">
-            <Link href="/admin/exams">
+            <Link href="/admin/exams/manage">
               <AdminButton variant="ghost">
                 <ChevronLeft size={16} /> Back to Exams
               </AdminButton>

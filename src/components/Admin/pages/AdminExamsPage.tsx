@@ -433,7 +433,7 @@ export default function AdminExamsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <Link href={`/admin/exams/${exam.id}/questions`}>
+                    <Link href={`/admin/exams/manage/${exam.id}/questions`}>
                       <AdminButton variant="ghost" size="sm">
                         <ClipboardCheck size={14} /> Questions
                       </AdminButton>

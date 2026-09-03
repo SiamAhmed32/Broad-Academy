@@ -342,12 +342,17 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
+  let newStatus = parsed.data.status ?? existingBooking.status;
+
   if (parsed.data.paymentAction === "mark_paid") {
     if (paymentStatus !== "PROOF_SUBMITTED" && paymentStatus !== "AWAITING_PAYMENT") {
       return errorResponse("No payment proof to verify.", 409);
     }
     paymentStatus = "PAID";
     paidAt = new Date();
+    if (!parsed.data.status && existingBooking.status === "PENDING") {
+      newStatus = "CONFIRMED";
+    }
   }
 
   if (parsed.data.paymentAction === "waive") {
@@ -372,8 +377,6 @@ export async function PATCH(request: NextRequest) {
   if (parsed.data.paymentNote !== undefined) {
     paymentNote = parsed.data.paymentNote;
   }
-
-  const newStatus = parsed.data.status ?? existingBooking.status;
 
   if (
     newStatus === "CONFIRMED" &&

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { cn } from "@/lib/utils";
 import {
@@ -58,6 +59,25 @@ export default function EnrollmentCTA({
   const [message, setMessage] = useState("");
   const [fields, setFields] = useState<Fields>({});
   const [fileName, setFileName] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open]);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +113,20 @@ export default function EnrollmentCTA({
     };
   }, [courseId]);
 
+  function openModal() {
+    setMessage("");
+    setFields({});
+    setFileName("");
+    setOpen(true);
+  }
+
+  function closeModal() {
+    setMessage("");
+    setFields({});
+    setFileName("");
+    setOpen(false);
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
@@ -127,11 +161,15 @@ export default function EnrollmentCTA({
           : current,
       );
       setMessage(payload.message);
-      setOpen(false);
+      closeModal();
       event.currentTarget.reset();
-      setFileName("");
-    } catch {
-      setMessage("Could not reach the server. Please try again.");
+    } catch (error) {
+      console.error("Enrollment request submission failed:", error);
+      setMessage(
+        error instanceof Error && error.message
+          ? error.message
+          : "Could not reach the server. Please try again.",
+      );
     } finally {
       setPending(false);
     }
@@ -196,176 +234,231 @@ export default function EnrollmentCTA({
     );
   }
 
-  if (state?.request?.status === "REJECTED") {
-    return (
-      <div className={compact ? "" : "space-y-2"}>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className={ctaClass("rejected", compact)}
-        >
-          Resubmit payment proof
-          <ArrowRight className="h-4 w-4" />
-        </button>
-        {!compact ? (
-          <p className="rounded-xl bg-red-50 px-3 py-2 text-center text-xs leading-5 text-red-700">
-            Previous request rejected
-            {state.request.reviewNote ? `: ${state.request.reviewNote}` : "."}
-          </p>
-        ) : null}
-      </div>
-    );
-  }
+  const isRejected = state?.request?.status === "REJECTED";
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        disabled={!state?.paymentConfigured}
-        className={ctaClass("default", compact)}
-      >
-        Request enrollment <ArrowRight className="h-4 w-4" />
-      </button>
-      {!compact && !state?.paymentConfigured ? (
-        <p className="mt-3 text-center text-xs text-red-600">
-          bKash payment number has not been configured.
-        </p>
-      ) : null}
-
-      {open && state ? (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-navy/70 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="enrollment-title"
-            className="max-h-[94vh] w-full max-w-2xl overflow-y-auto rounded-t-[2rem] bg-white shadow-2xl sm:rounded-[2rem]"
+      {isRejected ? (
+        <div className={compact ? "" : "space-y-2"}>
+          <button
+            type="button"
+            onClick={openModal}
+            className={ctaClass("rejected", compact)}
           >
-            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-navy/8 bg-white/95 px-5 py-5 backdrop-blur sm:px-7">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">
-                  Secure manual enrollment
-                </p>
-                <h2 id="enrollment-title" className="mt-1 text-xl font-semibold text-navy">
-                  Submit bKash payment proof
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-xl p-2 text-navy/50 hover:bg-navy/5"
-                aria-label="Close enrollment form"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-5 sm:p-7">
-              <div className="rounded-2xl border border-[#e2136e]/20 bg-[#fff5fa] p-5">
-                <p className="text-sm font-semibold text-navy">{courseTitle}</p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <PaymentInfo label="Send money to" value={state.bkashNumber ?? "Not configured"} copy />
-                  <PaymentInfo
-                    label="Exact amount"
-                    value={`৳${coursePrice.toLocaleString("en-US")}`}
-                  />
-                </div>
-                <p className="mt-4 text-xs leading-5 text-navy/60">
-                  Use bKash Send Money, keep the transaction ID, and take a clear screenshot showing the successful payment.
-                </p>
-              </div>
-
-              <form onSubmit={submit} className="mt-6 grid gap-4 sm:grid-cols-2">
-                <EnrollmentField label="Student phone" error={fields.studentPhone?.[0]}>
-                  <input name="studentPhone" defaultValue={state.profilePhone ?? ""} required inputMode="tel" placeholder="01XXXXXXXXX" className={inputClass} />
-                </EnrollmentField>
-                <EnrollmentField label="Guardian phone" error={fields.guardianPhone?.[0]}>
-                  <input name="guardianPhone" required inputMode="tel" placeholder="01XXXXXXXXX" className={inputClass} />
-                </EnrollmentField>
-                <EnrollmentField label="bKash sender number" error={fields.bkashSenderNumber?.[0]}>
-                  <input name="bkashSenderNumber" required inputMode="tel" placeholder="Number used for payment" className={inputClass} />
-                </EnrollmentField>
-                <EnrollmentField label="Transaction ID" error={fields.bkashTransactionId?.[0]}>
-                  <input name="bkashTransactionId" required autoCapitalize="characters" placeholder="Example: BQ12ABC345" className={`${inputClass} uppercase`} />
-                </EnrollmentField>
-
-                <EnrollmentField label="Your class" error={fields.classLevel?.[0]}>
-                  <select
-                    name="classLevel"
-                    required
-                    defaultValue={state.profileClassLevel ?? ""}
-                    className={inputClass}
-                  >
-                    <option value="" disabled>
-                      Select class (1–12)
-                    </option>
-                    {Array.from({ length: 12 }, (_, index) => index + 1).map((level) => (
-                      <option key={level} value={level}>
-                        Class {level}
-                      </option>
-                    ))}
-                  </select>
-                </EnrollmentField>
-
-                <div className="sm:col-span-2">
-                  <EnrollmentField label="Payment screenshot" error={fields.paymentProof?.[0]}>
-                    <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-navy/15 bg-[#f8fafc] px-4 py-5 text-center transition hover:border-btnBg/50 hover:bg-btnBg/3">
-                      <ImageUp className="h-7 w-7 text-btnBg" />
-                      <span className="mt-2 text-sm font-semibold text-navy">
-                        {fileName || "Choose payment screenshot"}
-                      </span>
-                      <span className="mt-1 text-xs text-navy/45">JPG, PNG, or WebP · maximum 5 MB</span>
-                      <input
-                        type="file"
-                        name="paymentProof"
-                        accept="image/jpeg,image/png,image/webp"
-                        required
-                        className="sr-only"
-                        onChange={(event) => setFileName(event.target.files?.[0]?.name ?? "")}
-                      />
-                    </label>
-                  </EnrollmentField>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <EnrollmentField label="Note for our team (optional)">
-                    <textarea name="studentNote" maxLength={500} rows={3} placeholder="Any information that may help us verify your enrollment" className={`${inputClass} h-auto py-3`} />
-                  </EnrollmentField>
-                </div>
-
-                {message ? (
-                  <div
-                    role="status"
-                    className={`sm:col-span-2 rounded-xl px-4 py-3 text-sm ${
-                      state.request?.status === "PENDING"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-red-50 text-red-700"
-                    }`}
-                  >
-                    {state.request?.status === "PENDING" ? (
-                      <CheckCircle2 className="mr-2 inline h-4 w-4" />
-                    ) : null}
-                    {message}
-                  </div>
-                ) : null}
-
-                <button
-                  type="submit"
-                  disabled={pending || state.request?.status === "PENDING"}
-                  className="sm:col-span-2 flex h-13 items-center justify-center gap-2 rounded-2xl bg-btnBg px-6 text-sm font-bold text-white shadow-lg shadow-btnBg/20 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ImageUp className="h-4 w-4" />}
-                  {pending ? "Uploading securely..." : "Submit payment for verification"}
-                </button>
-              </form>
-
-              <p className="mt-4 text-center text-xs leading-5 text-navy/45">
-                Submission does not unlock the course automatically. A staff member must verify the payment first.
-              </p>
-            </div>
-          </div>
+            Resubmit payment proof
+            <ArrowRight className="h-4 w-4" />
+          </button>
+          {!compact ? (
+            <p className="rounded-xl bg-red-50 px-3 py-2 text-center text-xs leading-5 text-red-700">
+              Previous request rejected
+              {state.request?.reviewNote ? `: ${state.request.reviewNote}` : "."}
+            </p>
+          ) : null}
         </div>
-      ) : null}
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={openModal}
+            disabled={!state?.paymentConfigured}
+            className={ctaClass("default", compact)}
+          >
+            Request enrollment <ArrowRight className="h-4 w-4" />
+          </button>
+          {!compact && !state?.paymentConfigured ? (
+            <p className="mt-3 text-center text-xs text-red-600">
+              bKash payment number has not been configured.
+            </p>
+          ) : null}
+        </>
+      )}
+
+      {open && state && mounted
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[150] overflow-y-auto bg-navy/70 p-3 backdrop-blur-sm sm:p-4 md:p-6"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) closeModal();
+              }}
+            >
+              <div className="flex min-h-full items-center justify-center">
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="enrollment-title"
+                  className="relative flex max-h-[min(92vh,850px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:rounded-[2rem]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex shrink-0 items-start justify-between gap-4 border-b border-navy/8 bg-white px-5 py-4 sm:px-7 sm:py-5">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">
+                        {isRejected ? "Resubmission" : "Secure manual enrollment"}
+                      </p>
+                      <h2 id="enrollment-title" className="mt-1 text-lg font-bold text-navy sm:text-xl">
+                        {isRejected ? "Resubmit bKash payment proof" : "Submit bKash payment proof"}
+                      </h2>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      className="rounded-xl p-2 text-navy/50 transition hover:bg-navy/5 hover:text-navy"
+                      aria-label="Close enrollment form"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-5 sm:p-7">
+                    {isRejected && state.request?.reviewNote ? (
+                      <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs leading-5 text-red-700">
+                        <span className="font-bold">Reason for previous rejection:</span>{" "}
+                        {state.request.reviewNote}
+                      </div>
+                    ) : null}
+                    <div className="rounded-2xl border border-[#e2136e]/20 bg-[#fff5fa] p-4 sm:p-5">
+                      <p className="text-sm font-semibold text-navy">{courseTitle}</p>
+                      <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                        <PaymentInfo label="Send money to" value={state.bkashNumber ?? "Not configured"} copy />
+                        <PaymentInfo
+                          label="Exact amount"
+                          value={`৳${coursePrice.toLocaleString("en-US")}`}
+                        />
+                      </div>
+                      <p className="mt-3 text-xs leading-5 text-navy/60">
+                        Use bKash Send Money, keep the transaction ID, and take a clear screenshot showing the successful payment.
+                      </p>
+                    </div>
+
+                    <form onSubmit={submit} className="mt-5 grid gap-4 sm:grid-cols-2">
+                      <EnrollmentField label="Student phone" error={fields.studentPhone?.[0]}>
+                        <input
+                          name="studentPhone"
+                          defaultValue=""
+                          autoComplete="off"
+                          required
+                          inputMode="tel"
+                          placeholder="01XXXXXXXXX"
+                          className={inputClass}
+                        />
+                      </EnrollmentField>
+                      <EnrollmentField label="Guardian phone" error={fields.guardianPhone?.[0]}>
+                        <input
+                          name="guardianPhone"
+                          required
+                          inputMode="tel"
+                          placeholder="01XXXXXXXXX"
+                          className={inputClass}
+                        />
+                      </EnrollmentField>
+                      <EnrollmentField label="bKash sender number" error={fields.bkashSenderNumber?.[0]}>
+                        <input
+                          name="bkashSenderNumber"
+                          required
+                          inputMode="tel"
+                          placeholder="Number used for payment"
+                          className={inputClass}
+                        />
+                      </EnrollmentField>
+                      <EnrollmentField label="Transaction ID" error={fields.bkashTransactionId?.[0]}>
+                        <input
+                          name="bkashTransactionId"
+                          required
+                          autoCapitalize="characters"
+                          placeholder="Example: BQ12ABC345"
+                          className={`${inputClass} uppercase`}
+                        />
+                      </EnrollmentField>
+
+                      <EnrollmentField label="Your class" error={fields.classLevel?.[0]}>
+                        <select
+                          name="classLevel"
+                          required
+                          defaultValue={state.profileClassLevel ?? ""}
+                          className={inputClass}
+                        >
+                          <option value="" disabled>
+                            Select class (1–12)
+                          </option>
+                          {Array.from({ length: 12 }, (_, index) => index + 1).map((level) => (
+                            <option key={level} value={level}>
+                              Class {level}
+                            </option>
+                          ))}
+                        </select>
+                      </EnrollmentField>
+
+                      <div className="sm:col-span-2">
+                        <EnrollmentField label="Payment screenshot" error={fields.paymentProof?.[0]}>
+                          <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-navy/15 bg-[#f8fafc] px-4 py-4 text-center transition hover:border-btnBg/50 hover:bg-btnBg/3">
+                            <ImageUp className="h-6 w-6 text-btnBg" />
+                            <span className="mt-1.5 text-sm font-semibold text-navy">
+                              {fileName || "Choose payment screenshot"}
+                            </span>
+                            <span className="mt-0.5 text-xs text-navy/45">JPG, PNG, or WebP · maximum 5 MB</span>
+                            <input
+                              type="file"
+                              name="paymentProof"
+                              accept="image/jpeg,image/png,image/webp"
+                              required
+                              className="sr-only"
+                              onChange={(event) => setFileName(event.target.files?.[0]?.name ?? "")}
+                            />
+                          </label>
+                        </EnrollmentField>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <EnrollmentField label="Note for our team (optional)">
+                          <textarea
+                            name="studentNote"
+                            maxLength={500}
+                            rows={3}
+                            placeholder="Any information that may help us verify your enrollment"
+                            className={`${inputClass} h-auto py-3`}
+                          />
+                        </EnrollmentField>
+                      </div>
+
+                      {message ? (
+                        <div
+                          role="status"
+                          className={`sm:col-span-2 rounded-xl px-4 py-3 text-sm ${
+                            state.request?.status === "PENDING"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-red-50 text-red-700"
+                          }`}
+                        >
+                          {state.request?.status === "PENDING" ? (
+                            <CheckCircle2 className="mr-2 inline h-4 w-4" />
+                          ) : null}
+                          {message}
+                        </div>
+                      ) : null}
+
+                      <button
+                        type="submit"
+                        disabled={pending || state.request?.status === "PENDING"}
+                        className="sm:col-span-2 flex h-13 items-center justify-center gap-2 rounded-2xl bg-btnBg px-6 text-sm font-bold text-white shadow-lg shadow-btnBg/20 transition hover:bg-[#0068d8] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ImageUp className="h-4 w-4" />}
+                        {pending
+                          ? "Uploading securely..."
+                          : isRejected
+                            ? "Resubmit payment for verification"
+                            : "Submit payment for verification"}
+                      </button>
+                    </form>
+
+                    <p className="mt-4 text-center text-xs leading-5 text-navy/45">
+                      Submission does not unlock the course automatically. A staff member must verify the payment first.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }

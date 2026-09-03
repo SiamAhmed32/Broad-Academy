@@ -36,3 +36,7 @@ export const courseSortOptions: { value: CourseSort; label: string }[] = [
   { value: "price-low", label: "Price: low to high" },
   { value: "price-high", label: "Price: high to low" },
 ];
+
+export const courseLevelSlugs = Object.fromEntries(
+  Object.entries(courseLevelMap).map(([slug, level]) => [level, slug]),
+) as Record<CourseLevel, CourseLevelSlug>;

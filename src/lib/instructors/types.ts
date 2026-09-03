@@ -42,6 +42,23 @@ export type RelatedInstructor = {
   featured: boolean;
 };
 
+export type TeamMember = {
+  id: string;
+  slug: string;
+  fullName: string;
+  title: string;
+  shortBio: string;
+  avatarUrl: string;
+  memberType: "INSTRUCTOR" | "MENTOR";
+  facebookUrl: string | null;
+  youtubeUrl: string | null;
+};
+
+export type TeamListResponse = {
+  instructors: TeamMember[];
+  mentors: TeamMember[];
+};
+
 export type InstructorsListResponse = {
   success: boolean;
   data: {

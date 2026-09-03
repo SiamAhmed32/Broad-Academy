@@ -2,59 +2,113 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { FileQuestion, Lock, Users, Zap } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { FileQuestion, Users, Zap } from "lucide-react";
 
 import ExamCard from "@/components/Exams/ExamCard";
 import type { ExamCardData } from "@/components/Exams/ExamCard";
-import { Container } from "@/components/reusables";
+import { Container, SectionHeading } from "@/components/reusables";
+import { cn } from "@/lib/utils";
 
-type ExamsData = {
-  freeExams: ExamCardData[];
-  paidExams: ExamCardData[];
+type FilterTone = "navy" | "free" | "paid";
+
+type ExamFilter = {
+  key: string;
+  label: string;
+  count: number;
+  tone: FilterTone;
+  match: (exam: ExamCardData) => boolean;
 };
+
+const toneClasses: Record<FilterTone, { active: string; idle: string }> = {
+  navy: {
+    active:
+      "border-navy bg-navy text-white shadow-[0_10px_24px_rgba(22,51,81,0.2)]",
+    idle: "border-navy/10 bg-white text-navy hover:border-navy/25 hover:bg-navy/5",
+  },
+  free: {
+    active:
+      "border-[#146c43] bg-[#146c43] text-white shadow-[0_10px_24px_rgba(20,108,67,0.25)]",
+    idle: "border-[#146c43]/25 bg-white text-[#146c43] hover:bg-[#146c43]/5",
+  },
+  paid: {
+    active:
+      "border-[#c2540a] bg-[#c2540a] text-white shadow-[0_10px_24px_rgba(194,84,10,0.25)]",
+    idle: "border-[#c2540a]/25 bg-white text-[#c2540a] hover:bg-[#c2540a]/5",
+  },
+};
+
+const isFreeExam = (exam: ExamCardData) => exam.price === 0;
 
 export default function ExamsPageClient({
   isAuthenticated,
 }: {
   isAuthenticated: boolean;
 }) {
-  const [data, setData] = useState<ExamsData | null>(null);
+  const [exams, setExams] = useState<ExamCardData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"free" | "paid">("free");
+  const [activeFilter, setActiveFilter] = useState("all");
 
   useEffect(() => {
     fetch("/api/exams")
       .then((r) => r.json())
       .then((res) => {
-        if (res.success) setData(res.data);
+        if (res.success) setExams(res.data.exams ?? []);
       })
       .finally(() => setLoading(false));
   }, []);
 
-  const freeExams = data?.freeExams ?? [];
-  const paidExams = data?.paidExams ?? [];
-  const activeExams = activeTab === "free" ? freeExams : paidExams;
+  const filters = useMemo<ExamFilter[]>(() => {
+    // One chip per exam code (SSC, Class 8, ...), most-used code first.
+    const codeCounts = new Map<string, number>();
+    for (const exam of exams) {
+      const code = exam.code?.trim();
+      if (code) codeCounts.set(code, (codeCounts.get(code) ?? 0) + 1);
+    }
 
-  const examTabs = [
-    {
-      key: "free" as const,
-      label: "Free Exams",
-      description: "Free for registered students",
-      count: freeExams.length,
-      icon: Zap,
-    },
-    {
-      key: "paid" as const,
-      label: "Premium Exams",
-      description: "Paid verified access",
-      count: paidExams.length,
-      icon: Lock,
-    },
-  ];
+    const codeFilters = [...codeCounts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map<ExamFilter>(([code, count]) => ({
+        key: `code:${code}`,
+        label: code,
+        count,
+        tone: "navy",
+        match: (exam) => exam.code?.trim() === code,
+      }));
+
+    return [
+      {
+        key: "all",
+        label: "সব এক্সাম",
+        count: exams.length,
+        tone: "navy",
+        match: () => true,
+      },
+      {
+        key: "free",
+        label: "Free",
+        count: exams.filter(isFreeExam).length,
+        tone: "free",
+        match: isFreeExam,
+      },
+      {
+        key: "paid",
+        label: "Paid",
+        count: exams.filter((exam) => !isFreeExam(exam)).length,
+        tone: "paid",
+        match: (exam) => !isFreeExam(exam),
+      },
+      ...codeFilters,
+    ];
+  }, [exams]);
+
+  const activeExams = useMemo(() => {
+    const filter = filters.find((item) => item.key === activeFilter);
+    return filter ? exams.filter(filter.match) : exams;
+  }, [activeFilter, exams, filters]);
 
   return (
-    <div className="min-h-screen bg-[#f6f8fb]">
+    <div className="min-h-screen bg-[#f7f9fc]">
       {/* Hero */}
       <section className="relative overflow-hidden bg-navy py-20 text-soft sm:py-24">
         <div className="pointer-events-none absolute left-[-5rem] top-0 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
@@ -72,8 +126,7 @@ export default function ExamsPageClient({
               Exam Arena
             </span>
             <h1 className="mt-5 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl lg:text-6xl">
-              Compete. Rank.{" "}
-              <span className="text-accent">Improve.</span>
+              Compete. Rank. <span className="text-accent">Improve.</span>
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-soft/75 sm:text-lg">
               Join live MCQ competitions, track your score, and climb the
@@ -83,94 +136,73 @@ export default function ExamsPageClient({
         </Container>
       </section>
 
-      {/* Tabs */}
-      <Container className="relative z-10 -mt-8">
-        <div className="grid gap-2 rounded-2xl border border-navy/10 bg-white p-2 shadow-xl shadow-navy/10 sm:grid-cols-2">
-          {examTabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.key;
+      <Container className="pb-16 pt-12 sm:pb-20 sm:pt-14">
+        <SectionHeading title="আমাদের এক্সাম ব্যাচসমুহ" />
+
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
+          {filters.map((filter) => {
+            const active = activeFilter === filter.key;
+            const tone = toneClasses[filter.tone];
 
             return (
               <button
-                key={tab.key}
+                key={filter.key}
                 type="button"
-                id={`exam-tab-${tab.key}`}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center justify-between gap-4 rounded-xl px-4 py-4 text-left transition-all ${
-                  isActive
-                    ? "bg-navy text-soft shadow-lg shadow-navy/20"
-                    : "bg-heroBg text-navy/70 hover:bg-white"
-                }`}
+                aria-pressed={active}
+                onClick={() => setActiveFilter(filter.key)}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition",
+                  active ? tone.active : tone.idle,
+                )}
               >
-                <span className="flex min-w-0 items-center gap-3">
-                  <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                      isActive ? "bg-white/10 text-accent" : "bg-white text-navy/50"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-bold">{tab.label}</span>
-                    <span
-                      className={`mt-0.5 block text-xs ${
-                        isActive ? "text-soft/65" : "text-navy/50"
-                      }`}
-                    >
-                      {tab.description}
-                    </span>
-                  </span>
-                </span>
+                {filter.label}
                 <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                    isActive ? "bg-accent text-white" : "bg-white text-navy"
-                  }`}
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-[11px] font-bold",
+                    active ? "bg-white/20 text-white" : "bg-navy/8 text-navy/60",
+                  )}
                 >
-                  {tab.count}
+                  {filter.count}
                 </span>
               </button>
             );
           })}
         </div>
-      </Container>
 
-      {/* Grid */}
-      <Container className="py-12 sm:py-14">
         {loading ? (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {[1, 2, 3].map((i) => (
+          <div className="mt-9 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
               <div
                 key={i}
-                className="h-[420px] animate-pulse rounded-[1.75rem] border border-navy/8 bg-white"
+                className="h-[420px] animate-pulse rounded-2xl border border-navy/10 bg-white"
               />
             ))}
           </div>
         ) : activeExams.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-navy/15 bg-white py-20 text-center">
+          <div className="mt-9 rounded-2xl border border-dashed border-navy/15 bg-white py-20 text-center shadow-sm">
             <FileQuestion className="mx-auto h-12 w-12 text-navy/25" />
             <h3 className="mt-4 text-xl font-semibold text-navy">
-              No {activeTab === "free" ? "free" : "premium"} exams yet
+              No exams here yet
             </h3>
-            <p className="mt-2 text-navy/60">Check back soon for new competitions.</p>
+            <p className="mt-2 text-navy/60">
+              Check back soon for new competitions.
+            </p>
           </div>
         ) : (
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3"
+          <div
+            key={activeFilter}
+            className="mt-9 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           >
             {activeExams.map((exam, index) => (
               <ExamCard
                 key={exam.id}
                 exam={exam}
-                isFree={activeTab === "free"}
+                isFree={isFreeExam(exam)}
                 isAuthenticated={isAuthenticated}
                 index={index}
               />
             ))}
-          </motion.div>
+          </div>
         )}
 
         {!loading && !isAuthenticated ? (

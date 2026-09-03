@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const booking = await db.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${normalizedEmail}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${normalizedEmail}))`;
       const concurrentActiveBooking = await tx.counsellingBooking.findFirst({
         where: activeBookingWhere,
         select: { id: true },
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         message: "Your counselling request has been submitted. Our team will contact you about session fees and confirmation.",
-        bookingId: booking.id,
+        data: { bookingId: booking.id },
       },
       { headers: { "Cache-Control": "no-store" } }
     );

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
+  VERIFY_EXPIRY_HOURS,
   createEmailVerificationToken,
+  discardEmailVerificationToken,
+  retireOtherTokens,
   sendVerificationEmail,
   verifyEmailToken,
 } from "@/lib/auth/email-verification";
@@ -21,12 +24,24 @@ export async function POST(request: NextRequest) {
 
   const result = await verifyEmailToken(token);
   if (!result.ok) {
-    return errorResponse("This verification link is invalid or has expired.", 400);
+    const expired = result.reason === "expired";
+    return NextResponse.json(
+      {
+        success: false,
+        reason: result.reason,
+        message: expired
+          ? `This verification link has expired — they are only valid for ${VERIFY_EXPIRY_HOURS} hours. Send yourself a new one below.`
+          : "This verification link is not valid. Send yourself a new one below.",
+      },
+      { status: 400 },
+    );
   }
 
   return NextResponse.json({
     success: true,
-    message: "Your email has been verified successfully.",
+    message: result.alreadyVerified
+      ? "Your email is already verified."
+      : "Your email has been verified successfully.",
   });
 }
 
@@ -46,16 +61,22 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true, message: "Email already verified." });
   }
 
+  // Order matters: issue the new token, send, and only then retire the older
+  // ones. If the send fails we drop the token we just made, so the user keeps
+  // whatever still-valid link they had instead of being left with a token that
+  // was never delivered.
+  const token = await createEmailVerificationToken(user.id, record.email);
   try {
-    const token = await createEmailVerificationToken(user.id, record.email);
     await sendVerificationEmail({
       email: record.email,
       fullName: record.fullName,
       token,
     });
   } catch {
+    await discardEmailVerificationToken(token);
     return errorResponse("Could not send verification email. Try again later.", 503);
   }
+  await retireOtherTokens(user.id, token);
 
   return NextResponse.json({
     success: true,

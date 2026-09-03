@@ -18,6 +18,7 @@ import {
 import { signupSchema } from "@/lib/auth/validation";
 import {
   createEmailVerificationToken,
+  discardEmailVerificationToken,
   sendVerificationEmail,
 } from "@/lib/auth/email-verification";
 import { db } from "@/lib/db";
@@ -116,10 +117,13 @@ export async function POST(request: NextRequest) {
     });
 
     void (async () => {
+      const token = await createEmailVerificationToken(createdUserId, email);
       try {
-        const token = await createEmailVerificationToken(createdUserId, email);
         await sendVerificationEmail({ email, fullName, token });
       } catch (err) {
+        // Drop the undelivered token so it cannot linger as a dead row; the
+        // user can request a fresh one from the dashboard banner.
+        await discardEmailVerificationToken(token);
         console.error("Verification email failed:", err);
       }
     })();

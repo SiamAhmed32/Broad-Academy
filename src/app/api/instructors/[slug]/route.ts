@@ -157,6 +157,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         ? { displayOrder: data.displayOrder }
         : {}),
       ...(data.status !== undefined ? { status: data.status } : {}),
+      ...(data.memberType !== undefined ? { memberType: data.memberType } : {}),
+      ...(data.facebookUrl !== undefined
+        ? { facebookUrl: emptyToNull(data.facebookUrl) }
+        : {}),
+      ...(data.youtubeUrl !== undefined
+        ? { youtubeUrl: emptyToNull(data.youtubeUrl) }
+        : {}),
       ...(data.linkedIn !== undefined ? { linkedIn: emptyToNull(data.linkedIn) } : {}),
       ...(data.twitter !== undefined ? { twitter: emptyToNull(data.twitter) } : {}),
       ...(data.website !== undefined ? { website: emptyToNull(data.website) } : {}),

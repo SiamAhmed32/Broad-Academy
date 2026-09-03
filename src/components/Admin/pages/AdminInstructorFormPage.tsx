@@ -34,6 +34,9 @@ type InstructorForm = {
   experienceYears: number;
   featured: boolean;
   status: "ACTIVE" | "INACTIVE" | "DRAFT";
+  memberType: "INSTRUCTOR" | "MENTOR";
+  facebookUrl: string;
+  youtubeUrl: string;
 };
 
 type FieldErrors = Record<string, string[] | undefined>;
@@ -56,6 +59,9 @@ const emptyForm: InstructorForm = {
   experienceYears: 0,
   featured: false,
   status: "ACTIVE",
+  memberType: "INSTRUCTOR",
+  facebookUrl: "",
+  youtubeUrl: "",
 };
 
 function parseList(value: string) {
@@ -80,6 +86,9 @@ function toForm(data: Record<string, unknown>): InstructorForm {
     experienceYears: Number(data.experienceYears ?? 0),
     featured: Boolean(data.featured),
     status: (data.status as InstructorForm["status"]) ?? "ACTIVE",
+    memberType: (data.memberType as InstructorForm["memberType"]) ?? "INSTRUCTOR",
+    facebookUrl: String(data.facebookUrl ?? ""),
+    youtubeUrl: String(data.youtubeUrl ?? ""),
   };
 }
 
@@ -134,6 +143,9 @@ export default function AdminInstructorFormPage({ slug }: { slug?: string }) {
       experienceYears: form.experienceYears,
       featured: form.featured,
       status: form.status,
+      memberType: form.memberType,
+      facebookUrl: form.facebookUrl || "",
+      youtubeUrl: form.youtubeUrl || "",
     };
 
     const res = isEdit
@@ -286,6 +298,49 @@ export default function AdminInstructorFormPage({ slug }: { slug?: string }) {
                 <option value="DRAFT">Draft</option>
                 <option value="INACTIVE">Inactive</option>
               </AdminSelect>
+            </AdminField>
+            <AdminField
+              label="Team section"
+              hint="Which grid this profile appears in on the Our Team page"
+              error={fieldError(fields, "memberType")}
+            >
+              <AdminSelect
+                invalid={Boolean(fieldError(fields, "memberType"))}
+                value={form.memberType}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    memberType: e.target.value as InstructorForm["memberType"],
+                  })
+                }
+              >
+                <option value="INSTRUCTOR">Expert Instructor</option>
+                <option value="MENTOR">Mentor / Student Support</option>
+              </AdminSelect>
+            </AdminField>
+            <AdminField
+              label="Facebook URL"
+              hint="Optional, shown as an icon on the team card"
+              error={fieldError(fields, "facebookUrl")}
+            >
+              <AdminInput
+                invalid={Boolean(fieldError(fields, "facebookUrl"))}
+                value={form.facebookUrl}
+                onChange={(e) => setForm({ ...form, facebookUrl: e.target.value })}
+                placeholder="https://facebook.com/..."
+              />
+            </AdminField>
+            <AdminField
+              label="YouTube URL"
+              hint="Optional, shown as an icon on the team card"
+              error={fieldError(fields, "youtubeUrl")}
+            >
+              <AdminInput
+                invalid={Boolean(fieldError(fields, "youtubeUrl"))}
+                value={form.youtubeUrl}
+                onChange={(e) => setForm({ ...form, youtubeUrl: e.target.value })}
+                placeholder="https://youtube.com/..."
+              />
             </AdminField>
             <div
               className={fieldError(fields, "avatarUrl") ? "scroll-mt-24" : undefined}

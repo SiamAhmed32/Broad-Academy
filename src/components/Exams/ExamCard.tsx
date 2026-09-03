@@ -1,15 +1,9 @@
 "use client";
 
-import { motion } from "framer-motion";
-import {
-  ArrowRight,
-  Award,
-  Clock3,
-  FileQuestion,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, Award, Clock3 } from "lucide-react";
 import Link from "next/link";
 
+import { examBannerArt, examCardTheme } from "@/lib/exams/card-theme";
 import { cloudinaryCoverImage } from "@/lib/media/images";
 import { cn } from "@/lib/utils";
 
@@ -33,140 +27,138 @@ type ExamCardProps = {
   index?: number;
 };
 
-function MetaTile({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-xl bg-heroBg px-3 py-2.5 ring-1 ring-navy/6">
-      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-navy/45">
-        <Icon className="h-3 w-3 text-accent" />
-        {label}
-      </div>
-      <p className="mt-1 text-xs font-semibold leading-5 text-navy">{value}</p>
-    </div>
-  );
-}
-
 export default function ExamCard({
   exam,
   isFree,
   isAuthenticated,
   index = 0,
 }: ExamCardProps) {
+  const theme = examCardTheme(exam.slug);
+  const art = examBannerArt(exam.title, exam.code);
   const bannerSrc = exam.bannerUrl
     ? cloudinaryCoverImage(exam.bannerUrl, 960, 540)
     : null;
   const examHref = isAuthenticated
     ? `/exams/${exam.slug}`
     : `/login?next=/exams/${encodeURIComponent(exam.slug)}`;
+  const discount =
+    exam.originalPrice && exam.originalPrice > exam.price
+      ? Math.round((1 - exam.price / exam.originalPrice) * 100)
+      : null;
 
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, delay: index * 0.06, ease: "easeOut" }}
-      whileHover={{ y: -6 }}
-      className="group h-full"
+    <article
+      className="course-card-enter group relative flex h-full flex-col overflow-hidden rounded-2xl border border-navy/10 bg-white shadow-[0_8px_24px_rgba(22,51,81,0.06)] transition duration-300 hover:-translate-y-1 hover:border-navy/15 hover:shadow-[0_16px_36px_rgba(22,51,81,0.12)]"
+      style={{ animationDelay: `${Math.min(index, 8) * 55}ms` }}
     >
-      <Link
-        href={examHref}
-        className="flex h-full flex-col overflow-hidden rounded-[1.75rem] border border-navy/10 bg-white shadow-[0_16px_45px_rgba(22,51,81,0.08)] transition-shadow duration-300 hover:border-accent/25 hover:shadow-[0_24px_55px_rgba(22,51,81,0.14)]"
-      >
-        <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden bg-navy">
-          {bannerSrc ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={bannerSrc}
-                alt={exam.title}
-                className="absolute inset-0 block h-full w-full object-cover object-center transition duration-700 group-hover:scale-[1.04]"
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-navy/35 via-transparent to-black/10" />
-            </>
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-navy via-[#0f2740] to-navy" />
-          )}
+      <div className="relative aspect-[16/10] overflow-hidden">
+        {bannerSrc ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={bannerSrc}
+              alt={exam.title}
+              className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
+            />
+            <div className="pointer-events-none absolute inset-0 bg-navy/25" />
+          </>
+        ) : (
+          <div
+            className={cn(
+              "absolute inset-0 bg-gradient-to-br transition duration-700 group-hover:scale-[1.03]",
+              theme.banner,
+            )}
+          >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_55%)]" />
+            <div className="absolute inset-0 flex flex-col justify-end p-4 pb-3">
+              <p className="max-w-[75%] text-[15px] font-extrabold uppercase leading-[1.15] tracking-[-0.01em] text-white">
+                {art.label}
+              </p>
+              {art.number ? (
+                <p className="mt-0.5 text-[2.75rem] font-black leading-none tracking-[-0.05em] text-white/95">
+                  {art.number}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        )}
 
-          <div className="absolute inset-0 z-10 flex items-start justify-between p-4">
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-navy shadow-sm backdrop-blur-sm">
-              <Sparkles className="h-3 w-3 text-accent" />
-              MCQ
+        <span
+          className={cn(
+            "absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold shadow-sm backdrop-blur",
+            isFree ? theme.badgeText : "text-[#c2540a]",
+          )}
+        >
+          {isFree ? "Free" : "Paid"}
+        </span>
+        {exam.code ? (
+          <span className="absolute right-3 top-3 max-w-[45%] truncate rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-navy shadow-sm backdrop-blur">
+            {exam.code}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="line-clamp-2 min-h-[3.5rem] text-lg font-semibold leading-snug tracking-[-0.02em] text-navy">
+          {exam.title}
+        </h3>
+
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <div className="flex items-baseline gap-2">
+            <span className="text-xl font-bold tracking-[-0.03em] text-navy">
+              ৳{exam.price.toLocaleString("en-US")}
             </span>
-            {exam.code ? (
-              <span className="max-w-[45%] truncate rounded-full bg-white/90 px-2.5 py-1 font-mono text-[10px] font-semibold text-navy/75 shadow-sm backdrop-blur-sm">
-                {exam.code}
+            {exam.originalPrice && exam.originalPrice > exam.price ? (
+              <span className="text-sm text-navy/45 line-through">
+                ৳{exam.originalPrice.toLocaleString("en-US")}
+              </span>
+            ) : null}
+            {discount ? (
+              <span className="rounded-md bg-btnBg/10 px-1.5 py-0.5 text-[11px] font-semibold text-btnBg">
+                {discount}% OFF
               </span>
             ) : null}
           </div>
-
-          {!bannerSrc ? (
-            <div className="absolute inset-0 z-10 flex items-center justify-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-white/80 backdrop-blur-sm">
-                <FileQuestion className="h-7 w-7" />
-              </div>
-            </div>
-          ) : null}
+          <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-navy/55">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#047857]" />
+            Online
+          </span>
         </div>
 
-        <div className="flex flex-1 flex-col p-5 sm:p-6">
-          <div className="mb-4">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-accent">
-              {isFree ? "Free competition" : "Premium exam"}
-            </p>
-            <h3 className="mt-1 line-clamp-2 text-lg font-semibold tracking-[-0.02em] text-navy transition-colors group-hover:text-accent">
-              {exam.title}
-            </h3>
-            {exam.description ? (
-              <p className="mt-2 line-clamp-2 text-sm leading-6 text-navy/60">
-                {exam.description}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="grid grid-cols-2 gap-2.5">
-            <MetaTile
-              icon={Clock3}
-              label="Duration"
-              value={`${exam.durationMinutes} min`}
-            />
-            <MetaTile
-              icon={Award}
-              label="Total marks"
-              value={`${exam.totalMarks}`}
-            />
-          </div>
-
-          <div className="mt-auto pt-5">
-            {!isFree ? (
-              <div className="mb-3 flex items-baseline gap-2">
-                <span className="text-xl font-bold text-navy">
-                  BDT {exam.price.toLocaleString()}
-                </span>
-                {exam.originalPrice && exam.originalPrice > exam.price ? (
-                  <span className="text-sm text-navy/40 line-through">
-                    BDT {exam.originalPrice.toLocaleString()}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-
-            <span
-              className={cn(
-                "flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent text-sm font-semibold text-white transition group-hover:bg-accent/90",
-              )}
-            >
-              {isAuthenticated ? "Enter exam" : "Log in to enter"}
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </span>
-          </div>
+        <div className="mt-4 flex items-center justify-between gap-2 border-t border-navy/10 pt-3.5">
+          <ExamMetric icon={Award} label={`${exam.totalMarks} Marks`} />
+          <ExamMetric icon={Clock3} label={`${exam.durationMinutes} Minutes`} />
         </div>
-      </Link>
-    </motion.article>
+
+        <div className="mt-auto pt-5">
+          <Link
+            href={examHref}
+            aria-label={`View ${exam.title}`}
+            className={cn(
+              "flex h-11 w-full items-center justify-center rounded-xl text-sm font-semibold text-white transition",
+              theme.button,
+            )}
+          >
+            এনরোল করুন
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ExamMetric({
+  icon: Icon,
+  label,
+}: {
+  icon: typeof Award;
+  label: string;
+}) {
+  return (
+    <span className="flex items-center gap-1.5 text-xs font-medium text-navy/60">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-navy/40" />
+      {label}
+    </span>
   );
 }

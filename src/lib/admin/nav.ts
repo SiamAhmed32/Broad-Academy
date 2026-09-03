@@ -6,10 +6,10 @@ import {
   GraduationCap,
   Layers,
   MessageSquare,
+  MonitorCheck,
   Star,
   Shield,
   Users,
-  Megaphone,
   Mail,
   type LucideIcon,
 } from "lucide-react";
@@ -28,15 +28,6 @@ export type AdminNavItem = {
 };
 
 export const adminNavItems: AdminNavItem[] = [
-  {
-    label: "Announcements",
-    description: "Top bar banner campaigns",
-    href: "/admin/announcements",
-    permission: ADMIN_PERMISSIONS.NOTICES,
-    icon: Megaphone,
-    group: "content",
-  },
-
   {
     label: "Courses",
     description: "Create and manage courses",
@@ -64,9 +55,17 @@ export const adminNavItems: AdminNavItem[] = [
   {
     label: "Standalone Exams",
     description: "Create & manage public exams",
-    href: "/admin/exams",
+    href: "/admin/exams/manage",
     permission: ADMIN_PERMISSIONS.EXAMS,
     icon: ClipboardCheck,
+    group: "content",
+  },
+  {
+    label: "Exam Monitoring",
+    description: "Track student results & completion times",
+    href: "/admin/exams",
+    permission: ADMIN_PERMISSIONS.EXAMS,
+    icon: MonitorCheck,
     group: "content",
   },
   {
@@ -93,15 +92,6 @@ export const adminNavItems: AdminNavItem[] = [
     icon: Star,
     group: "content",
   },
-
-  {
-    label: "Offers & Popups",
-    description: "Sales campaigns and offers",
-    href: "/admin/offers",
-    permission: ADMIN_PERMISSIONS.NOTICES,
-    icon: Megaphone,
-    group: "content",
-  },
   {
     label: "Newsletter",
     description: "Subscriber list & status",
@@ -111,8 +101,8 @@ export const adminNavItems: AdminNavItem[] = [
     group: "support",
   },
   {
-    label: "People & Access",
-    description: "Users, requests & enrollments",
+    label: "Students",
+    description: "Learning progress, requests & enrollments",
     href: "/admin/students",
     permission: ADMIN_PERMISSIONS.STUDENTS,
     anyOfPermissions: [

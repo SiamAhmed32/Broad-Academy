@@ -48,86 +48,46 @@ function configureSdk() {
 
 async function signedUpload(
   bytes: Uint8Array,
-  mimeType: string,
+  _mimeType: string,
 ): Promise<UploadResult> {
-  const { cloud_name, api_key, api_secret } = getCloudinaryConfig();
-  const timestamp = Math.floor(Date.now() / 1000);
-  const signParams = {
-    folder: PAYMENT_PROOF_FOLDER,
-    timestamp: String(timestamp),
-  };
-  const signature = signCloudinaryParams(signParams, api_secret);
-  const uploadBuffer = bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  ) as ArrayBuffer;
+  configureSdk();
+  const buffer = Buffer.from(bytes);
 
-  const form = new FormData();
-  form.append(
-    "file",
-    new Blob([uploadBuffer], { type: mimeType }),
-    "payment-proof",
-  );
-  form.append("api_key", api_key);
-  form.append("timestamp", String(timestamp));
-  form.append("folder", PAYMENT_PROOF_FOLDER);
-  form.append("signature", signature);
-
-  const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloud_name)}/image/upload`,
-    {
-      method: "POST",
-      body: form,
-      cache: "no-store",
-    },
-  );
-
-  const result = (await response.json().catch(() => null)) as {
-    public_id?: string;
-    format?: string;
-    version?: number;
-    bytes?: number;
-    error?: { message?: string };
-  } | null;
-
-  if (!response.ok || !result?.public_id || !result.format) {
-    throw new Error(
-      result?.error?.message ||
-        `Cloudinary upload failed with status ${response.status}.`,
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: PAYMENT_PROOF_FOLDER,
+        resource_type: "image",
+      },
+      (error, result) => {
+        if (error || !result) {
+          return reject(
+            new Error(
+              error?.message ||
+                "Cloudinary upload failed without a result.",
+            ),
+          );
+        }
+        resolve({
+          public_id: result.public_id,
+          format: result.format,
+          version: result.version,
+          bytes: result.bytes,
+        });
+      },
     );
-  }
 
-  return {
-    public_id: result.public_id,
-    format: result.format,
-    version: result.version ?? 0,
-    bytes: result.bytes ?? bytes.byteLength,
-  };
+    uploadStream.end(buffer);
+  });
 }
 
 async function signedDestroy(publicId: string) {
-  const { cloud_name, api_key, api_secret } = getCloudinaryConfig();
-  const timestamp = Math.floor(Date.now() / 1000);
-  const signParams = {
-    public_id: publicId,
-    timestamp: String(timestamp),
-  };
-  const signature = signCloudinaryParams(signParams, api_secret);
-
-  const form = new FormData();
-  form.append("public_id", publicId);
-  form.append("api_key", api_key);
-  form.append("timestamp", String(timestamp));
-  form.append("signature", signature);
-
-  await fetch(
-    `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloud_name)}/image/destroy`,
-    {
-      method: "POST",
-      body: form,
-      cache: "no-store",
-    },
-  );
+  configureSdk();
+  try {
+    await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
+  } catch (error) {
+    console.error("Cloudinary destroy failed:", error);
+  }
 }
 
 export async function uploadPaymentProof(

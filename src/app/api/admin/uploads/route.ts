@@ -22,7 +22,6 @@ const uploadPurposeSchema = z.enum([
   "instructor-avatar",
   "instructor-cover",
   "testimonial-avatar",
-  "campaign-image",
   "exam-banner",
   "exam-question-image",
 ]);
@@ -48,10 +47,6 @@ const uploadConfig: Record<
   "testimonial-avatar": {
     folder: "broad-academy/testimonial-avatars",
     permission: ADMIN_PERMISSIONS.TESTIMONIALS,
-  },
-  "campaign-image": {
-    folder: "broad-academy/popup-campaigns",
-    permission: ADMIN_PERMISSIONS.NOTICES,
   },
   "exam-banner": {
     folder: "broad-academy/exam-banners",
