@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { Layout } from "@/components/Layout";
 import { InstructorsPage } from "@/components/Instructors";
-import { fetchInstructorsList } from "@/lib/instructors/fetch";
+import { fetchTeamMembers } from "@/lib/instructors/fetch";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 const InstructorsRoutePage = async () => {
-  const initialData = await fetchInstructorsList();
+  const initialData = await fetchTeamMembers();
 
   return (
     <Layout>

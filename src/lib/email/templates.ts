@@ -7,10 +7,7 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#039;");
 }
 
-export function getSiteUrl() {
-  const url = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000";
-  return url.replace(/\/$/, "");
-}
+export { absoluteUrl, getSiteUrl } from "@/lib/site/url";
 
 type DetailRow = { label: string; value: string; mono?: boolean };
 

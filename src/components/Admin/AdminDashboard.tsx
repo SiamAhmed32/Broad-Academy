@@ -9,7 +9,6 @@ import {
   GraduationCap,
   Mail,
   Megaphone,
-  MessageSquare,
   ReceiptText,
   TrendingUp,
   Users,
@@ -19,7 +18,7 @@ import { useEffect, useState } from "react";
 
 import { AdminPageHeader } from "@/components/Admin";
 import { adminNavItems } from "@/lib/admin/nav";
-import { ADMIN_PERMISSIONS, getPermissionsForUser, type AdminUser } from "@/lib/admin/permissions";
+import { getPermissionsForUser, type AdminUser } from "@/lib/admin/permissions";
 
 type Stats = {
   students: number;
@@ -130,21 +129,6 @@ export default function AdminDashboard({ user }: { user: AdminUser }) {
               </motion.div>
             );
           })}
-          {permissions.includes(ADMIN_PERMISSIONS.NOTICES) ? (
-            <Link
-              href="/admin/offers"
-              className="group flex h-full flex-col rounded-2xl border border-dashed border-accent/40 bg-accent/5 p-5 transition hover:bg-accent/10"
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-white">
-                <MessageSquare className="h-5 w-5" />
-              </div>
-              <h3 className="mt-4 text-lg font-semibold text-navy">Send student offer</h3>
-              <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">
-                Push a course promotion to all students or one student via notifications.
-              </p>
-              <span className="mt-4 text-sm font-semibold text-accent">Compose →</span>
-            </Link>
-          ) : null}
         </div>
       </div>
     </div>

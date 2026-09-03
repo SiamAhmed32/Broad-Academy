@@ -25,7 +25,7 @@ export const courseListQuerySchema = z.object({
   level: z.enum(courseLevelValues).optional().catch(undefined),
   sort: z.enum(courseSortValues).default("featured").catch("featured"),
   page: z.coerce.number().int().min(1).max(100).default(1).catch(1),
-  limit: z.coerce.number().int().min(1).max(24).default(9).catch(9),
+  limit: z.coerce.number().int().min(1).max(24).default(12).catch(12),
 });
 
 export const courseSlugSchema = z

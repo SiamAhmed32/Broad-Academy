@@ -52,6 +52,20 @@ export default function AdminShell({
     [permissions],
   );
 
+  // Longest matching href wins, so a nested section (/admin/exams/manage)
+  // highlights itself rather than its parent (/admin/exams).
+  const activeHref = useMemo(() => {
+    let best: string | null = null;
+    for (const item of visibleNav) {
+      const matches =
+        pathname === item.href || pathname.startsWith(`${item.href}/`);
+      if (matches && (!best || item.href.length > best.length)) {
+        best = item.href;
+      }
+    }
+    return best;
+  }, [visibleNav, pathname]);
+
   const sidebarContent = (
     <div className="flex h-full flex-col">
       <div className={cn("flex items-center gap-3 px-4 py-5", collapsed && "justify-center px-2")}>
@@ -81,8 +95,7 @@ export default function AdminShell({
               <ul className="space-y-1">
                 {items.map((item) => {
                   const Icon = item.icon;
-                  const active =
-                    pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  const active = activeHref === item.href;
 
                   return (
                     <li key={item.href}>

@@ -1,16 +1,24 @@
 import Image from "next/image";
-import React from "react";
 
 const HeroRightSection = () => {
   return (
-    <div className="relative mx-auto w-full max-w-[620px]">
-      <div className="relative aspect-[10/10] overflow-hidden rounded-[1.6rem] border border-white/20 bg-white/8 shadow-[0_20px_50px_rgba(5,14,28,0.38)]">
+    <div className="relative mx-auto w-full max-w-[600px]">
+      <div
+        aria-hidden
+        className="absolute -inset-6 -z-10 rounded-[3rem] bg-btnBg/8 blur-2xl sm:-inset-10"
+      />
+      <div
+        aria-hidden
+        className="absolute -right-6 -top-6 -z-10 hidden h-40 w-40 rounded-full border-2 border-dashed border-btnBg/15 sm:block"
+      />
+
+      <div className="relative aspect-[4/3] overflow-hidden rounded-[1.75rem]">
         <Image
-          src="/hero/hero1.png"
-          alt="Student holding study materials"
+          src="/hero/students-collage.png"
+          alt="Students studying together with laptops, books, and notes"
           fill
-          className="object-cover object-[center_0%]"
-          sizes="(max-width: 1024px) 100vw, 620px"
+          className="object-contain"
+          sizes="(max-width: 1024px) 100vw, 600px"
           priority
         />
       </div>

@@ -18,7 +18,7 @@ const TestimonialSection = async () => {
   }
 
   return (
-    <div>
+    <div className="bg-[#F5F4FE] py-10">
       <TestimonialHeader />
       <TestimonialCarousel testimonials={testimonials} />
     </div>

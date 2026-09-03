@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
+    "dev:preview": "next dev -p 3100",
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",
@@ -11,7 +12,9 @@
     "db:seed": "npx tsx prisma/seed.ts",
     "db:seed:admin": "npx tsx prisma/seed-admin.ts",
     "db:seed:courses": "npx tsx prisma/seed-courses.ts",
+    "db:seed:exams": "npx tsx prisma/seed-exams.ts",
     "db:seed:learning": "npx tsx prisma/seed-learning.ts",
+    "db:seed:team": "npx tsx prisma/seed-team.ts",
     "db:enroll": "npx tsx prisma/enroll-student.ts",
     "db:promote-owner": "npx tsx prisma/promote-owner.ts",
     "db:migrate": "npx prisma migrate deploy",

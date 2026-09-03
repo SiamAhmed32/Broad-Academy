@@ -288,11 +288,13 @@ export async function fetchCoursesFromDatabase(
   return {
     courses: result.courses,
     categories: result.categories,
-    levels: result.levels.map((item) => ({
-      value: item.value,
-      label: courseLevelLabels[item.value],
-      count: item.count,
-    })),
+    levels: result.levels
+      .map((item) => ({
+        value: item.value,
+        label: courseLevelLabels[item.value],
+        count: item.count,
+      }))
+      .sort((a, b) => levelOrder(a.value) - levelOrder(b.value)),
     pagination: {
       page: result.page,
       limit: query.limit,
@@ -401,4 +403,10 @@ function buildCourseLearningContent(
           ],
     curriculum,
   };
+}
+
+function levelOrder(level: PublicCourse["level"]) {
+  const order = Object.values(courseLevelMap);
+  const index = order.indexOf(level);
+  return index === -1 ? order.length : index;
 }

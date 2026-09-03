@@ -1,6 +1,5 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -62,6 +61,10 @@ function formatCountdown(secs: number) {
 export default function ExamTakeClient({ slug }: { slug: string }) {
   const router = useRouter();
   const startTimeRef = useRef(Date.now());
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const questionRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const isManualScrollingRef = useRef(false);
+  const manualScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -105,6 +108,76 @@ export default function ExamTakeClient({ slug }: { slug: string }) {
     }, 1000);
     return () => clearInterval(interval);
   }, [exam, loading]);
+
+  const scrollToQuestion = useCallback(
+    (index: number) => {
+      if (index < 0 || index >= questions.length) return;
+      const target = questionRefs.current[index];
+      if (target) {
+        isManualScrollingRef.current = true;
+        if (manualScrollTimeoutRef.current) {
+          clearTimeout(manualScrollTimeoutRef.current);
+        }
+        setCurrentIdx(index);
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        manualScrollTimeoutRef.current = setTimeout(() => {
+          isManualScrollingRef.current = false;
+        }, 700);
+      }
+    },
+    [questions.length],
+  );
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || questions.length === 0) return;
+
+    let rafId: number | null = null;
+
+    const onScroll = () => {
+      if (isManualScrollingRef.current) return;
+
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const containerRect = container.getBoundingClientRect();
+        const containerHeight = container.clientHeight;
+
+        // Scrolled near bottom -> activate last question
+        if (container.scrollHeight - container.scrollTop - containerHeight < 80) {
+          setCurrentIdx(questions.length - 1);
+          return;
+        }
+
+        let activeIndex = 0;
+        let minDistance = Infinity;
+
+        for (let i = 0; i < questions.length; i++) {
+          const el = questionRefs.current[i];
+          if (!el) continue;
+          const rect = el.getBoundingClientRect();
+          const topDiff = rect.top - containerRect.top;
+          const bottomDiff = rect.bottom - containerRect.top;
+
+          if (topDiff <= 140 && bottomDiff >= 80) {
+            activeIndex = i;
+          } else if (topDiff > 140 && topDiff < minDistance && activeIndex === 0) {
+            minDistance = topDiff;
+          }
+        }
+
+        setCurrentIdx(activeIndex);
+      });
+    };
+
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      container.removeEventListener("scroll", onScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+      if (manualScrollTimeoutRef.current) {
+        clearTimeout(manualScrollTimeoutRef.current);
+      }
+    };
+  }, [questions.length]);
 
   const handleSubmit = useCallback(
     async (forced = false) => {
@@ -168,7 +241,6 @@ export default function ExamTakeClient({ slug }: { slug: string }) {
     );
   }
 
-  const currentQuestion = questions[currentIdx];
   const answeredCount = Object.values(answers).filter(Boolean).length;
   const progress = questions.length
     ? ((currentIdx + 1) / questions.length) * 100
@@ -230,17 +302,22 @@ export default function ExamTakeClient({ slug }: { slug: string }) {
                   key={q.id}
                   id={`nav-q-${i + 1}`}
                   type="button"
-                  onClick={() => setCurrentIdx(i)}
+                  onClick={() => scrollToQuestion(i)}
                   className={cn(
-                    "aspect-square rounded-lg text-xs font-semibold transition",
+                    "relative aspect-square rounded-lg text-xs font-semibold transition",
                     isCurrent
-                      ? "bg-accent text-white ring-2 ring-accent/30"
+                      ? "bg-accent text-white ring-2 ring-accent/30 shadow-sm"
                       : answered
-                        ? "bg-emerald-100 text-emerald-800"
+                        ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200",
                   )}
                 >
                   {i + 1}
+                  {answered && isCurrent && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-300 ring-1 ring-white" />
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -258,74 +335,167 @@ export default function ExamTakeClient({ slug }: { slug: string }) {
         </aside>
 
         <main className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentQuestion?.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.2 }}
-                className="mx-auto max-w-3xl px-4 py-6 sm:px-8 sm:py-8"
-              >
-                <Card>
-                  <CardContent className="p-6 sm:p-8">
-                    <div className="mb-6 flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary">Q{currentIdx + 1}</Badge>
-                      <span className="text-xs text-slate-500">
-                        {answeredCount} of {questions.length} answered
-                      </span>
-                    </div>
+          <div
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto scroll-smooth"
+          >
+            <div className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-8 sm:py-8">
+              {questions.map((q, idx) => {
+                const isAnswered = !!answers[q.id];
+                const isCurrent = idx === currentIdx;
 
-                    {currentQuestion?.imageUrl ? (
-                      <QuestionImageViewer
-                        src={currentQuestion.imageUrl}
-                        alt={`Question ${currentIdx + 1} illustration`}
-                      />
-                    ) : null}
-
-                    <h2 className="text-lg font-semibold leading-relaxed text-navy sm:text-xl">
-                      {currentQuestion?.prompt}
-                    </h2>
-
-                    <div className="mt-8 space-y-3">
-                      {currentQuestion?.options.map((option, oi) => {
-                        const isSelected = answers[currentQuestion.id] === option.id;
-                        const letter = String.fromCharCode(65 + oi);
-                        return (
-                          <motion.button
-                            key={option.id}
-                            id={`option-${oi}`}
-                            type="button"
-                            whileHover={{ scale: 1.005 }}
-                            whileTap={{ scale: 0.995 }}
-                            onClick={() => selectAnswer(currentQuestion.id, option.id)}
-                            className={cn(
-                              "flex w-full items-start gap-4 rounded-xl border-2 p-4 text-left transition",
-                              isSelected
-                                ? "border-accent bg-accent/5 text-navy"
-                                : "border-slate-200 bg-white text-navy hover:border-accent/40 hover:bg-heroBg/50",
-                            )}
-                          >
-                            <span
+                return (
+                  <div
+                    key={q.id}
+                    ref={(el) => {
+                      questionRefs.current[idx] = el;
+                    }}
+                    id={`question-card-${idx + 1}`}
+                    className="scroll-mt-6"
+                  >
+                    <Card
+                      className={cn(
+                        "transition-all duration-200",
+                        isCurrent
+                          ? "border-accent/40 shadow-md ring-1 ring-accent/20"
+                          : "border-slate-200/80 shadow-sm hover:border-slate-300",
+                      )}
+                    >
+                      <CardContent className="p-6 sm:p-8">
+                        <div className="mb-6 flex flex-wrap items-center justify-between gap-2 border-b border-navy/5 pb-4">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={isAnswered ? "default" : "secondary"}
                               className={cn(
-                                "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold",
-                                isSelected
-                                  ? "bg-accent text-white"
-                                  : "bg-slate-100 text-slate-600",
+                                "transition-colors",
+                                isAnswered
+                                  ? "border-emerald-200 bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                                  : "bg-slate-100 text-slate-700 hover:bg-slate-100",
                               )}
                             >
-                              {isSelected ? <Check size={14} /> : letter}
+                              Q{idx + 1}
+                            </Badge>
+                            <span className="text-xs text-slate-500">
+                              Question {idx + 1} of {questions.length}
                             </span>
-                            <span className="pt-1 text-base leading-relaxed">{option.text}</span>
-                          </motion.button>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </AnimatePresence>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            {isAnswered ? (
+                              <>
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                                  <Check size={12} className="text-emerald-600" />
+                                  Answered
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setAnswers((prev) => ({ ...prev, [q.id]: null }))
+                                  }
+                                  className="text-xs text-slate-400 transition-colors hover:text-red-500"
+                                  title="Clear your answer"
+                                >
+                                  Clear
+                                </button>
+                              </>
+                            ) : (
+                              <span className="text-xs text-slate-400">Not answered yet</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {q.imageUrl ? (
+                          <QuestionImageViewer
+                            src={q.imageUrl}
+                            alt={`Question ${idx + 1} illustration`}
+                          />
+                        ) : null}
+
+                        <h2 className="text-lg font-semibold leading-relaxed text-navy sm:text-xl">
+                          {q.prompt}
+                        </h2>
+
+                        <div className="mt-8 space-y-3">
+                          {q.options.map((option, oi) => {
+                            const isSelected = answers[q.id] === option.id;
+                            const letter = String.fromCharCode(65 + oi);
+                            return (
+                              <button
+                                key={option.id}
+                                id={`q-${idx + 1}-option-${oi}`}
+                                type="button"
+                                onClick={() => selectAnswer(q.id, option.id)}
+                                className={cn(
+                                  "flex w-full items-start gap-4 rounded-xl border-2 p-4 text-left transition duration-150 active:scale-[0.995]",
+                                  isSelected
+                                    ? "border-accent bg-accent/5 text-navy shadow-sm ring-1 ring-accent/30"
+                                    : "border-slate-200 bg-white text-navy hover:border-accent/40 hover:bg-heroBg/50",
+                                )}
+                              >
+                                <span
+                                  className={cn(
+                                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold transition-colors",
+                                    isSelected
+                                      ? "bg-accent text-white"
+                                      : "bg-slate-100 text-slate-600",
+                                  )}
+                                >
+                                  {isSelected ? <Check size={14} /> : letter}
+                                </span>
+                                <span className="pt-1 text-base leading-relaxed">
+                                  {option.text}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                );
+              })}
+
+              {/* End of Exam Card */}
+              <div className="rounded-2xl border border-dashed border-navy/20 bg-white p-6 text-center shadow-sm sm:p-8">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 text-accent">
+                  <Check size={24} />
+                </div>
+                <h3 className="text-lg font-bold text-navy">End of Questions</h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  You have answered {answeredCount} of {questions.length} questions.
+                </p>
+                {questions.length - answeredCount > 0 ? (
+                  <p className="mt-1 text-xs font-medium text-amber-600">
+                    {questions.length - answeredCount} question
+                    {questions.length - answeredCount > 1 ? "s" : ""} remaining unanswered
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs font-medium text-emerald-600">
+                    All questions answered! Ready to submit.
+                  </p>
+                )}
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => scrollToQuestion(0)}
+                  >
+                    Review from Q1
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setConfirmSubmit(true)}
+                    disabled={submitting}
+                    className="gap-2"
+                  >
+                    <Send size={14} />
+                    Submit Exam
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <footer className="shrink-0 border-t border-navy/10 bg-white px-4 py-4 sm:px-8">
@@ -333,27 +503,36 @@ export default function ExamTakeClient({ slug }: { slug: string }) {
               <Button
                 id="prev-question-btn"
                 variant="outline"
-                onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
+                onClick={() => scrollToQuestion(Math.max(0, currentIdx - 1))}
                 disabled={currentIdx === 0}
               >
                 <ChevronLeft size={16} />
                 Previous
               </Button>
 
-              <span className="text-xs text-slate-500 lg:hidden">
-                {currentIdx + 1} / {questions.length}
-              </span>
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <span className="font-semibold text-navy">Q{currentIdx + 1}</span>
+                <span>/</span>
+                <span>{questions.length}</span>
+                <span className="hidden sm:inline text-slate-400">· Scroll to navigate</span>
+              </div>
 
               {currentIdx < questions.length - 1 ? (
                 <Button
                   id="next-question-btn"
-                  onClick={() => setCurrentIdx((i) => Math.min(questions.length - 1, i + 1))}
+                  onClick={() =>
+                    scrollToQuestion(Math.min(questions.length - 1, currentIdx + 1))
+                  }
                 >
                   Next
                   <ChevronRight size={16} />
                 </Button>
               ) : (
-                <Button id="finish-exam-btn" onClick={() => setConfirmSubmit(true)}>
+                <Button
+                  id="finish-exam-btn"
+                  onClick={() => setConfirmSubmit(true)}
+                  disabled={submitting}
+                >
                   Finish Exam
                   <Send size={14} />
                 </Button>

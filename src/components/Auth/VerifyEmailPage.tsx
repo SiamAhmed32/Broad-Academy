@@ -10,7 +10,7 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { BrandLogo } from "@/components/Brand";
@@ -19,9 +19,11 @@ type VerifyState = "idle" | "verifying" | "success" | "error";
 
 export default function VerifyEmailPage() {
   const reduceMotion = useReducedMotion();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token")?.trim() ?? "";
 
+  const [expired, setExpired] = useState(false);
   const [state, setState] = useState<VerifyState>(token ? "verifying" : "idle");
   const [message, setMessage] = useState(
     token ? "" : "Open the verification link from your email, or request a new one below.",
@@ -29,32 +31,46 @@ export default function VerifyEmailPage() {
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
 
-  const verifyToken = useCallback(async (value: string) => {
-    setState("verifying");
-    setMessage("");
+  const verifyToken = useCallback(
+    async (value: string) => {
+      // No setState("verifying") here: useState already initialises to
+      // "verifying" whenever a token is present, which is the only path that
+      // reaches this, and setting it synchronously from the effect body
+      // triggers a cascading render.
+      try {
+        const response = await fetch(
+          `/api/auth/verify-email?token=${encodeURIComponent(value)}`,
+          { method: "POST" },
+        );
+        const result = await response.json();
 
-    try {
-      const response = await fetch(
-        `/api/auth/verify-email?token=${encodeURIComponent(value)}`,
-        { method: "POST" },
-      );
-      const result = await response.json();
+        if (!response.ok) {
+          setState("error");
+          setExpired(result.reason === "expired");
+          setMessage(result.message || "This verification link is invalid or has expired.");
+          return;
+        }
 
-      if (!response.ok) {
+        setState("success");
+        setMessage(result.message || "Your email has been verified successfully.");
+        // The dashboard's "please verify" banner is rendered on the server from
+        // the user record. Without this, a client-cached RSC payload for
+        // /dashboard can still show the banner after a successful verification.
+        router.refresh();
+      } catch {
         setState("error");
-        setMessage(result.message || "This verification link is invalid or has expired.");
-        return;
+        setMessage("We could not reach the server. Please try again.");
       }
-
-      setState("success");
-      setMessage(result.message || "Your email has been verified successfully.");
-    } catch {
-      setState("error");
-      setMessage("We could not reach the server. Please try again.");
-    }
-  }, []);
+    },
+    [router],
+  );
 
   useEffect(() => {
+    // Verifying on mount is the point of this page: the token arrives in the
+    // URL and has to be redeemed. Every setState inside verifyToken runs after
+    // an await, so nothing is set synchronously in this effect body — the rule
+    // flags the call itself, not a real cascading render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (token) void verifyToken(token);
   }, [token, verifyToken]);
 
@@ -101,12 +117,14 @@ export default function VerifyEmailPage() {
           </div>
 
           <div className="mt-8 text-center">
-            <StatusIcon state={state} />
+            <StatusIcon state={state} expired={expired} />
             <h1 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-navy sm:text-3xl">
               {state === "success"
                 ? "Email verified"
                 : state === "error"
-                  ? "Verification failed"
+                  ? expired
+                    ? "This link has expired"
+                    : "Verification failed"
                   : state === "verifying"
                     ? "Verifying your email"
                     : "Verify your email"}
@@ -114,7 +132,7 @@ export default function VerifyEmailPage() {
             {message ? (
               <p
                 className={`mt-3 text-sm leading-7 ${
-                  state === "error" ? "text-red-600" : "text-slate-500"
+                  state === "error" && !expired ? "text-red-600" : "text-slate-500"
                 }`}
               >
                 {message}
@@ -182,7 +200,17 @@ export default function VerifyEmailPage() {
   );
 }
 
-function StatusIcon({ state }: { state: VerifyState }) {
+function StatusIcon({ state, expired }: { state: VerifyState; expired?: boolean }) {
+  // An expired link is recoverable, so it gets the amber "send a new one" mail
+  // treatment rather than the red failure cross.
+  if (state === "error" && expired) {
+    return (
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+        <MailCheck className="h-8 w-8" />
+      </div>
+    );
+  }
+
   if (state === "success") {
     return (
       <motion.div

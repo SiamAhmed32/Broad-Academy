@@ -36,6 +36,11 @@ enum InstructorStatus {
   DRAFT
 }
 
+enum InstructorType {
+  INSTRUCTOR
+  MENTOR
+}
+
 enum ContactMessageStatus {
   NEW
   READ
@@ -242,6 +247,9 @@ model Instructor {
   featured        Boolean          @default(false)
   displayOrder    Int              @default(0)
   status          InstructorStatus @default(ACTIVE)
+  memberType      InstructorType   @default(INSTRUCTOR)
+  facebookUrl     String?
+  youtubeUrl      String?
   linkedIn        String?
   twitter         String?
   website         String?
@@ -251,6 +259,7 @@ model Instructor {
   @@index([status])
   @@index([featured])
   @@index([displayOrder])
+  @@index([memberType])
   @@index([specialty])
 }
 
@@ -293,24 +302,6 @@ enum NewsletterStatus {
   UNSUBSCRIBED
 }
 
-
-enum PopupCampaignStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
-}
-
-enum PopupCampaignAudience {
-  ALL
-  GUESTS
-  STUDENTS
-}
-
-enum PopupCampaignFrequency {
-  ONCE_PER_CAMPAIGN
-  ONCE_PER_SESSION
-  EVERY_VISIT
-}
 
 enum TestimonialStatus {
   DRAFT
@@ -672,55 +663,10 @@ model Notification {
   @@index([userId, archived, read, createdAt])
 }
 
-model Announcement {
-  id         String   @id @default(cuid())
-  text       String
-  badge      String?
-  ctaText    String?
-  ctaLink    String?
-  isActive   Boolean  @default(false)
-  bgGradient String   @default("from-violet-600 to-indigo-600")
-  textColor  String   @default("text-white")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@index([isActive])
-}
-
 model SiteConfig {
   id                        String   @id @default("default")
   enrollmentGuideYoutubeUrl String?
   updatedAt                 DateTime @updatedAt
-}
-
-model PopupCampaign {
-  id              String                 @id @default(cuid())
-  title           String
-  content         String
-  badge           String?
-  imageUrl        String?
-  ctaText         String?
-  ctaLink         String?
-  status          PopupCampaignStatus    @default(DRAFT)
-  audience        PopupCampaignAudience  @default(ALL)
-  frequency       PopupCampaignFrequency @default(ONCE_PER_CAMPAIGN)
-  startsAt        DateTime?
-  endsAt          DateTime?
-  priority        Int                    @default(0)
-
-  // Premium promo fields
-  originalPrice   Int?
-  salePrice       Int?
-  countdownEndsAt DateTime?
-  theme           String                 @default("LIGHT")
-
-  createdById     String
-  updatedById     String
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
-
-  @@index([status, startsAt, endsAt])
-  @@index([status, priority, createdAt])
 }
 
 enum ExamStatus {

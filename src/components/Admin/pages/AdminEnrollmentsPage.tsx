@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { Eye, Search, X } from "lucide-react";
+import { Eye, RotateCw, Search, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
@@ -182,6 +182,29 @@ export default function AdminEnrollmentsPage({
   }, [loadEnrollments, section]);
 
   useEffect(() => {
+    const handleFocus = () => {
+      if (document.visibilityState === "visible") {
+        if (section !== "enrollments") void loadRequests();
+        if (section !== "queue") void loadEnrollments();
+      }
+    };
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        if (section !== "enrollments") void loadRequests();
+        if (section !== "queue") void loadEnrollments();
+      }
+    }, 15_000);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
+      clearInterval(interval);
+    };
+  }, [loadEnrollments, loadRequests, section]);
+
+  useEffect(() => {
     adminFetch<{ courses: Course[] }>("/api/admin/courses?limit=100&compact=true").then((res) => {
       if (res.success && res.data) setCourses(res.data.courses);
     });
@@ -207,8 +230,9 @@ export default function AdminEnrollmentsPage({
       if (res.success && res.data?.requests[0]) {
         setSelectedRequest(res.data.requests[0]);
       }
+      if (section !== "enrollments") void loadRequests();
     })();
-  }, [deepLinkRequestId]);
+  }, [deepLinkRequestId, loadRequests, section]);
 
   function closeRequestModal() {
     setSelectedRequest(null);
@@ -390,8 +414,19 @@ export default function AdminEnrollmentsPage({
 
       {visibleTab === "queue" ? (
         <AdminCard className="overflow-hidden p-0">
-          <div className="border-b border-slate-200 px-5 py-4">
-            <AdminCardTitle>Payment verification queue</AdminCardTitle>
+            <div className="border-b border-slate-200 px-5 py-4">
+            <div className="flex items-center justify-between">
+              <AdminCardTitle>Payment verification queue</AdminCardTitle>
+              <button
+                type="button"
+                onClick={() => void loadRequests()}
+                disabled={requestsLoading}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50"
+              >
+                <RotateCw className={cn("h-3.5 w-3.5", requestsLoading && "animate-spin")} />
+                Refresh
+              </button>
+            </div>
             <div className="mt-4 grid gap-3 lg:grid-cols-[1.4fr_0.8fr_0.8fr]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -518,7 +553,18 @@ export default function AdminEnrollmentsPage({
       ) : (
         <AdminCard className="overflow-hidden p-0">
           <div className="border-b border-slate-200 px-5 py-4">
-            <AdminCardTitle>Active enrollments</AdminCardTitle>
+            <div className="flex items-center justify-between">
+              <AdminCardTitle>Active enrollments</AdminCardTitle>
+              <button
+                type="button"
+                onClick={() => void loadEnrollments()}
+                disabled={enrollmentsLoading}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50"
+              >
+                <RotateCw className={cn("h-3.5 w-3.5", enrollmentsLoading && "animate-spin")} />
+                Refresh
+              </button>
+            </div>
             <div className="mt-4 grid gap-3 lg:grid-cols-[1.4fr_0.8fr_0.8fr]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />

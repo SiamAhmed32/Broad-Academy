@@ -19,7 +19,7 @@ export default async function Page() {
   return (
     <Suspense fallback={null}>
       <AdminPeoplePage
-        defaultTab={canViewUsers ? "users" : "requests"}
+        defaultTab={canViewUsers ? "progress" : "requests"}
         canViewUsers={canViewUsers}
         canViewEnrollments={canViewEnrollments}
       />

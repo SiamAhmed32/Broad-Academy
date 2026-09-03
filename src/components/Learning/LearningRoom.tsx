@@ -15,6 +15,8 @@ import {
   GraduationCap,
   LoaderCircle,
   Menu,
+  Play,
+  RotateCcw,
   Search,
   Trophy,
   X,
@@ -584,11 +586,46 @@ function QuizPanel({ quiz }: { quiz: PublicQuiz }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<QuizResult | null>(null);
-  const [startedAt] = useState(() => new Date().toISOString());
+
+  const timed = Boolean(quiz.timeLimitSeconds && quiz.timeLimitSeconds > 0);
+  const [hasStarted, setHasStarted] = useState(!timed);
+  const [startedAt, setStartedAt] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(
     quiz.timeLimitSeconds ?? null,
   );
   const autoSubmitted = useRef(false);
+
+  useEffect(() => {
+    setAnswers({});
+    setError("");
+    setResult(null);
+    autoSubmitted.current = false;
+    const isTimed = Boolean(quiz.timeLimitSeconds && quiz.timeLimitSeconds > 0);
+    setHasStarted(!isTimed);
+    setStartedAt(null);
+    setSecondsLeft(quiz.timeLimitSeconds ?? null);
+  }, [quiz.id, quiz.timeLimitSeconds]);
+
+  const startExam = () => {
+    setStartedAt(new Date().toISOString());
+    setSecondsLeft(quiz.timeLimitSeconds ?? null);
+    setHasStarted(true);
+    autoSubmitted.current = false;
+  };
+
+  const handleRetake = () => {
+    setAnswers({});
+    setError("");
+    setResult(null);
+    autoSubmitted.current = false;
+    if (timed) {
+      setHasStarted(false);
+      setStartedAt(null);
+      setSecondsLeft(quiz.timeLimitSeconds ?? null);
+    } else {
+      setHasStarted(true);
+    }
+  };
 
   const submitQuiz = useCallback(async () => {
     if (pending || result) return;
@@ -601,7 +638,7 @@ function QuizPanel({ quiz }: { quiz: PublicQuiz }) {
         body: JSON.stringify({
           quizId: quiz.id,
           answers,
-          ...(quiz.timeLimitSeconds ? { startedAt } : {}),
+          ...(quiz.timeLimitSeconds && startedAt ? { startedAt } : {}),
         }),
       });
       const payload = await response.json();
@@ -619,7 +656,7 @@ function QuizPanel({ quiz }: { quiz: PublicQuiz }) {
   }, [answers, pending, quiz.id, quiz.timeLimitSeconds, result, router, startedAt]);
 
   useEffect(() => {
-    if (!quiz.timeLimitSeconds || result) return;
+    if (!quiz.timeLimitSeconds || !hasStarted || !startedAt || result) return;
     const interval = window.setInterval(() => {
       const elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
       const remaining = Math.max(0, quiz.timeLimitSeconds! - elapsed);
@@ -630,16 +667,101 @@ function QuizPanel({ quiz }: { quiz: PublicQuiz }) {
       }
     }, 1000);
     return () => window.clearInterval(interval);
-  }, [quiz.timeLimitSeconds, result, startedAt, submitQuiz]);
+  }, [hasStarted, quiz.timeLimitSeconds, result, startedAt, submitQuiz]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     await submitQuiz();
   }
 
-  if (result) return <QuizResultView result={result} quiz={quiz} />;
+  if (result) {
+    return <QuizResultView result={result} quiz={quiz} onRetake={handleRetake} />;
+  }
 
-  const timed = Boolean(quiz.timeLimitSeconds);
+  if (timed && !hasStarted) {
+    const minutes = Math.floor((quiz.timeLimitSeconds ?? 0) / 60);
+    const seconds = (quiz.timeLimitSeconds ?? 0) % 60;
+    const durationLabel =
+      minutes > 0 && seconds > 0
+        ? `${minutes}m ${seconds}s`
+        : minutes > 0
+          ? `${minutes} min${minutes > 1 ? "s" : ""}`
+          : `${seconds} sec`;
+
+    return (
+      <div className="rounded-2xl border border-navy/10 bg-white p-6 sm:p-8">
+        <div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3.5 py-1 text-xs font-bold uppercase tracking-[0.16em] text-amber-700">
+            <Clock3 className="h-3.5 w-3.5" />
+            Timed exam
+          </span>
+          <h2 className="mt-3 text-2xl font-bold text-navy sm:text-3xl">
+            {quiz.title}
+          </h2>
+          {quiz.description ? (
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-navy/60">
+              {quiz.description}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+          <div className="rounded-xl border border-navy/8 bg-slate-50/70 p-4">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-navy/45">
+              Duration
+            </span>
+            <div className="mt-1">
+              <span className="text-2xl font-bold text-navy">{durationLabel}</span>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-navy/8 bg-slate-50/70 p-4">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-navy/45">
+              Questions
+            </span>
+            <div className="mt-1 flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-navy">
+                {quiz.questions.length}
+              </span>
+              <span className="text-xs font-medium text-navy/55">questions</span>
+            </div>
+          </div>
+
+          <div className="col-span-2 rounded-xl border border-navy/8 bg-slate-50/70 p-4 sm:col-span-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-navy/45">
+              Pass mark
+            </span>
+            <div className="mt-1">
+              <span className="text-2xl font-bold text-emerald-600">
+                {quiz.passPercent}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-xl border border-amber-200/60 bg-amber-50/60 p-4 text-xs leading-relaxed text-amber-900">
+          <p className="font-semibold">Important instructions:</p>
+          <ul className="mt-1.5 list-inside list-disc space-y-1 text-amber-800/90">
+            <li>The timer will start counting down as soon as you click <strong>Start exam</strong>.</li>
+            <li>If the timer reaches 0, your answers will be automatically submitted.</li>
+            <li>Please ensure you have a stable connection before starting.</li>
+          </ul>
+        </div>
+
+        <div className="mt-7 flex items-center justify-start">
+          <button
+            type="button"
+            onClick={startExam}
+            className="inline-flex h-12 items-center justify-center gap-2.5 rounded-xl bg-btnBg px-8 text-sm font-bold text-white shadow-lg shadow-btnBg/25 transition hover:bg-[#0068d8] active:scale-[0.99]"
+          >
+            <Play className="h-4 w-4 fill-white" />
+            Start exam
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const urgent = timed && secondsLeft !== null && secondsLeft <= 60;
 
   return (
@@ -737,7 +859,15 @@ type QuizResult = {
   }>;
 };
 
-function QuizResultView({ result, quiz }: { result: QuizResult; quiz: PublicQuiz }) {
+function QuizResultView({
+  result,
+  quiz,
+  onRetake,
+}: {
+  result: QuizResult;
+  quiz: PublicQuiz;
+  onRetake?: () => void;
+}) {
   const reviewMap = useMemo(
     () => new Map(result.review.map((item) => [item.questionId, item])),
     [result.review],
@@ -751,6 +881,18 @@ function QuizResultView({ result, quiz }: { result: QuizResult; quiz: PublicQuiz
           <h2 className="text-3xl font-bold">{result.score}/{result.total} correct</h2>
           <span className="text-3xl font-bold">{result.percentage}%</span>
         </div>
+        {onRetake ? (
+          <div className="mt-4 border-t border-white/15 pt-4">
+            <button
+              type="button"
+              onClick={onRetake}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white/15 px-4 text-xs font-semibold text-white transition hover:bg-white/25 active:scale-95"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Retake quiz
+            </button>
+          </div>
+        ) : null}
       </div>
       <div className="mt-7 space-y-5">
         {quiz.questions.map((question, index) => {

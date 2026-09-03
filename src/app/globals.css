@@ -7,10 +7,12 @@
 
 @theme {
   --color-soft: #fff5f5;
-  --color-accent: #059669;
+  --color-accent: #0068cf;
   --color-navy: #163351;
-  --color-heroBg: #F4FBF7;
+  --color-heroBg: #F0F6FD;
   --color-btnBg: #007bff;
+  --color-btnBgDark: #012dbd;
+  --color-body: #4d5a78;
 
 
     /* breakpoints */
@@ -34,8 +36,8 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), var(--font-noto-bengali), ui-sans-serif,
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, Helvetica, sans-serif;
 }
 
 @keyframes course-card-enter {
@@ -144,4 +146,402 @@ body {
 .homepage-course-swiper .swiper-pagination-bullet-active {
   background: #007bff;
   transform: scale(1.25);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Mobile bottom navigation — two-layer notch cradle + rotating ring FAB.
+
+   Layer 1 (.bnav__bg) is a full-bleed bar with a RECTANGULAR hole clipped
+   out of its top-centre; a polygon cannot draw curves, so Layer 2
+   (.bnav__cradle, a fixed 375x92 SVG clipped to a narrow centre strip)
+   paints the curved pocket into that hole. Both layers measure
+   horizontally as calc(50% ± Npx), so they can never drift apart and the
+   SVG's fixed width is irrelevant at any viewport.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Single source of truth for the bar's height: 16px top padding + a 64px row
+     + 22px bottom padding, plus the home-indicator inset. Both the bar's own
+     padding and the content spacer derive from these, so they cannot drift. */
+  --bnav-pt: 16px;
+  /* 64px at a 16px root — matching the reference — but it tracks the rem-based
+     label so the bar and the spacer stay in sync if the user scales text up:
+     24px icon + 8px gap + the 1.2rem label line box + 2x5px padding. */
+  --bnav-row: max(64px, calc(42px + 1.2rem));
+  --bnav-pb: 22px;
+  /* Floor: the cradle SVG is 92px tall and must not overhang the bar, so the
+     bar carries min-height: var(--bnav-min). The height formula has to respect
+     that same floor or the spacer under-reserves whenever padding + row would
+     come to less (e.g. the narrow-phone override below). */
+  --bnav-min: 92px;
+  --bnav-h: calc(
+    max(
+        var(--bnav-min),
+        var(--bnav-pt) + var(--bnav-row) + var(--bnav-pb)
+      ) + env(safe-area-inset-bottom, 0px)
+  );
+}
+
+/* Reserves exactly the bar's own footprint at the end of the page. Rendered by
+   MobileBottomNav itself, so a route that hides the bar reserves nothing. */
+.bnav-spacer {
+  height: var(--bnav-h);
+}
+
+/* transform-composed, so the centring translate is never clobbered */
+@keyframes bnav-ring-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* The panel and scrim stay mounted and animate in BOTH directions off
+   [data-open]. `visibility` is in the transition list so it flips only after
+   the slide-out finishes, which is what makes the exit animation visible
+   while still removing the panel from the tab order and a11y tree. */
+.bnav__panel {
+  transform: translateY(100%);
+  opacity: 0;
+  visibility: hidden;
+  /* keeps a keyboard-focused row from scrolling under the opaque bar */
+  scroll-padding-bottom: var(--bnav-h);
+  /* no body scroll lock is used (it caused an iOS "trapped page" bug), so this
+     is what stops an overscroll at the panel's end from scrolling the page */
+  overscroll-behavior: contain;
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.32s ease, visibility 0.32s;
+}
+
+.bnav__panel[data-open="true"] {
+  transform: translateY(0);
+  opacity: 1;
+  visibility: visible;
+}
+
+.bnav {
+  /* sizes */
+  --bnav-fab: 64px;
+  --bnav-fab-radius: 18px;
+  --bnav-fab-ring: 1px;
+  /* px the squircle protrudes above the bar. Fixed rather than a % of the row:
+     the cradle path was drawn against this number, so a % would drift the
+     button into the pocket walls when the label metrics change. */
+  --bnav-fab-lift: 22px;
+  --bnav-slot: 92px; /* centre grid column */
+
+  /* Notch geometry — must stay in sync with the SVG path.
+     The hole is deliberately as wide as the cradle strip (not just as wide as
+     the pocket): that way the flat bar contributes neither fill NOR rim light
+     anywhere the cradle paints, so exactly one layer lights the top edge in
+     any given column and no seam can appear. The strip then overhangs the
+     hole by --bnav-cutfix on each side to cover its antialiased edge. */
+  --bnav-hole-half: 57px;
+  --bnav-hole-depth: 80px;
+  --bnav-cutfix: 1.5px;
+  --bnav-cradle-w: 375px; /* == viewBox width, do not scale */
+  --bnav-cradle-h: 92px; /* == viewBox height, do not scale */
+
+  --bnav-hole-l: calc(50% - var(--bnav-hole-half));
+  --bnav-hole-r: calc(50% + var(--bnav-hole-half));
+  --bnav-strip-l: calc(50% - (var(--bnav-hole-half) + var(--bnav-cutfix)));
+  --bnav-strip-r: calc(50% + (var(--bnav-hole-half) + var(--bnav-cutfix)));
+
+  /* colour — brand tokens only */
+  --bnav-surface: var(--color-navy);
+  --bnav-rim: rgba(51, 140, 255, 0.45);
+  --bnav-glint: var(--color-heroBg);
+
+  position: relative;
+  z-index: 2;
+  display: grid;
+  /* minmax(0,·): a bare 1fr has a min-content floor, so a long label on a
+     narrow phone would widen its column and shove the centre slot — and with
+     it the notch — off centre. */
+  grid-template-columns:
+    minmax(0, 1fr) minmax(0, 1fr) var(--bnav-slot)
+    minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  min-height: var(--bnav-min);
+  padding: var(--bnav-pt) 0
+    calc(var(--bnav-pb) + env(safe-area-inset-bottom, 0px));
+  isolation: isolate;
+  overflow: visible; /* the FAB escapes upward */
+}
+
+/* Layer 1 — flat bar with a rectangular hole in the top-centre */
+.bnav__bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--bnav-surface);
+  border-radius: 18px 18px 0 0;
+  box-shadow: inset 0 3px 4px var(--bnav-rim);
+  clip-path: polygon(
+    0 0,
+    var(--bnav-hole-l) 0,
+    var(--bnav-hole-l) var(--bnav-hole-depth),
+    var(--bnav-hole-r) var(--bnav-hole-depth),
+    var(--bnav-hole-r) 0,
+    100% 0,
+    100% 100%,
+    0 100%
+  );
+}
+
+/* Layer 2 — SVG cradle, clipped to a 114px centre strip */
+.bnav__cradle {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 1;
+  width: var(--bnav-cradle-w);
+  height: var(--bnav-cradle-h);
+  transform: translateX(-50%);
+  pointer-events: none;
+  clip-path: polygon(
+    var(--bnav-strip-l) 0,
+    var(--bnav-strip-r) 0,
+    var(--bnav-strip-r) 100%,
+    var(--bnav-strip-l) 100%
+  );
+}
+
+.bnav__cradle > svg {
+  display: block;
+  width: var(--bnav-cradle-w);
+  height: var(--bnav-cradle-h);
+}
+
+/* scoped to the surface path only: the rim-light strokes must stay unfilled,
+   and a bare `.bnav__cradle path` rule would override their fill="none" */
+.bnav__cradle-surface {
+  fill: var(--bnav-surface);
+}
+
+/* Nav items ride above both layers */
+.bnav__link {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* the 64px row that, with the bar's padding, makes a 102px bar — so the
+     46px-deep pocket keeps the proportion the cradle path was drawn for */
+  min-height: var(--bnav-row);
+  gap: 8px;
+  padding: 5px;
+  color: rgba(250, 250, 250, 0.62);
+  letter-spacing: 0.02em;
+  background: none;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.2s ease;
+}
+
+.bnav__link[data-active="true"] {
+  color: #fafafa;
+}
+
+.bnav__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.bnav__icon {
+  width: 24px;
+  height: 24px;
+  transition: transform 0.2s ease;
+}
+
+.bnav__link[data-active="true"] .bnav__icon {
+  transform: translateY(-1px);
+}
+
+.bnav__dot {
+  position: absolute;
+  bottom: -3px;
+  /* left+translateX are load-bearing: without them the dot falls back to its
+     static position, which puts it at the icon's left edge, not under it. */
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-btnBg);
+  opacity: 0;
+  transform: translateX(-50%) scale(0.4);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.bnav__link[data-active="true"] .bnav__dot {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+/* The squircle FAB — absolutely positioned so its lift never depends on
+   the row height (a translateY(-60%) drifts out of the pocket when the
+   label font changes). */
+.bnav__fab {
+  position: absolute;
+  left: 50%;
+  top: calc(-1 * var(--bnav-fab-lift));
+  z-index: 3;
+  width: var(--bnav-fab);
+  height: var(--bnav-fab);
+  transform: translateX(-50%);
+  border-radius: var(--bnav-fab-radius);
+  /* shadow lives here: clip-path on the face would eat it */
+  box-shadow: 0 10px 22px -6px rgba(1, 45, 189, 0.55);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.18s ease;
+}
+
+.bnav__fab:active {
+  transform: translateX(-50%) scale(0.94);
+}
+
+.bnav__fab-face {
+  position: absolute;
+  inset: 0;
+  background: var(--color-btnBgDark);
+  clip-path: inset(0 round var(--bnav-fab-radius));
+}
+
+/* The rotating ring: a solid brand-blue base with a conic highlight sweeping
+   round it. The sweep is a rotating child rather than an animated
+   `conic-gradient(from <angle>)`, deliberately — animating an angle needs the
+   custom property to be registered via @property, and where that is
+   unsupported (iOS < 16.4, older Android WebView) an unregistered property
+   interpolates DISCRETELY, so the highlight would jump 180deg every 1.5s and
+   strobe. Rotating a transform degrades to smooth-or-nothing everywhere. */
+.bnav__fab-ring {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: var(--color-btnBg);
+}
+
+.bnav__fab-ring::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* 1.42 ~= sqrt(2): the square must cover the box at every rotation, or a
+     corner would briefly show the bare base colour. */
+  width: calc(var(--bnav-fab) * 1.42);
+  height: calc(var(--bnav-fab) * 1.42);
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    var(--bnav-glint) 0deg,
+    rgb(244 251 247 / 0) 360deg
+  );
+  transform: translate(-50%, -50%) rotate(0deg);
+  animation: bnav-ring-spin 3s linear infinite;
+}
+
+.bnav__fab-core {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #fafafa;
+  /* radius = 18 - 1 keeps the inner curve concentric with the outer */
+  clip-path: inset(
+    var(--bnav-fab-ring) round calc(var(--bnav-fab-radius) - var(--bnav-fab-ring))
+  );
+}
+
+/* specular highlight bleeding off the top-right corner */
+.bnav__fab-spark {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.5);
+  filter: blur(2.5px);
+  transform: translate(50%, -50%);
+  pointer-events: none;
+}
+
+/* rim light continuing onto the button, same values as .bnav__bg */
+.bnav__fab::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border-radius: var(--bnav-fab-radius);
+  box-shadow: inset 0 3px 4px var(--bnav-rim);
+  pointer-events: none;
+}
+
+/* The More panel sits BEHIND the bar, so the bar stays visible and "More"
+   itself remains tappable as a close affordance. */
+.bnav__scrim {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 123 255 / 0.1);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.3s linear, visibility 0.3s;
+}
+
+.bnav__scrim[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .bnav__scrim {
+    backdrop-filter: none;
+    background: rgb(22 51 81 / 0.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* the ring's motion lives on the pseudo-element now, so that is what has to
+     be stopped; freezing it mid-sweep keeps the highlight looking deliberate */
+  .bnav__fab-ring::before {
+    animation: none;
+    transform: translate(-50%, -50%) rotate(215deg);
+  }
+
+  /* The panel and scrim slide/fade via TRANSITION, not animation — killing
+     `animation` here would be a no-op, which is what made the previous version
+     of this block dead code. */
+  .bnav__panel,
+  .bnav__scrim,
+  .bnav__fab,
+  .bnav__link,
+  .bnav__icon,
+  .bnav__dot {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* Narrow phones: drop the labels so they cannot overflow, but keep the bar's
+   metrics. Shrinking the row here is pointless — --bnav-min floors the bar at
+   92px either way, so a smaller row only shrinks the tap targets below the
+   44px minimum while leaving the reclaimed height unused. --bnav-fab-lift also
+   stays fixed: the cradle path was drawn against 22px, and reducing the lift
+   would push the squircle into the pocket walls. */
+@media (max-width: 349.98px) {
+  .bnav__label {
+    display: none;
+  }
 }

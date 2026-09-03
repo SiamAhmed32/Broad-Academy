@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { HeroPage } from "./Hero";
 // import CategoryPage from "./CategorySection/CategoryPage";
 import { CoursePage } from "./CourseSection";
+import { NewsletterPage } from "./NewsletterSection";
 import { StatsSection } from "./StatsSection";
 import { TestimonialSection } from "../Testimonials";
 
@@ -25,6 +26,7 @@ const Homepage = async () => {
       <CoursePage />
       <ConsultationPage />
       <TestimonialSection />
+      <NewsletterPage />
       <ContactSection />
     </div>
   );

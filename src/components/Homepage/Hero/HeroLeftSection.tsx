@@ -1,10 +1,8 @@
 "use client";
 
 import PrimaryButton from "@/components/reusables/PrimaryButton";
-import { WHATSAPP_COMMUNITY_URL } from "@/lib/site/community";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
-import { MessageCircle } from "lucide-react";
-import React from "react";
+import { BookOpen, Sparkles, Users } from "lucide-react";
 
 const HeroLeftSection = () => {
   const shouldReduceMotion = useReducedMotion();
@@ -38,32 +36,33 @@ const HeroLeftSection = () => {
       whileInView="animate"
       viewport={{ amount: 0.4 }}
     >
-      <motion.p
+      <motion.span
         variants={itemVariants}
-        className="inline-flex items-center gap-2 rounded-full border border-white/22 bg-white/10 px-4 py-2 text-xs font-medium tracking-wide text-[#e4ecf6]"
+        className="inline-flex items-center gap-2 rounded-full border border-btnBg/15 bg-white px-4 py-2 text-sm font-semibold text-btnBg shadow-sm"
       >
-        <span className="h-1.5 w-1.5 rounded-full bg-btnBg" />
-        100% QUALITY COURSES
-      </motion.p>
+        <Sparkles className="h-4 w-4" />
+        100% Quality Courses
+      </motion.span>
 
       <motion.h1
         variants={itemVariants}
-        className="mt-5 max-w-2xl text-4xl font-semibold leading-[1.12] tracking-[-0.025em] text-[#fff8ef] sm:text-5xl lg:text-6xl"
+        className="mt-6 max-w-2xl text-4xl font-extrabold leading-[1.15] tracking-[-0.025em] text-navy sm:text-5xl lg:text-[3.4rem]"
       >
-        Broad Academy
-        <span className="mt-2 block text-[0.62em] leading-[1.3] tracking-[-0.015em] text-[#e4ecf6]">
-          Learn Today, Lead Tomorrow, Grow to Infinity
-        </span>
+        Building Brighter Futures Through Quality Education
       </motion.h1>
+
+      <motion.div
+        variants={itemVariants}
+        className="mt-5 h-1 w-16 rounded-full bg-gradient-to-r from-navy to-btnBg"
+      />
 
       <motion.p
         variants={itemVariants}
-        lang="bn"
-        className="mt-6 max-w-xl text-base leading-8 text-[#cfdbe8] sm:text-lg"
+        className="mt-6 max-w-xl text-base leading-8 text-body sm:text-lg"
       >
-        স্বপ্ন শুধু দেখার জন্য নয়, পূরণ করার জন্য। ভয় না পেয়ে শুরু করো,
-        প্রতিদিন একটু একটু করে এগিয়ে যাও—তোমার সফলতার গল্প শুরু হোক এখান
-        থেকেই।
+        We empower students with expert guidance, practical learning and a
+        supportive community—helping every learner build confidence, develop
+        skills, and achieve lasting success.
       </motion.p>
 
       <motion.div
@@ -71,22 +70,20 @@ const HeroLeftSection = () => {
         className="mt-8 flex flex-wrap items-center gap-4"
       >
         <PrimaryButton
-          href="/courses"
-          className="bg-[#007bff] px-7 py-3.5 text-sm font-semibold text-soft transition hover:bg-btnBg/80"
+          href="/instructors"
+          className="gap-2 bg-btnBg px-6 py-3.5 text-sm font-semibold text-soft shadow-lg shadow-btnBg/20 transition hover:bg-btnBg/90 hover:text-soft"
         >
-          Browse Courses
+          <Users className="h-4 w-4" />
+          Meet Our Team
         </PrimaryButton>
 
-        <a
-          href={WHATSAPP_COMMUNITY_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex cursor-pointer items-center gap-2 rounded-lg border border-[#25D366]/30 bg-[#25D366] px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/15 transition hover:-translate-y-0.5 hover:bg-[#20bd5a]"
-          aria-label="Join the Broad Academy WhatsApp community"
+        <PrimaryButton
+          href="/courses"
+          className="gap-2 border border-navy/15 bg-white px-6 py-3.5 text-sm font-semibold text-btnBg transition hover:bg-navy/5"
         >
-          <MessageCircle className="h-4 w-4 fill-current" />
-          Join WhatsApp Community
-        </a>
+          <BookOpen className="h-4 w-4" />
+          Explore Courses
+        </PrimaryButton>
       </motion.div>
     </motion.div>
   );

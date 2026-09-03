@@ -43,65 +43,46 @@ function signCloudinaryParams(
 
 export async function uploadCounsellingFile(
   bytes: Uint8Array,
-  fileName: string,
-  mimeType: string,
+  _fileName: string,
+  _mimeType: string,
 ): Promise<UploadResult> {
   const { cloud_name, api_key, api_secret } = getCloudinaryConfig();
-  const timestamp = Math.floor(Date.now() / 1000);
-  const signParams = {
-    folder: COUNSELLING_FILES_FOLDER,
-    timestamp: String(timestamp),
-  };
-  const signature = signCloudinaryParams(signParams, api_secret);
-  
-  const uploadBuffer = bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  ) as ArrayBuffer;
+  cloudinary.config({
+    cloud_name,
+    api_key,
+    api_secret,
+    secure: true,
+  });
 
-  const form = new FormData();
-  form.append(
-    "file",
-    new Blob([uploadBuffer], { type: mimeType }),
-    fileName,
-  );
-  form.append("api_key", api_key);
-  form.append("timestamp", String(timestamp));
-  form.append("folder", COUNSELLING_FILES_FOLDER);
-  form.append("signature", signature);
+  const buffer = Buffer.from(bytes);
 
-  const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloud_name)}/auto/upload`,
-    {
-      method: "POST",
-      body: form,
-      cache: "no-store",
-    },
-  );
-
-  const result = (await response.json().catch(() => null)) as {
-    public_id?: string;
-    format?: string;
-    version?: number;
-    bytes?: number;
-    secure_url?: string;
-    error?: { message?: string };
-  } | null;
-
-  if (!response.ok || !result?.public_id || !result.secure_url) {
-    throw new Error(
-      result?.error?.message ||
-        `Cloudinary upload failed with status ${response.status}.`,
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: COUNSELLING_FILES_FOLDER,
+        resource_type: "auto",
+      },
+      (error, result) => {
+        if (error || !result) {
+          return reject(
+            new Error(
+              error?.message ||
+                "Cloudinary upload failed without a result.",
+            ),
+          );
+        }
+        resolve({
+          public_id: result.public_id,
+          format: result.format ?? "",
+          version: result.version ?? 0,
+          bytes: result.bytes ?? bytes.byteLength,
+          secure_url: result.secure_url,
+        });
+      },
     );
-  }
 
-  return {
-    public_id: result.public_id,
-    format: result.format ?? "",
-    version: result.version ?? 0,
-    bytes: result.bytes ?? bytes.byteLength,
-    secure_url: result.secure_url,
-  };
+    uploadStream.end(buffer);
+  });
 }
 
 export async function deleteCounsellingFile(publicId: string) {

@@ -1,14 +1,9 @@
-import {
-  Clock3,
-  Mail,
-  MapPin,
-  Phone,
-} from "lucide-react";
+import { Clock3, Mail, MapPin, Phone } from "lucide-react";
 import Link from "next/link";
 
 import { BrandLogo } from "@/components/Brand";
 import {
-  footerAccountLinks,
+  footerAccountLinksFor,
   footerContact,
   footerLegalLinks,
   footerNavLinks,
@@ -16,16 +11,19 @@ import {
   footerTagline,
 } from "@/components/data/footerData";
 import { Container } from "@/components/reusables";
+import type { NavSession } from "@/lib/nav/types";
 
 import BackToTop from "./BackToTop";
-import FooterNewsletter from "./FooterNewsletter";
 
-const linkColumn = (
-  title: string,
-  links: { title: string; href: string }[],
-) => (
+const LinkColumn = ({
+  title,
+  links,
+}: {
+  title: string;
+  links: { title: string; href: string }[];
+}) => (
   <div>
-    <h3 className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+    <h3 className="text-xs font-semibold uppercase tracking-[0.22em] text-[#8ec5ff]">
       {title}
     </h3>
     <ul className="mt-5 space-y-3">
@@ -33,7 +31,7 @@ const linkColumn = (
         <li key={`${title}-${link.href}`}>
           <Link
             href={link.href}
-            className="text-sm text-white/65 transition hover:text-white hover:underline underline-offset-4"
+            className="text-sm text-white/65 underline-offset-4 transition hover:text-[#8ec5ff] hover:underline"
           >
             {link.title}
           </Link>
@@ -43,17 +41,53 @@ const linkColumn = (
   </div>
 );
 
-const Footer = () => {
+const ContactRow = ({
+  icon: Icon,
+  children,
+  href,
+}: {
+  icon: typeof Mail;
+  children: React.ReactNode;
+  href?: string;
+}) => {
+  const content = (
+    <>
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/8 text-[#8ec5ff] transition group-hover:bg-btnBg/25">
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className="pt-1.5 leading-6">{children}</span>
+    </>
+  );
+
+  return (
+    <li>
+      {href ? (
+        <a
+          href={href}
+          className="group flex items-start gap-3 text-sm text-white/65 transition hover:text-white"
+        >
+          {content}
+        </a>
+      ) : (
+        <div className="group flex items-start gap-3 text-sm text-white/65">
+          {content}
+        </div>
+      )}
+    </li>
+  );
+};
+
+const Footer = ({ navSession }: { navSession?: NavSession | null }) => {
+  const accountLinks = footerAccountLinksFor(navSession ?? null);
+
   return (
     <footer className="relative overflow-hidden bg-navy text-soft">
-      <div className="pointer-events-none absolute left-[-6rem] top-0 h-72 w-72 rounded-full bg-accent/15 blur-3xl" />
+      <div className="pointer-events-none absolute left-[-6rem] top-0 h-72 w-72 rounded-full bg-btnBg/12 blur-3xl" />
       <div className="pointer-events-none absolute bottom-0 right-[-4rem] h-80 w-80 rounded-full bg-btnBg/15 blur-3xl" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_40%)]" />
 
       <Container className="relative pt-14 sm:pt-16">
-        <FooterNewsletter />
-
-        <div className="mt-14 grid gap-10 border-t border-white/10 pt-12 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-4">
             <BrandLogo inverse />
             <p className="mt-5 max-w-sm text-sm leading-7 text-white/65">
@@ -68,7 +102,8 @@ const Footer = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={social.label}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/12 bg-white/8 text-xs font-bold text-white/80 transition hover:border-accent/40 hover:bg-accent/15 hover:text-white"
+                  title={social.label}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/12 bg-white/8 text-xs font-bold text-white/80 transition hover:border-btnBg/50 hover:bg-btnBg/20 hover:text-white"
                 >
                   {social.shortLabel}
                 </a>
@@ -77,49 +112,23 @@ const Footer = () => {
           </div>
 
           <div className="grid gap-8 sm:grid-cols-2 lg:col-span-4">
-            {linkColumn("Navigation", footerNavLinks)}
-            {linkColumn("Account", footerAccountLinks)}
+            <LinkColumn title="Navigation" links={footerNavLinks} />
+            <LinkColumn title="Account" links={accountLinks} />
           </div>
 
           <div className="lg:col-span-4">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.22em] text-[#8ec5ff]">
               Contact
             </h3>
             <ul className="mt-5 space-y-4">
-              <li>
-                <a
-                  href={footerContact.emailHref}
-                  className="group flex items-start gap-3 text-sm text-white/65 transition hover:text-white"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/8 text-accent transition group-hover:bg-accent/15">
-                    <Mail className="h-4 w-4" />
-                  </span>
-                  <span className="pt-1.5">{footerContact.email}</span>
-                </a>
-              </li>
-              <li>
-                <a
-                  href={footerContact.phoneHref}
-                  className="group flex items-start gap-3 text-sm text-white/65 transition hover:text-white"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/8 text-accent transition group-hover:bg-accent/15">
-                    <Phone className="h-4 w-4" />
-                  </span>
-                  <span className="pt-1.5">{footerContact.phone}</span>
-                </a>
-              </li>
-              <li className="flex items-start gap-3 text-sm text-white/65">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/8 text-accent">
-                  <MapPin className="h-4 w-4" />
-                </span>
-                <span className="pt-1.5">{footerContact.address}</span>
-              </li>
-              <li className="flex items-start gap-3 text-sm text-white/65">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/8 text-accent">
-                  <Clock3 className="h-4 w-4" />
-                </span>
-                <span className="pt-1.5 leading-6">{footerContact.hours}</span>
-              </li>
+              <ContactRow icon={Mail} href={footerContact.emailHref}>
+                {footerContact.email}
+              </ContactRow>
+              <ContactRow icon={Phone} href={footerContact.phoneHref}>
+                {footerContact.phone}
+              </ContactRow>
+              <ContactRow icon={MapPin}>{footerContact.address}</ContactRow>
+              <ContactRow icon={Clock3}>{footerContact.hours}</ContactRow>
             </ul>
           </div>
         </div>

@@ -4,14 +4,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import AdminEnrollmentsPage from "@/components/Admin/pages/AdminEnrollmentsPage";
-import {
-  AllUsersSection,
-  PeopleTabButton,
-} from "@/components/Admin/sections/AllUsersSection";
+import { StudentProgressSection } from "@/components/Admin/sections/StudentProgressSection";
+import { PeopleTabButton } from "@/components/Admin/ui/PeopleTabButton";
 import { AdminPageHeader } from "@/components/Admin";
 import { adminFetch } from "@/lib/admin/client";
 
-export type PeopleTab = "users" | "requests" | "enrolled";
+export type PeopleTab = "progress" | "requests" | "enrolled";
 
 type AdminPeoplePageProps = {
   defaultTab?: PeopleTab;
@@ -20,7 +18,7 @@ type AdminPeoplePageProps = {
 };
 
 export default function AdminPeoplePage({
-  defaultTab = "users",
+  defaultTab = "progress",
   canViewUsers = true,
   canViewEnrollments = true,
 }: AdminPeoplePageProps) {
@@ -29,9 +27,11 @@ export default function AdminPeoplePage({
 
   const initialTab = useMemo(() => {
     const fromUrl = searchParams.get("tab");
-    if (fromUrl === "users" || fromUrl === "requests" || fromUrl === "enrolled") {
+    if (fromUrl === "progress" || fromUrl === "requests" || fromUrl === "enrolled") {
       return fromUrl;
     }
+    // Keep old bookmarks and links to the removed "All users" tab working.
+    if (fromUrl === "users") return "progress";
     if (searchParams.get("request")) return "requests";
     return defaultTab;
   }, [defaultTab, searchParams]);
@@ -78,9 +78,9 @@ export default function AdminPeoplePage({
   const visibleTabs = [
     canViewUsers
       ? {
-          id: "users" as const,
-          label: "All users",
-          description: "Registered accounts with search & filters",
+          id: "progress" as const,
+          label: "Student progress",
+          description: "Learning progress with search & filters",
           count: userCount,
         }
       : null,
@@ -109,13 +109,13 @@ export default function AdminPeoplePage({
 
   const resolvedTab = visibleTabs.some((tab) => tab.id === activeTab)
     ? activeTab
-    : (visibleTabs[0]?.id ?? "users");
+    : (visibleTabs[0]?.id ?? "progress");
 
   return (
     <div>
       <AdminPageHeader
-        title="People & access"
-        description="Separate views for website accounts, course enrollment requests, and students who already have access."
+        title="Students"
+        description="Separate views for student learning progress, course enrollment requests, and students who already have access."
       />
 
       {visibleTabs.length > 1 ? (
@@ -133,8 +133,8 @@ export default function AdminPeoplePage({
         </div>
       ) : null}
 
-      {resolvedTab === "users" && canViewUsers ? (
-        <AllUsersSection onTotalChange={setUserCount} />
+      {resolvedTab === "progress" && canViewUsers ? (
+        <StudentProgressSection onTotalChange={setUserCount} />
       ) : null}
 
       {resolvedTab === "requests" && canViewEnrollments ? (

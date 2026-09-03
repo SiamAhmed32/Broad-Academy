@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const exams = await db.exam.findMany({
     where: { status: "PUBLISHED" },
     orderBy: { createdAt: "desc" },
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(
     {
       success: true,
-      data: { freeExams, paidExams },
+      data: { exams, freeExams, paidExams },
     },
     { headers: { "Cache-Control": "public, max-age=10, stale-while-revalidate=30" } },
   );

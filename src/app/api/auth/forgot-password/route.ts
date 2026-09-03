@@ -13,9 +13,6 @@ import { forgotPasswordSchema } from "@/lib/auth/validation";
 import { db } from "@/lib/db";
 import { sendPasswordResetOtp } from "@/lib/email";
 
-const GENERIC_MESSAGE =
-  "If an active account exists for that email, we sent a 6-digit code.";
-
 export async function POST(request: NextRequest) {
   if (!isTrustedOrigin(request)) {
     return errorResponse("Request origin could not be verified.", 403);
@@ -60,48 +57,57 @@ export async function POST(request: NextRequest) {
     select: { id: true, fullName: true, status: true },
   });
 
-  if (user?.status === "ACTIVE") {
-    const recentOtp = await db.passwordResetOtp.findFirst({
-      where: {
-        userId: user.id,
-        createdAt: { gte: new Date(Date.now() - 60 * 1000) },
-      },
-      select: { id: true },
-    });
+  await recordFailedAttempt(rateKey);
 
-    if (!recentOtp) {
-      const otp = generateOtp();
-      await db.$transaction([
-        db.passwordResetOtp.updateMany({
-          where: { userId: user.id, consumedAt: null },
-          data: { consumedAt: new Date() },
-        }),
-        db.passwordResetOtp.create({
-          data: {
-            userId: user.id,
-            email,
-            otpHash: hashOtp(user.id, otp),
-            expiresAt: otpExpiresAt(),
-          },
-        }),
-      ]);
+  if (!user || user.status !== "ACTIVE") {
+    return errorResponse(
+      "No active account found for that email address.",
+      404,
+    );
+  }
 
-      try {
-        await sendPasswordResetOtp({
+  const recentOtp = await db.passwordResetOtp.findFirst({
+    where: {
+      userId: user.id,
+      createdAt: { gte: new Date(Date.now() - 60 * 1000) },
+    },
+    select: { id: true },
+  });
+
+  if (!recentOtp) {
+    const otp = generateOtp();
+    await db.$transaction([
+      db.passwordResetOtp.updateMany({
+        where: { userId: user.id, consumedAt: null },
+        data: { consumedAt: new Date() },
+      }),
+      db.passwordResetOtp.create({
+        data: {
+          userId: user.id,
           email,
-          fullName: user.fullName,
-          otp,
-        });
-      } catch (error) {
-        console.error("Password reset email failed:", error);
-      }
+          otpHash: hashOtp(user.id, otp),
+          expiresAt: otpExpiresAt(),
+        },
+      }),
+    ]);
+
+    try {
+      await sendPasswordResetOtp({
+        email,
+        fullName: user.fullName,
+        otp,
+      });
+    } catch (error) {
+      console.error("Password reset email failed:", error);
+      return errorResponse(
+        "We could not send the reset email. Please try again in a moment.",
+        502,
+      );
     }
   }
 
-  await recordFailedAttempt(rateKey);
-
   return NextResponse.json(
-    { success: true, message: GENERIC_MESSAGE },
+    { success: true, message: "We sent a 6-digit code to your email." },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

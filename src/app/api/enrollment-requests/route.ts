@@ -4,6 +4,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
   checkRateLimit,
+  clearRateLimit,
   getClientIp,
   hashValue,
   isTrustedOrigin,
@@ -209,9 +210,11 @@ export async function POST(request: NextRequest) {
     console.error("Cloudinary payment proof upload failed:", error);
     const detail =
       error instanceof Error
-        ? error.message
+        ? (error as { cause?: { message?: string } }).cause?.message
+          ? `${error.message} (${(error as { cause?: { message?: string } }).cause?.message})`
+          : error.message
         : "Cloudinary upload failed.";
-    const friendlyMessage = detail.includes('missing permissions')
+    const friendlyMessage = detail.includes("missing permissions")
       ? "Your Cloudinary API key cannot upload images. In Cloudinary → Settings → API Keys, edit the key and enable Upload (create) permission, or use the Root key in .env, then restart npm run dev."
       : `Payment screenshot storage failed: ${detail}`;
     return errorResponse(friendlyMessage, 502);
@@ -261,7 +264,7 @@ export async function POST(request: NextRequest) {
       select: { id: true, status: true, submittedAt: true },
     });
 
-    await recordFailedAttempt(rateKey);
+    await clearRateLimit(rateKey);
     void sendEnrollmentSubmittedEmails({
       requestId: saved.id,
       studentName: user.fullName,

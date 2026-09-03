@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useMotionValue, useSpring } from "framer-motion";
 import {
-  BookOpen,
+  ArrowRight,
   GraduationCap,
-  HeartHandshake,
+  User,
+  Users,
   UsersRound,
 } from "lucide-react";
 
@@ -14,35 +15,45 @@ import { Container } from "@/components/reusables";
 const stats = [
   {
     id: 1,
-    label: "Students",
+    label: "শিক্ষার্থী",
     value: 130000,
     suffix: "+",
-    description: "Empowering students to achieve their academic goals.",
-    icon: BookOpen,
+    description: "হাজার হাজার শিক্ষার্থী আমাদের সাথে শেখার যাত্রায় যুক্ত।",
+    icon: User,
+    iconBg: "#E8F0FE",
+    accent: "#125BFF",
   },
   {
     id: 2,
-    label: "Team Members",
+    label: "বিশেষজ্ঞ শিক্ষক",
     value: 27,
     suffix: "+",
-    description: "Together, we foster student growth and success.",
-    icon: UsersRound,
+    description:
+      "অভিজ্ঞ ও দক্ষ শিক্ষকরা শিক্ষার্থীদের সেরা শিক্ষা নিশ্চিত করছেন।",
+    icon: Users,
+    iconBg: "#E7F7ED",
+    accent: "#16A34A",
   },
   {
     id: 3,
-    label: "Mentorships",
+    label: "মেন্টরশিপ সেশন",
     value: 10000,
     suffix: "+",
-    description: "Supporting students with personalized academic guidance.",
+    description: "ব্যক্তিগত মেন্টরশিপের মাধ্যমে লক্ষ্য অর্জনে সহায়তা করছি।",
     icon: GraduationCap,
+    iconBg: "#F1EBFE",
+    accent: "#7C3AED",
   },
   {
     id: 4,
-    label: "Parent Counseling Sessions",
+    label: "অভিভাবক সেশন",
     value: 2000,
     suffix: "+",
-    description: "Guiding parents to support their child's learning journey.",
-    icon: HeartHandshake,
+    description:
+      "অভিভাবকদের সাথে একসাথে কাজ করে শিক্ষার্থীদের উন্নয়নে সহযোগিতা করি।",
+    icon: UsersRound,
+    iconBg: "#FFF1E5",
+    accent: "#FF7A00",
   },
 ];
 
@@ -88,31 +99,40 @@ const AnimatedNumber = ({ value, suffix, decimals = 0 }: AnimatedNumberProps) =>
 
 const StatsSection = () => {
   return (
-    <section className="relative overflow-hidden bg-soft py-16 sm:py-20">
-      <div className="absolute left-[-8rem] top-8 h-72 w-72 rounded-full bg-accent/10 blur-3xl" />
-      <div className="absolute bottom-[-10rem] right-[-6rem] h-80 w-80 rounded-full bg-btnBg/10 blur-3xl" />
-
+    <section className="relative overflow-hidden bg-[#FBFCFE] py-16 sm:py-20">
       <Container className="relative">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: false, amount: 0.35 }}
           transition={{ duration: 0.55, ease: "easeOut" }}
-          className="mx-auto max-w-4xl text-center"
+          className="max-w-2xl"
         >
-          <h2 className="text-3xl font-semibold tracking-[-0.03em] text-navy sm:text-4xl lg:text-5xl">
-            Our Community
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#EEF4FF] px-4 py-1.5 text-sm font-semibold text-[#125BFF]">
+            <Users className="h-4 w-4" />
+            আমাদের কমিউনিটি
+          </span>
+
+          <h2 className="mt-5 text-3xl font-bold leading-tight tracking-[-0.02em] text-[#0D1321] sm:text-4xl lg:text-[2.65rem]">
+            শিক্ষার মাধ্যমে উজ্জ্বল ভবিষ্যতের পথে
           </h2>
-          <p className="mt-4 text-base leading-7 text-navy/65 sm:text-lg">
-            We empower students through high-quality education and guide
-            parents to support their child&apos;s learning journey, with a
-            dedicated team of teachers and mentors providing personalized
-            mentorship and a dynamic learning community committed to academic
-            excellence and lifelong success.
+
+          <p className="mt-4 text-base leading-7 text-[#64748B] sm:text-lg">
+            মানসম্পন্ন শিক্ষা, ব্যক্তিগত দিকনির্দেশনা এবং একটি সহায়ক শেখার
+            পরিবেশের মাধ্যমে আমরা শিক্ষার্থীদের উজ্জ্বল ভবিষ্যৎ গড়ে তুলতে কাজ
+            করি।
           </p>
+
+          <button
+            type="button"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl border border-[#125BFF] bg-[#125BFF] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#125BFF]/90"
+          >
+            আরও জানুন
+            <ArrowRight className="h-4 w-4" />
+          </button>
         </motion.div>
 
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-10 grid items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
             const decimals = stat.value % 1 === 0 ? 0 : 1;
@@ -132,9 +152,8 @@ const StatsSection = () => {
                   y: -8,
                   transition: { type: "spring", stiffness: 320, damping: 20 },
                 }}
-                className="group relative overflow-hidden rounded-3xl border border-navy/10 bg-white p-6 shadow-xl shadow-navy/5"
+                className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-[#EDF0F5] bg-white p-6 shadow-xl shadow-[#E5EAF3]"
               >
-                <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-accent/70 to-transparent" />
                 <motion.div
                   initial={{ rotate: -8, scale: 0.9 }}
                   whileInView={{ rotate: 0, scale: 1 }}
@@ -145,22 +164,32 @@ const StatsSection = () => {
                     damping: 16,
                     delay: index * 0.08 + 0.12,
                   }}
-                  className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-navy text-soft shadow-lg shadow-navy/20 group-hover:bg-accent"
+                  className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl"
+                  style={{ backgroundColor: stat.iconBg, color: stat.accent }}
                 >
                   <Icon className="h-7 w-7" />
                 </motion.div>
 
-                <h3 className="text-4xl font-semibold tracking-[-0.04em] text-navy sm:text-5xl">
+                <h3
+                  className="text-4xl font-bold tracking-[-0.04em] sm:text-5xl"
+                  style={{ color: stat.accent }}
+                >
                   <AnimatedNumber
                     value={stat.value}
                     suffix={stat.suffix}
                     decimals={decimals}
                   />
                 </h3>
-                <p className="mt-3 min-h-12 text-sm font-semibold uppercase leading-6 tracking-[0.14em] text-accent">
+                <p className="mt-3 text-lg font-bold text-[#0D1321]">
                   {stat.label}
                 </p>
-                <p className="mt-4 leading-7 text-navy/62">{stat.description}</p>
+                <p className="mt-3 flex-1 leading-7 text-[#64748B]">
+                  {stat.description}
+                </p>
+                <div
+                  className="mt-5 h-1 w-10 shrink-0 rounded-full"
+                  style={{ backgroundColor: stat.accent }}
+                />
               </motion.article>
             );
           })}

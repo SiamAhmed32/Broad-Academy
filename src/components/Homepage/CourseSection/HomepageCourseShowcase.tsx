@@ -57,7 +57,7 @@ export default function HomepageCourseShowcase({
 
   return (
     <>
-      <div className="mt-10 hidden gap-6 md:grid md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-10 hidden gap-5 md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {courses.map((course, index) => (
           <CourseCard key={course.id} course={course} index={index} />
         ))}

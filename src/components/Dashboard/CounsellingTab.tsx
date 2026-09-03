@@ -17,6 +17,7 @@ import {
   Loader2,
   MessageSquare,
   Plus,
+  RotateCw,
   Search,
   Upload,
   Video,
@@ -26,6 +27,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import BookingForm from "@/components/ConsultationSection/BookingForm";
+import { cn } from "@/lib/utils";
 import { PAYMENT_STATUS_LABELS } from "@/lib/counselling/payment";
 import type { CounsellingBookingSummary, StudentProfile } from "@/lib/student/types";
 
@@ -130,6 +132,27 @@ export function CounsellingTab({
       void loadBookings();
     }, 200);
     return () => window.clearTimeout(timer);
+  }, [loadBookings]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      if (document.visibilityState === "visible") {
+        void loadBookings();
+      }
+    };
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void loadBookings();
+      }
+    }, 15_000);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
+      window.clearInterval(interval);
+    };
   }, [loadBookings]);
 
   const activeBooking =
@@ -546,11 +569,27 @@ function BookingDetails({
   return (
     <div className="space-y-5 pb-4 sm:space-y-8 sm:pb-0">
       <div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <StatusBadge status={booking.status} />
-          <span className="text-xs text-navy/40">
-            Requested {formatDate(booking.createdAt)}
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <StatusBadge status={booking.status} />
+            {booking.paymentStatus === "PAID" ? (
+              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-emerald-700">
+                Payment verified
+              </span>
+            ) : null}
+            <span className="text-xs text-navy/40">
+              Requested {formatDate(booking.createdAt)}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => void onRefresh()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-navy/10 bg-white px-2.5 py-1 text-xs font-semibold text-navy/60 transition hover:bg-[#f7f9fc]"
+            title="Refresh session details"
+          >
+            <RotateCw className="h-3.5 w-3.5" />
+            Refresh
+          </button>
         </div>
         <h2 className="mt-3 text-xl font-semibold tracking-tight text-navy sm:mt-4 sm:text-2xl">
           {booking.subjectInterest}
@@ -563,12 +602,20 @@ function BookingDetails({
         </div>
 
         {booking.status === "PENDING" ? (
-          <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p
+            className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
+              booking.paymentStatus === "PAID"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                : "border-amber-200 bg-amber-50 text-amber-900"
+            }`}
+          >
             {booking.paymentStatus === "AWAITING_PAYMENT"
               ? "Your session fee has been quoted. Submit bKash payment proof below to continue."
               : booking.paymentStatus === "PROOF_SUBMITTED"
                 ? "Your payment proof is under review. We will confirm your session after verification."
-                : "Your request is being reviewed. Our team will contact you to confirm the session and share the fee."}
+                : booking.paymentStatus === "PAID"
+                  ? "Payment verified! Our team is preparing your session and meeting link."
+                  : "Your request is being reviewed. Our team will contact you to confirm the session and share the fee."}
           </p>
         ) : null}
 
@@ -593,29 +640,45 @@ function BookingDetails({
         ) : null}
       </div>
 
-      {booking.status === "CONFIRMED" && booking.meetingLink ? (
-        <div className="rounded-2xl border border-btnBg/20 bg-btnBg/8 p-4 sm:p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-btnBg text-white">
-              <Video className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="font-semibold text-navy">Join online session</h3>
-              <p className="mt-1 text-sm text-navy/60">
-                Your counsellor has shared a meeting link for this session.
-              </p>
-              <a
-                href={booking.meetingLink}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-btnBg px-4 text-sm font-bold text-white transition hover:bg-btnBg/90 sm:w-auto"
-              >
-                Open meeting link
-                <ChevronRight className="h-4 w-4" />
-              </a>
+      {booking.status === "CONFIRMED" ? (
+        booking.meetingLink ? (
+          <div className="rounded-2xl border border-btnBg/20 bg-btnBg/8 p-4 sm:p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-btnBg text-white">
+                <Video className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-semibold text-navy">Join online session</h3>
+                <p className="mt-1 text-sm text-navy/60">
+                  Your counsellor has shared a meeting link for this session.
+                </p>
+                <a
+                  href={booking.meetingLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-btnBg px-4 text-sm font-bold text-white transition hover:bg-btnBg/90 sm:w-auto"
+                >
+                  Open meeting link
+                  <ChevronRight className="h-4 w-4" />
+                </a>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4 sm:p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-btnBg text-white">
+                <Video className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-navy">Session confirmed</h3>
+                <p className="mt-0.5 text-xs text-sky-900/80">
+                  Your session is confirmed! The online meeting link will be shared here prior to your session time.
+                </p>
+              </div>
+            </div>
+          </div>
+        )
       ) : null}
 
       {booking.counsellorNotes ? (

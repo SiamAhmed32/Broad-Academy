@@ -7,7 +7,6 @@ export const ADMIN_PERMISSIONS = {
   ENROLLMENTS: "enrollments.manage",
   INSTRUCTORS: "instructors.manage",
   TESTIMONIALS: "testimonials.manage",
-  NOTICES: "notices.manage",
   COUNSELLING: "counselling.view",
   CONTACT: "contact.view",
   DOCUMENTS: "documents.view",
@@ -30,7 +29,6 @@ export const ROLE_PERMISSIONS: Record<AdminStaffRole, AdminPermission[]> = {
     ADMIN_PERMISSIONS.ENROLLMENTS,
     ADMIN_PERMISSIONS.INSTRUCTORS,
     ADMIN_PERMISSIONS.TESTIMONIALS,
-    ADMIN_PERMISSIONS.NOTICES,
     ADMIN_PERMISSIONS.COUNSELLING,
     ADMIN_PERMISSIONS.CONTACT,
     ADMIN_PERMISSIONS.DOCUMENTS,
@@ -43,7 +41,6 @@ export const ROLE_PERMISSIONS: Record<AdminStaffRole, AdminPermission[]> = {
     ADMIN_PERMISSIONS.ENROLLMENTS,
     ADMIN_PERMISSIONS.INSTRUCTORS,
     ADMIN_PERMISSIONS.TESTIMONIALS,
-    ADMIN_PERMISSIONS.NOTICES,
     ADMIN_PERMISSIONS.COUNSELLING,
     ADMIN_PERMISSIONS.CONTACT,
     ADMIN_PERMISSIONS.DOCUMENTS,
@@ -69,7 +66,7 @@ export const STAFF_ROLE_DESCRIPTIONS: Record<AdminStaffRole, string> = {
   OWNER: "Full authority, including appointing and managing administrators.",
   ADMIN: "Full operational access and staff access management.",
   SUB_ADMIN: "Broad operational access without staff-role management.",
-  MANAGER: "Manages courses, students, enrollments, notices, and support.",
+  MANAGER: "Manages courses, students, enrollments, and support.",
   TEACHER: "Manages teaching content, lessons, quizzes, and instructors.",
 };
 
