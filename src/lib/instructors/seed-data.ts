@@ -1,7 +1,10 @@
 import type { CreateInstructorInput } from "@/lib/instructors/validation";
 import { slugify } from "@/lib/instructors/utils";
 
-type SeedInstructor = Omit<CreateInstructorInput, "slug"> & { slug?: string };
+type SeedInstructor = Omit<CreateInstructorInput, "slug" | "memberType"> & {
+  slug?: string;
+  memberType?: "INSTRUCTOR" | "MENTOR";
+};
 
 const instructors: SeedInstructor[] = [
   {
@@ -208,6 +211,9 @@ export function getInstructorSeedData() {
   return instructors.map((instructor) => ({
     ...instructor,
     slug: instructor.slug ?? slugify(instructor.fullName),
+    memberType: instructor.memberType ?? "INSTRUCTOR",
+    facebookUrl: "",
+    youtubeUrl: "",
     linkedIn: "",
     twitter: "",
     website: "",
