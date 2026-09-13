@@ -160,20 +160,17 @@ body {
    ───────────────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Single source of truth for the bar's height: 16px top padding + a 64px row
-     + 22px bottom padding, plus the home-indicator inset. Both the bar's own
+  /* Single source of truth for the bar's height: 11px top padding + a 50px row
+     + 13px bottom padding, plus the home-indicator inset. Both the bar's own
      padding and the content spacer derive from these, so they cannot drift. */
-  --bnav-pt: 16px;
-  /* 64px at a 16px root — matching the reference — but it tracks the rem-based
-     label so the bar and the spacer stay in sync if the user scales text up:
-     24px icon + 8px gap + the 1.2rem label line box + 2x5px padding. */
-  --bnav-row: max(64px, calc(42px + 1.2rem));
-  --bnav-pb: 22px;
-  /* Floor: the cradle SVG is 92px tall and must not overhang the bar, so the
-     bar carries min-height: var(--bnav-min). The height formula has to respect
-     that same floor or the spacer under-reserves whenever padding + row would
-     come to less (e.g. the narrow-phone override below). */
-  --bnav-min: 92px;
+  --bnav-pt: 11px;
+  /* Tracks the rem-based label so the bar and spacer stay in sync:
+     23px icon + 4px gap + 1.25rem label line box + padding. */
+  --bnav-row: max(50px, calc(34px + 1rem));
+  --bnav-pb: 13px;
+  /* Floor: the cradle SVG is 74px tall and must not overhang the bar, so the
+     bar carries min-height: var(--bnav-min). */
+  --bnav-min: 74px;
   --bnav-h: calc(
     max(
         var(--bnav-min),
@@ -239,10 +236,10 @@ body {
      any given column and no seam can appear. The strip then overhangs the
      hole by --bnav-cutfix on each side to cover its antialiased edge. */
   --bnav-hole-half: 57px;
-  --bnav-hole-depth: 80px;
+  --bnav-hole-depth: 54px;
   --bnav-cutfix: 1.5px;
   --bnav-cradle-w: 375px; /* == viewBox width, do not scale */
-  --bnav-cradle-h: 92px; /* == viewBox height, do not scale */
+  --bnav-cradle-h: 74px; /* == viewBox height, do not scale */
 
   --bnav-hole-l: calc(50% - var(--bnav-hole-half));
   --bnav-hole-r: calc(50% + var(--bnav-hole-half));
@@ -330,11 +327,9 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  /* the 64px row that, with the bar's padding, makes a 102px bar — so the
-     46px-deep pocket keeps the proportion the cradle path was drawn for */
   min-height: var(--bnav-row);
-  gap: 8px;
-  padding: 5px;
+  gap: 4px;
+  padding: 3px 4px;
   color: rgba(250, 250, 250, 0.62);
   letter-spacing: 0.02em;
   background: none;
@@ -349,14 +344,14 @@ body {
 }
 
 .bnav__label {
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   font-weight: 600;
-  line-height: 1.5;
+  line-height: 1.25;
 }
 
 .bnav__icon {
-  width: 24px;
-  height: 24px;
+  width: 23px;
+  height: 23px;
   transition: transform 0.2s ease;
 }
 
@@ -366,7 +361,7 @@ body {
 
 .bnav__dot {
   position: absolute;
-  bottom: -3px;
+  bottom: -2.5px;
   /* left+translateX are load-bearing: without them the dot falls back to its
      static position, which puts it at the icon's left edge, not under it. */
   left: 50%;
@@ -536,7 +531,7 @@ body {
 
 /* Narrow phones: drop the labels so they cannot overflow, but keep the bar's
    metrics. Shrinking the row here is pointless — --bnav-min floors the bar at
-   92px either way, so a smaller row only shrinks the tap targets below the
+   74px either way, so a smaller row only shrinks the tap targets below the
    44px minimum while leaving the reclaimed height unused. --bnav-fab-lift also
    stays fixed: the cradle path was drawn against 22px, and reducing the lift
    would push the squircle into the pocket walls. */

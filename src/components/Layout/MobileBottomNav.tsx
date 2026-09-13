@@ -20,7 +20,7 @@ import { useNotificationBell } from "@/components/Layout/Navbar/useNotificationB
  * a 35px floor at y=46. Mirrored fillet back up at (233,0).
  */
 const CRADLE_PATH =
-  "M150 8A8 8 0 0 0 142 0H18A18 18 0 0 0 0 18V92H375V18A18 18 0 0 0 357 0H233A8 8 0 0 0 225 8V21C225 35 219 46 205 46H170C156 46 150 35 150 21V8Z";
+  "M150 8A8 8 0 0 0 142 0H18A18 18 0 0 0 0 18V74H375V18A18 18 0 0 0 357 0H233A8 8 0 0 0 225 8V21C225 35 219 46 205 46H170C156 46 150 35 150 21V8Z";
 
 type TabItem = {
   title: string;
@@ -334,7 +334,7 @@ export default function MobileBottomNav({
           <span className="bnav__bg" aria-hidden="true" />
 
           <span className="bnav__cradle" aria-hidden="true">
-            <svg width="375" height="92" viewBox="0 0 375 92" fill="none" focusable="false">
+            <svg width="375" height="74" viewBox="0 0 375 74" fill="none" focusable="false">
               <defs>
                 <clipPath id="bnavCradleInterior">
                   <path d={CRADLE_PATH} />

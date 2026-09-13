@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 
 import { courseLevelMap } from "./constants";
+import { courseSearchTokens } from "./search";
 import type { CourseListQuery } from "./validation";
 
 export const publicCourseSelect = {
@@ -28,41 +29,45 @@ export const publicCourseSelect = {
 export function buildCourseWhere(
   query: CourseListQuery,
 ): Prisma.CourseWhereInput {
+  const tokens = query.search ? courseSearchTokens(query.search) : [];
+
   return {
     status: "PUBLISHED",
     ...(query.category
       ? { category: { equals: query.category, mode: "insensitive" as const } }
       : {}),
     ...(query.level ? { level: courseLevelMap[query.level] } : {}),
-    ...(query.search
+    ...(tokens.length
       ? {
-          OR: [
-            { title: { contains: query.search, mode: "insensitive" as const } },
-            {
-              shortDescription: {
-                contains: query.search,
-                mode: "insensitive" as const,
+          AND: tokens.map((token) => ({
+            OR: [
+              { title: { contains: token, mode: "insensitive" as const } },
+              {
+                shortDescription: {
+                  contains: token,
+                  mode: "insensitive" as const,
+                },
               },
-            },
-            {
-              category: {
-                contains: query.search,
-                mode: "insensitive" as const,
+              {
+                category: {
+                  contains: token,
+                  mode: "insensitive" as const,
+                },
               },
-            },
-            {
-              subject: {
-                contains: query.search,
-                mode: "insensitive" as const,
+              {
+                subject: {
+                  contains: token,
+                  mode: "insensitive" as const,
+                },
               },
-            },
-            {
-              instructorName: {
-                contains: query.search,
-                mode: "insensitive" as const,
+              {
+                instructorName: {
+                  contains: token,
+                  mode: "insensitive" as const,
+                },
               },
-            },
-          ],
+            ],
+          })),
         }
       : {}),
   };

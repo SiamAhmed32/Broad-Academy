@@ -9,6 +9,8 @@ import type { CoursesListData } from "@/lib/courses/types";
 import { courseQueryParams } from "@/lib/courses/utils";
 import type { CourseListQuery, CourseSort } from "@/lib/courses/validation";
 
+const SEARCH_DEBOUNCE_MS = 300;
+
 export default function CourseFilters({
   query,
   categories,
@@ -20,7 +22,13 @@ export default function CourseFilters({
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
   const [searchVal, setSearchVal] = useState(query.search ?? "");
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queryRef = useRef(query);
+  queryRef.current = query;
+
+  useEffect(() => {
+    setSearchVal(query.search ?? "");
+  }, [query.search]);
 
   useEffect(
     () => () => {
@@ -29,13 +37,30 @@ export default function CourseFilters({
     [],
   );
 
-  function applyFilters(newQuery: Partial<CourseListQuery>) {
-    const params = courseQueryParams({ ...query, ...newQuery }, { page: 1 });
+  function applyFilters(
+    newQuery: Partial<CourseListQuery>,
+    options?: { replace?: boolean },
+  ) {
+    const params = courseQueryParams(
+      { ...queryRef.current, ...newQuery },
+      { page: 1 },
+    );
+    const href = `${pathname}${params.size ? `?${params}` : ""}`;
     startTransition(() => {
-      router.push(`${pathname}${params.size ? `?${params}` : ""}`, {
-        scroll: false,
-      });
+      if (options?.replace) {
+        router.replace(href, { scroll: false });
+      } else {
+        router.push(href, { scroll: false });
+      }
     });
+  }
+
+  function commitSearch(value: string) {
+    const next = value.trim();
+    const current = queryRef.current.search ?? "";
+    if (next === current) return;
+    if (next.length === 1 && !/^\d+$/.test(next)) return;
+    applyFilters({ search: next || undefined }, { replace: true });
   }
 
   function handleSearchChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -43,27 +68,36 @@ export default function CourseFilters({
     setSearchVal(value);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
-      applyFilters({ search: value });
-    }, 400);
+      commitSearch(value);
+    }, SEARCH_DEBOUNCE_MS);
+  }
+
+  function handleSearchSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    commitSearch(searchVal);
   }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 sm:flex-row">
-      <label className="relative flex-1">
-        <span className="sr-only">Search courses</span>
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-navy/40" />
-        <input
-          type="search"
-          value={searchVal}
-          onChange={handleSearchChange}
-          placeholder="Search course, subject, or instructor"
-          maxLength={80}
-          className="h-12 w-full rounded-full border border-navy/10 bg-white pl-11 pr-10 text-sm text-navy shadow-sm outline-none transition focus:border-btnBg focus:ring-4 focus:ring-btnBg/10"
-        />
+      <form className="relative flex-1" onSubmit={handleSearchSubmit}>
+        <label className="block">
+          <span className="sr-only">Search courses</span>
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-navy/40" />
+          <input
+            type="search"
+            value={searchVal}
+            onChange={handleSearchChange}
+            placeholder="Search course, subject, or instructor"
+            maxLength={80}
+            autoComplete="off"
+            className="h-12 w-full rounded-full border border-navy/10 bg-white pl-11 pr-10 text-sm text-navy shadow-sm outline-none transition focus:border-btnBg focus:ring-4 focus:ring-btnBg/10"
+          />
+        </label>
         {isPending ? (
           <Loader2 className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-navy/40" />
         ) : null}
-      </label>
+      </form>
 
       <FilterSelect
         label="Subject"

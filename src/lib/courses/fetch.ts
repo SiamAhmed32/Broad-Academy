@@ -8,6 +8,11 @@ import {
   computeCourseContentStats,
 } from "./content-stats";
 import { featuredCourseRawOrderBy } from "./homepage-order";
+import {
+  courseSearchFilter,
+  courseSearchOrderBy,
+  hasTrigramSearch,
+} from "./search";
 import { getEnrollmentGuideVideo } from "@/lib/site/config";
 import type {
   CourseDetailData,
@@ -29,7 +34,7 @@ type CatalogueRow = {
 const fetchCachedCourses = unstable_cache(
   async (serializedQuery: string) =>
     fetchCoursesFromDatabase(JSON.parse(serializedQuery) as CourseListQuery),
-  ["courses-catalogue-v1"],
+  ["courses-catalogue-v2"],
   {
     revalidate: 60,
     tags: ["courses"],
@@ -164,10 +169,13 @@ export async function fetchCourseSlugs() {
 export async function fetchCoursesFromDatabase(
   query: CourseListQuery,
 ): Promise<CoursesListData> {
-  const orderClause =
+  const [sortOrder, useTrigram] = await Promise.all([
     query.sort === "featured"
-      ? await featuredCourseRawOrderBy()
-      : rawOrderBy(query.sort);
+      ? featuredCourseRawOrderBy()
+      : Promise.resolve(rawOrderBy(query.sort)),
+    hasTrigramSearch(),
+  ]);
+  const orderClause = courseSearchOrderBy(query.search, sortOrder, useTrigram);
 
   const rows = await db.$queryRaw<CatalogueRow[]>`
     WITH "filtered" AS (
@@ -193,7 +201,7 @@ export async function fetchCoursesFromDatabase(
         "badge",
         "publishedAt"
       FROM "Course"
-      WHERE ${filterConditions(query)}
+      WHERE ${filterConditions(query, useTrigram)}
     ),
     "ranked" AS (
       SELECT
@@ -304,23 +312,10 @@ export async function fetchCoursesFromDatabase(
   };
 }
 
-function filterConditions(query: CourseListQuery) {
+function filterConditions(query: CourseListQuery, useTrigram: boolean) {
   return Prisma.sql`
     "status" = 'PUBLISHED'::"CourseStatus"
-    ${
-      query.search
-        ? Prisma.sql`
-          AND to_tsvector(
-            'english',
-            coalesce("title", '') || ' ' ||
-            coalesce("shortDescription", '') || ' ' ||
-            coalesce("category", '') || ' ' ||
-            coalesce("subject", '') || ' ' ||
-            coalesce("instructorName", '')
-          ) @@ websearch_to_tsquery('english', ${query.search})
-        `
-        : Prisma.empty
-    }
+    ${courseSearchFilter(query.search, useTrigram)}
     ${
       query.category
         ? Prisma.sql`AND lower("category") = lower(${query.category})`
