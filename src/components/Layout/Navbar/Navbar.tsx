@@ -62,10 +62,11 @@ const Navbar = ({ navSession }: { navSession: NavSession | null }) => {
           </ul>
           <div className="flex items-center gap-2 lg:gap-3">
             {navSession ? (
-              <>
-                <UserNavMenu session={navSession} variant="light" />
+              <div className="flex items-center gap-1">
                 <NavNotificationBell navSession={navSession} placement="desktop" />
-              </>
+                <span className="mx-0.5 h-5 w-px bg-navy/10" aria-hidden />
+                <UserNavMenu session={navSession} variant="light" />
+              </div>
             ) : (
               <>
                 <PrimaryButton href="/login" className="border border-navy/15 bg-white text-navy hover:border-btnBg/40 hover:bg-btnBg/10 hover:text-btnBg">

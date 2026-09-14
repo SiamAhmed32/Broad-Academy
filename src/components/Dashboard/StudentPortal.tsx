@@ -143,11 +143,11 @@ export default function StudentPortal({
       <header className="sticky top-0 z-40 border-b border-navy/8 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex h-17 max-w-[96rem] items-center justify-between px-4 sm:px-6">
           <BrandLogo />
-          <div className="flex items-center gap-2">
-            <UserNavMenu session={portalNavSession} variant="light" />
+          <div className="flex items-center gap-1">
             {hasEnrollment ? (
               <NotificationBell variant="light" enabled initialUnreadCount={0} />
             ) : null}
+            <UserNavMenu session={portalNavSession} variant="light" />
             <Link
               href="/"
               className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-navy/55 transition hover:bg-navy/5 hover:text-navy sm:block"

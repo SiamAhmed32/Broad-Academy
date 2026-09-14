@@ -54,23 +54,23 @@ export function UserNavMenu({
         type="button"
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "flex items-center gap-2 rounded-xl py-1 pl-1 pr-2.5 text-left transition",
+          "flex h-10 items-center gap-2 rounded-full py-0.5 pl-1 pr-2.5 text-left transition",
           isLight
-            ? "border border-navy/10 bg-white shadow-sm hover:bg-navy/5"
-            : "border border-white/15 bg-white/5 hover:bg-white/10",
-          open && (isLight ? "ring-2 ring-btnBg/20" : "bg-white/10 ring-2 ring-white/20"),
+            ? "text-navy hover:bg-navy/5"
+            : "text-white hover:bg-white/10",
+          open && (isLight ? "bg-navy/5" : "bg-white/10"),
         )}
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="Account menu"
       >
-        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-btnBg to-btnBgDark text-[11px] font-bold text-white ring-1 ring-navy/10">
+        <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-btnBg to-navy text-[11px] font-bold text-white">
           {session.avatarUrl ? (
             <Image
               src={session.avatarUrl}
               alt=""
               fill
-              sizes="36px"
+              sizes="32px"
               className="object-cover"
             />
           ) : (
@@ -79,7 +79,7 @@ export function UserNavMenu({
         </span>
         <span
           className={cn(
-            "hidden max-w-[7rem] truncate text-sm font-semibold lg:block",
+            "hidden max-w-[7.5rem] truncate text-sm font-semibold lg:block",
             isLight ? "text-navy" : "text-white",
           )}
         >
@@ -87,8 +87,8 @@ export function UserNavMenu({
         </span>
         <ChevronDown
           className={cn(
-            "hidden h-4 w-4 transition lg:block",
-            isLight ? "text-navy/50" : "text-white/70",
+            "hidden h-3.5 w-3.5 shrink-0 transition lg:block",
+            isLight ? "text-navy/40" : "text-white/60",
             open && "rotate-180",
           )}
         />

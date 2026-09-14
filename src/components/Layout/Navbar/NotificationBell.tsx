@@ -32,19 +32,17 @@ export function NotificationBell({
         onMouseEnter={prefetchInboxNotifications}
         onFocus={prefetchInboxNotifications}
         className={cn(
-          "relative flex h-10 w-10 items-center justify-center rounded-lg border transition",
-          variant === "navbar"
-            ? "border-navy/12 bg-white text-navy shadow-sm hover:border-navy/25 hover:bg-navy/5"
-            : "border-navy/10 bg-white text-navy shadow-sm hover:bg-navy/5",
-          open && "border-btnBg/40 bg-btnBg/5 text-btnBg",
+          "relative flex h-10 w-10 items-center justify-center rounded-full text-navy/65 transition",
+          "hover:bg-navy/5 hover:text-navy",
+          open && "bg-btnBg/10 text-btnBg",
         )}
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
         aria-expanded={open}
         aria-haspopup="dialog"
       >
-        <Bell className="h-4.5 w-4.5" />
+        <Bell className="h-5 w-5" strokeWidth={1.8} />
         {unreadCount > 0 ? (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
+          <span className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#E11D48] px-1 text-[10px] font-bold leading-none text-white ring-[2px] ring-white">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         ) : null}
