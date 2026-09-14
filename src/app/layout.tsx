@@ -6,6 +6,7 @@ import MobileBottomNav from "@/components/Layout/MobileBottomNav";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getNavSession } from "@/lib/nav/session";
 import { getSiteUrl } from "@/lib/site/url";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -66,6 +67,7 @@ export default async function RootLayout({
           signedIn={Boolean(user)}
           initialUnreadCount={navSession?.unreadCount ?? 0}
         />
+        <Analytics />
       </body>
     </html>
   );
