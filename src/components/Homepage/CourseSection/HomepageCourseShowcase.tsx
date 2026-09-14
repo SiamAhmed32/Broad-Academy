@@ -49,7 +49,7 @@ export default function HomepageCourseShowcase({
       <div className="mt-10 rounded-[1.75rem] border border-dashed border-navy/15 bg-white/70 px-6 py-16 text-center">
         <p className="text-lg font-semibold text-navy">Courses coming soon</p>
         <p className="mt-2 text-sm text-navy/60">
-          Featured programs will appear here once published.
+          Courses will appear here once published.
         </p>
       </div>
     );
@@ -114,7 +114,7 @@ export default function HomepageCourseShowcase({
         <div className="mt-6 flex items-center justify-center gap-3 px-1">
           <CarouselButton ref={prevRef} direction="prev" />
           <p className="text-center text-[11px] font-medium uppercase tracking-[0.14em] text-navy/40">
-            Featured courses
+            Courses
           </p>
           <CarouselButton ref={nextRef} direction="next" />
         </div>

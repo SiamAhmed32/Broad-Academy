@@ -37,6 +37,7 @@ export const adminCourseSchema = z.object({
   originalPrice: z.coerce.number().int().min(0).optional().nullable(),
   durationMinutes: z.coerce.number().int().min(1),
   lessonCount: z.coerce.number().int().min(0).default(0),
+  examCount: z.coerce.number().int().min(0).default(0),
   featured: z.boolean().default(false),
   homepageOrder: z.coerce.number().int().min(0).max(9999).default(0),
   badge: z.string().trim().max(40).optional().nullable(),
@@ -317,6 +318,10 @@ export const adminExamSchema = z
     startsAt: examDateSchema.optional(),
     endsAt: examDateSchema.optional(),
     status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).default("DRAFT"),
+    courseId: z.preprocess(
+      (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+      z.string().trim().min(1).optional().nullable(),
+    ),
   })
   .superRefine((data, ctx) => {
     if (data.endsAt && data.startsAt && data.endsAt <= data.startsAt) {

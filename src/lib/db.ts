@@ -1,7 +1,7 @@
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "@/generated/prisma/client";
 
-const PRISMA_CLIENT_VERSION = 10;
+const PRISMA_CLIENT_VERSION = 12;
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -24,6 +24,7 @@ function isStalePrismaClient(client: PrismaClient) {
     "classLevel",
     "avatarUrl",
     "avatarPublicId",
+    "googleId",
   ];
   const requiredModels = [
     "instructor",
@@ -42,7 +43,7 @@ function isStalePrismaClient(client: PrismaClient) {
     return true;
   }
 
-  if (!courseFields.includes("homepageOrder")) {
+  if (!courseFields.includes("homepageOrder") || !courseFields.includes("examCount")) {
     return true;
   }
 

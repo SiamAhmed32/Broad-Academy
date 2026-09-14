@@ -35,8 +35,8 @@ export const tabCategories: CourseTab[] = [
   { id: 4, label: "Class 8", value: "class-8" },
   { id: 5, label: "Class 9", value: "class-9" },
   { id: 6, label: "Class 10", value: "class-10" },
-  { id: 7, label: "Class 11", value: "class-11" },
-  { id: 8, label: "Class 12", value: "class-12" },
+  { id: 7, label: "SSC", value: "class-11" },
+  { id: 8, label: "Combo", value: "class-12" },
 ];
 
 export const coursesData: CourseItem[] = [

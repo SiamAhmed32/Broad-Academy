@@ -398,7 +398,7 @@ export default function MobileBottomNav({
                     mobile so it must not lazy-flash, while `priority` would
                     inject a preload on every route including the widths where
                     the whole bar is display:none */}
-                <Image src="/logo.jpeg" alt="" width={54} height={54} loading="eager" />
+                <Image src="/logo.png" alt="" width={54} height={54} loading="eager" />
               </span>
               <span className="bnav__fab-spark" aria-hidden="true" />
             </span>

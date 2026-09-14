@@ -6,9 +6,6 @@ interface BookingEmailData {
   email: string;
   phone: string;
   educationLevel: string;
-  subjectInterest: string;
-  preferredDate: string;
-  preferredTime: string;
   message?: string;
 }
 
@@ -66,15 +63,14 @@ function emailShell(heading: string, bodyHtml: string) {
 export async function sendBookingConfirmationEmail(data: BookingEmailData) {
   const { user } = getEmailConfig();
   const appName = "Broad Academy";
-  const formattedDate = formatSessionDate(data.preferredDate);
 
   await getMailTransporter().sendMail({
     from: `"${appName}" <${user}>`,
     to: data.email,
-    subject: `Your Counselling Session is Booked — ${appName}`,
-    text: `Hello ${data.fullName}, your counselling session has been booked for ${formattedDate} at ${data.preferredTime}. We will contact you soon to confirm.`,
+    subject: `Your Counselling Request Was Received — ${appName}`,
+    text: `Hello ${data.fullName}, your parent counselling request has been received. We will contact you soon to confirm the session.`,
     html: emailShell(
-      "Your Session is Booked! ✨",
+      "Your request was received",
       `
         <p style="margin:0 0 12px;font-size:16px">Hello ${escapeHtml(data.fullName)},</p>
         <p style="margin:0 0 24px;color:#61758a;line-height:1.7">
@@ -82,10 +78,8 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData) {
         </p>
         <div style="padding:20px;border-radius:16px;background:#f3f7fb">
           <table style="width:100%;border-collapse:collapse;font-size:14px">
-            <tr><td style="padding:8px 0;color:#61758a;width:140px">Date</td><td style="padding:8px 0;font-weight:600">${formattedDate}</td></tr>
-            <tr><td style="padding:8px 0;color:#61758a">Time</td><td style="padding:8px 0;font-weight:600">${escapeHtml(data.preferredTime)}</td></tr>
-            <tr><td style="padding:8px 0;color:#61758a">Education Level</td><td style="padding:8px 0;font-weight:600">${escapeHtml(data.educationLevel)}</td></tr>
-            <tr><td style="padding:8px 0;color:#61758a">Subject</td><td style="padding:8px 0;font-weight:600">${escapeHtml(data.subjectInterest)}</td></tr>
+            <tr><td style="padding:8px 0;color:#61758a;width:140px">Education Level</td><td style="padding:8px 0;font-weight:600">${escapeHtml(data.educationLevel)}</td></tr>
+            <tr><td style="padding:8px 0;color:#61758a">Phone</td><td style="padding:8px 0;font-weight:600">${escapeHtml(data.phone)}</td></tr>
           </table>
         </div>
       `,
@@ -96,17 +90,16 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData) {
     from: `"${appName}" <${user}>`,
     to: user,
     subject: `New Counselling Booking — ${escapeHtml(data.fullName)}`,
-    text: `New booking from ${data.fullName} (${data.email}, ${data.phone}) for ${formattedDate} at ${data.preferredTime}.`,
+    text: `New booking from ${data.fullName} (${data.email}, ${data.phone}) for ${data.educationLevel}.`,
     html: emailShell(
-      "📋 New Counselling Booking",
+      "New Counselling Booking",
       `
         <div style="padding:20px;border-radius:16px;background:#f3f7fb">
           <table style="width:100%;border-collapse:collapse;font-size:14px">
             <tr><td style="padding:8px 0;color:#61758a;width:140px">Name</td><td style="padding:8px 0;font-weight:600">${escapeHtml(data.fullName)}</td></tr>
             <tr><td style="padding:8px 0;color:#61758a">Email</td><td style="padding:8px 0;font-weight:600">${escapeHtml(data.email)}</td></tr>
             <tr><td style="padding:8px 0;color:#61758a">Phone</td><td style="padding:8px 0;font-weight:600">${escapeHtml(data.phone)}</td></tr>
-            <tr><td style="padding:8px 0;color:#61758a">Date</td><td style="padding:8px 0;font-weight:600">${formattedDate}</td></tr>
-            <tr><td style="padding:8px 0;color:#61758a">Time</td><td style="padding:8px 0;font-weight:600">${escapeHtml(data.preferredTime)}</td></tr>
+            <tr><td style="padding:8px 0;color:#61758a">Education Level</td><td style="padding:8px 0;font-weight:600">${escapeHtml(data.educationLevel)}</td></tr>
           </table>
         </div>
       `,

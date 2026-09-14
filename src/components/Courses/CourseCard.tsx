@@ -1,8 +1,7 @@
-import { ArrowRight, BookOpen, Clock3, UsersRound } from "lucide-react";
+import { ArrowRight, ClipboardList, GraduationCap } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-import { formatCourseDuration } from "@/lib/courses/content-format";
 import type { PublicCourse } from "@/lib/courses/types";
 import { cn } from "@/lib/utils";
 
@@ -15,14 +14,12 @@ export default function CourseCard({
   index?: number;
   variant?: "grid" | "carousel";
 }) {
-  const durationLabel = formatCourseDuration(
-    course.durationMinutes,
-    course.lessonCount,
-  );
   const discount =
     course.originalPrice && course.originalPrice > course.price
       ? Math.round((1 - course.price / course.originalPrice) * 100)
       : null;
+  const classCount = course.lessonCount ?? 0;
+  const examCount = course.examCount ?? 0;
 
   return (
     <article
@@ -41,7 +38,7 @@ export default function CourseCard({
           fill
           priority={index < 2}
           sizes="(max-width: 768px) 92vw, (max-width: 1024px) 50vw, 33vw"
-          className="object-cover transition duration-700 group-hover:scale-[1.03]"
+          className="object-cover object-top transition duration-700 group-hover:scale-[1.03]"
         />
       </div>
 
@@ -72,12 +69,14 @@ export default function CourseCard({
           </span>
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-2 border-t border-navy/10 pt-3.5">
-          <CourseMetric icon={BookOpen} label={`${course.lessonCount} Lessons`} />
-          <CourseMetric icon={Clock3} label={durationLabel} />
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-navy/10 pt-3.5">
           <CourseMetric
-            icon={UsersRound}
-            label={`${compactNumber(course.studentsCount)} Students`}
+            icon={GraduationCap}
+            label={`${classCount} ${classCount === 1 ? "Class" : "Classes"}`}
+          />
+          <CourseMetric
+            icon={ClipboardList}
+            label={`${examCount} ${examCount === 1 ? "Exam" : "Exams"}`}
           />
         </div>
 
@@ -100,20 +99,13 @@ function CourseMetric({
   icon: Icon,
   label,
 }: {
-  icon: typeof BookOpen;
+  icon: typeof GraduationCap;
   label: string;
 }) {
   return (
-    <span className="flex items-center gap-1.5 text-xs font-medium text-navy/60">
-      <Icon className="h-3.5 w-3.5 shrink-0 text-navy/40" />
+    <span className="flex items-center gap-1.5 text-sm font-semibold text-navy">
+      <Icon className="h-4 w-4 shrink-0 text-navy" />
       {label}
     </span>
   );
-}
-
-function compactNumber(value: number) {
-  return new Intl.NumberFormat("en", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
 }

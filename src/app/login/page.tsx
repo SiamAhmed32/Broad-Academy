@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { AuthPage } from "@/components/Auth";
 import { getCurrentUser } from "@/lib/auth/session";
+import { safeNextPath } from "@/lib/auth/paths";
 
 export const metadata = {
   title: "Log in",
@@ -19,11 +20,16 @@ export default async function LoginPage({
   if (user?.role === "ADMIN") redirect("/admin");
   if (user) redirect("/dashboard");
 
-  const next = safeNextPath((await searchParams).next);
-  return <AuthPage mode="login" nextPath={next} />;
-}
-
-function safeNextPath(value: string | string[] | undefined) {
-  const path = Array.isArray(value) ? value[0] : value;
-  return path?.startsWith("/") && !path.startsWith("//") ? path : "/dashboard";
+  const params = await searchParams;
+  const next = safeNextPath(params.next);
+  const oauthError = Array.isArray(params.error) ? params.error[0] : params.error;
+  const oauthDebug = Array.isArray(params.debug) ? params.debug[0] : params.debug;
+  return (
+    <AuthPage
+      mode="login"
+      nextPath={next}
+      oauthError={oauthError}
+      oauthDebug={oauthDebug}
+    />
+  );
 }

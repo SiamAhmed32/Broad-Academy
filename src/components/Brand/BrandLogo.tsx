@@ -20,35 +20,35 @@ export default function BrandLogo({
     <Link
       href={href}
       aria-label="Broad Academy home"
-      className={cn("inline-flex items-center gap-3", className)}
+      className={cn("inline-flex items-center gap-2.5", className)}
     >
-      <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-lg shadow-black/10">
+      <span className="relative h-14 w-14 shrink-0 overflow-hidden">
         <Image
-          src="/logo.jpeg"
+          src="/logo.png"
           alt=""
           fill
-          sizes="44px"
-          className="object-cover"
+          sizes="56px"
+          className="object-contain"
           priority
         />
       </span>
       {!compact && (
-        <span className="leading-none">
+        <span className="flex flex-col justify-center leading-none">
           <span
             className={cn(
-              "block text-base font-bold tracking-[-0.03em]",
-              inverse ? "text-white" : "text-navy",
+              "text-[12px] font-semibold tracking-[0.01em]",
+              inverse ? "text-white/80" : "text-navy/70",
             )}
           >
-            Broad Academy
+            Broad
           </span>
           <span
             className={cn(
-              "mt-1 block text-[9px] font-semibold uppercase tracking-[0.19em]",
-              inverse ? "text-white/55" : "text-accent",
+              "mt-0.5 text-[1.15rem] font-extrabold tracking-[-0.03em]",
+              inverse ? "text-white" : "text-navy",
             )}
           >
-            Grow to infinity
+            Academy
           </span>
         </span>
       )}

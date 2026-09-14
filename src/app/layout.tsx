@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Noto_Sans_Bengali } from "next/font/google";
+import { Hind_Siliguri, Inter } from "next/font/google";
 import "./globals.css";
+import { FloatingScrollToTop } from "@/components/Layout/Footer/BackToTop";
 import MobileBottomNav from "@/components/Layout/MobileBottomNav";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getNavSession } from "@/lib/nav/session";
@@ -13,10 +14,10 @@ const inter = Inter({
   display: "swap",
 });
 
-const notoSansBengali = Noto_Sans_Bengali({
-  subsets: ["bengali"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-noto-bengali",
+const hindSiliguri = Hind_Siliguri({
+  subsets: ["bengali", "latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-hind-siliguri",
   display: "swap",
 });
 
@@ -54,10 +55,12 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`h-full antialiased ${inter.variable} ${notoSansBengali.variable}`}
+      className={`antialiased ${inter.variable} ${hindSiliguri.variable}`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-screen flex flex-col">
+        <div id="top" className="h-px w-full shrink-0" aria-hidden="true" />
         {children}
+        <FloatingScrollToTop />
         <MobileBottomNav
           canViewNotifications={navSession?.canViewNotifications ?? false}
           signedIn={Boolean(user)}

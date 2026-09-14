@@ -4,10 +4,9 @@ import { Loader2, Search } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
-import { courseSortOptions } from "@/lib/courses/constants";
 import type { CoursesListData } from "@/lib/courses/types";
 import { courseQueryParams } from "@/lib/courses/utils";
-import type { CourseListQuery, CourseSort } from "@/lib/courses/validation";
+import type { CourseListQuery } from "@/lib/courses/validation";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -108,18 +107,6 @@ export default function CourseFilters({
         {categories.map((category) => (
           <option key={category.value} value={category.value}>
             {category.label} ({category.count})
-          </option>
-        ))}
-      </FilterSelect>
-
-      <FilterSelect
-        label="Sort courses"
-        value={query.sort}
-        onChange={(value) => applyFilters({ sort: value as CourseSort })}
-      >
-        {courseSortOptions.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
           </option>
         ))}
       </FilterSelect>

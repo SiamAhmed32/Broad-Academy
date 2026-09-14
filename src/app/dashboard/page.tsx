@@ -1,8 +1,10 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { StudentPortal } from "@/components/Dashboard";
 import { getAuthenticatedSession } from "@/lib/auth/session";
-import { getStudentPortalData } from "@/lib/student/queries";
+import { emptyStudentPortal, getStudentPortalData } from "@/lib/student/queries";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Student Portal",
@@ -20,8 +22,24 @@ export default async function DashboardPage({
   if (!auth) redirect("/login");
   if (auth.user.role === "ADMIN") redirect("/admin");
 
-  const data = await getStudentPortalData(auth.user.id, auth.sessionId);
-  if (!data) notFound();
+  const data =
+    (await getStudentPortalData(auth.user.id, auth.sessionId)) ??
+    emptyStudentPortal(
+      {
+        id: auth.user.id,
+        fullName: auth.user.fullName,
+        email: auth.user.email,
+        phone: auth.user.phone,
+        studentId: auth.user.studentId,
+        classLevel: null,
+        avatarUrl: auth.user.avatarUrl,
+        status: auth.user.status,
+        emailVerifiedAt: null,
+        createdAt: new Date().toISOString(),
+        lastLoginAt: null,
+      },
+      auth.sessionId,
+    );
 
   const rawTab = (await searchParams).tab;
   return (

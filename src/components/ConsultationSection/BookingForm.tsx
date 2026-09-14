@@ -3,15 +3,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { CalendarCheck, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import {
   counsellingBookingSchema,
   type CounsellingBookingInput,
   EDUCATION_LEVELS,
-  SUBJECT_INTERESTS,
-  TIME_SLOTS,
 } from "@/lib/counselling/validation";
 import { apiFetch } from "@/lib/api/client";
 import FormField from "./FormField";
@@ -39,6 +37,8 @@ export default function BookingForm({
     register,
     handleSubmit,
     setError,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<CounsellingBookingInput>({
     resolver: zodResolver(counsellingBookingSchema),
@@ -47,13 +47,42 @@ export default function BookingForm({
       email: defaultValues?.email ?? "",
       phone: defaultValues?.phone ?? "",
       educationLevel: defaultValues?.educationLevel,
-      subjectInterest: defaultValues?.subjectInterest,
-      preferredDate: defaultValues?.preferredDate ?? "",
-      preferredTime: defaultValues?.preferredTime,
       message: defaultValues?.message ?? "",
       pricingAcknowledged: undefined,
     },
   });
+
+  useEffect(() => {
+    if (defaultValues?.email) return;
+
+    let cancelled = false;
+
+    async function prefillFromAccount() {
+      const result = await apiFetch<{
+        fullName?: string;
+        email?: string;
+        phone?: string | null;
+      }>("/api/profile");
+
+      if (cancelled || !result.success || !result.data) return;
+
+      const current = getValues();
+      if (!current.email.trim() && result.data.email) {
+        setValue("email", result.data.email, { shouldDirty: false });
+      }
+      if (!current.fullName.trim() && result.data.fullName) {
+        setValue("fullName", result.data.fullName, { shouldDirty: false });
+      }
+      if (!current.phone.trim() && result.data.phone) {
+        setValue("phone", result.data.phone, { shouldDirty: false });
+      }
+    }
+
+    void prefillFromAccount();
+    return () => {
+      cancelled = true;
+    };
+  }, [defaultValues?.email, getValues, setValue]);
 
   const onSubmit = async (data: CounsellingBookingInput) => {
     const result = await apiFetch<{ bookingId?: string }>("/api/counselling/book", {
@@ -78,11 +107,17 @@ export default function BookingForm({
       return;
     }
 
+    showSuccessToast();
     setIsSubmitted(true);
     onSuccess?.(result.data?.bookingId);
+    window.requestAnimationFrame(() => {
+      document.getElementById("booking-success")?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
   };
 
-  const today = new Date().toISOString().split("T")[0];
   const inputShell = isDashboard
     ? "rounded-xl border border-navy/10 bg-[#f7f9fc] px-4 py-3 text-sm text-navy placeholder:text-navy/35 outline-none transition focus:border-btnBg focus:bg-white focus:ring-2 focus:ring-btnBg/10"
     : undefined;
@@ -165,37 +200,6 @@ export default function BookingForm({
         />
       </div>
 
-      <FormSelect
-        label="Child's subject need"
-        id="booking-subjectInterest"
-        error={errors.subjectInterest?.message}
-        {...register("subjectInterest")}
-        options={SUBJECT_INTERESTS as unknown as string[]}
-        placeholder="Select a subject"
-        className={inputShell}
-      />
-
-      <div className={`grid grid-cols-1 gap-4 ${compact ? "" : "sm:grid-cols-2"}`}>
-        <FormField
-          label="Preferred date"
-          id="booking-preferredDate"
-          type="date"
-          min={today}
-          error={errors.preferredDate?.message}
-          {...register("preferredDate")}
-          className={inputShell}
-        />
-        <FormSelect
-          label="Preferred time"
-          id="booking-preferredTime"
-          error={errors.preferredTime?.message}
-          {...register("preferredTime")}
-          options={TIME_SLOTS as unknown as string[]}
-          placeholder="Select time"
-          className={inputShell}
-        />
-      </div>
-
       <div>
         <label
           htmlFor="booking-message"
@@ -256,27 +260,71 @@ export default function BookingForm({
   );
 }
 
+const SUCCESS_TOAST_MS = 6000;
+
+function showSuccessToast() {
+  if (typeof document === "undefined") return;
+
+  document.querySelector("[data-booking-success-toast]")?.remove();
+
+  const host = document.createElement("div");
+  host.setAttribute("data-booking-success-toast", "");
+  host.setAttribute("role", "status");
+  host.setAttribute("aria-live", "polite");
+  host.style.cssText = [
+    "position:fixed",
+    "top:24px",
+    "left:50%",
+    "transform:translateX(-50%)",
+    "z-index:400",
+    "display:flex",
+    "align-items:center",
+    "gap:12px",
+    "width:min(92vw,28rem)",
+    "background:#163351",
+    "color:#fff",
+    "border-radius:16px",
+    "padding:14px 20px",
+    "font-size:14px",
+    "font-weight:600",
+    "box-shadow:0 16px 40px rgba(22,51,81,0.28)",
+  ].join(";");
+  host.innerHTML =
+    '<span aria-hidden="true" style="color:#8cf0d0;font-size:18px;line-height:1">✓</span>' +
+    '<span class="font-bangla">আপনার রিকোয়েস্ট সফলভাবে জমা হয়েছে</span>';
+  document.body.appendChild(host);
+
+  window.setTimeout(() => host.remove(), SUCCESS_TOAST_MS);
+}
+
 function SuccessMessage({ dashboard }: { dashboard?: boolean }) {
+  useEffect(() => {
+    showSuccessToast();
+  }, []);
+
   return (
     <motion.div
+      id="booking-success"
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-      className="flex flex-col items-center justify-center py-10 text-center"
+      className="flex flex-col items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50/70 px-6 py-10 text-center"
     >
       <motion.div
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.1, type: "spring", stiffness: 200, damping: 15 }}
-        className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600"
+        className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-emerald-600 shadow-sm"
       >
         <CheckCircle2 className="h-9 w-9" />
       </motion.div>
-      <h3 className="mt-5 text-xl font-semibold text-navy">Request received</h3>
-      <p className="mt-2 max-w-sm text-sm leading-relaxed text-navy/55">
+      <h3 className="font-bangla mt-5 text-xl font-semibold text-navy">
+        আপনার রিকোয়েস্ট সফলভাবে জমা হয়েছে
+      </h3>
+      <p className="mt-2 max-w-sm text-sm leading-relaxed text-navy/70">
         {dashboard
           ? "We emailed you a summary. Our team will contact you shortly to confirm the parent counselling session and discuss fees."
-          : "Our academic advisor will reach out to confirm your parent counselling session and share pricing details."}
+          : "Our academic advisor will reach out soon to confirm your parent counselling session and share pricing details."}
       </p>
     </motion.div>
   );

@@ -1,9 +1,9 @@
 "use client";
 
 import { LogOut } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { logoutAndRedirect } from "@/lib/auth/logout-client";
 import { cn } from "@/lib/utils";
 
 export default function AdminLogoutButton({
@@ -11,18 +11,11 @@ export default function AdminLogoutButton({
 }: {
   collapsed?: boolean;
 }) {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   const handleLogout = async () => {
     setLoading(true);
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/login");
-      router.refresh();
-    } finally {
-      setLoading(false);
-    }
+    await logoutAndRedirect();
   };
 
   return (

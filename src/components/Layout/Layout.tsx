@@ -16,10 +16,10 @@ const Layout = async ({ children }: { children: ReactNode }) => {
         Exams or Notifications, so the hamburger menu and notification bell
         that used to live here would just be a second, weaker copy of it.
       */}
-      <header className="sticky top-0 z-50 hidden border-b border-navy/8 bg-white/95 backdrop-blur-md shadow-[0_1px_0_rgba(22,51,81,0.04)] md:block">
+      <header className="sticky top-0 z-[100] hidden border-b border-navy/8 bg-white/95 backdrop-blur-md shadow-[0_1px_0_rgba(22,51,81,0.04)] md:block">
         <Navbar navSession={navSession} />
       </header>
-      <main className="flex-1 overflow-x-hidden">
+      <main className="flex-1">
         {children}
       </main>
       <Footer navSession={navSession} />

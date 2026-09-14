@@ -77,6 +77,13 @@ export async function POST(request: NextRequest) {
 
   if (!fullUser) return errorResponse("User not found.", 404);
 
+  if (!fullUser.passwordHash) {
+    return errorResponse(
+      "This account uses Google sign-in, so it does not have a password yet.",
+      400,
+    );
+  }
+
   // Verify current password
   const isValid = await bcrypt.compare(currentPassword, fullUser.passwordHash);
   if (!isValid) {

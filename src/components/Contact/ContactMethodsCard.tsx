@@ -1,14 +1,18 @@
 import { Clock3, Mail, MapPin, Phone } from "lucide-react";
 
 import { contactDetails } from "@/components/data/contactData";
+import { WhatsAppIcon } from "@/components/icons/BrandIcons";
 
 const methods = [
   {
     icon: Phone,
-    label: "ফোন",
+    label: "ফোন / WhatsApp",
     value: contactDetails.phone,
-    tag: "জরুরি নয়",
-    href: contactDetails.phoneHref,
+    tag: "কল ও WhatsApp",
+    links: [
+      { href: contactDetails.phoneHref, label: "কল" },
+      { href: contactDetails.whatsappHref, label: "WhatsApp" },
+    ],
   },
   {
     icon: Mail,
@@ -27,7 +31,14 @@ const methods = [
     icon: Clock3,
     label: "সাপোর্ট সময়",
     value: contactDetails.hours,
-    tag: "২৪/৭ ফোনলাইন সাপোর্ট",
+    tag: "২৪/৭ সহায়তা",
+  },
+  {
+    icon: WhatsAppIcon,
+    label: "WhatsApp",
+    value: contactDetails.technicalWhatsapp,
+    tag: "সাইট সহায়তা",
+    href: contactDetails.technicalWhatsappHref,
   },
 ] as const;
 
@@ -58,14 +69,46 @@ const ContactMethodsCard = () => {
                 <p className="mt-1 break-words text-sm font-semibold text-[#0D1321]">
                   {method.value}
                 </p>
+                {"links" in method ? (
+                  <p className="mt-1.5 flex gap-3 text-xs font-semibold text-[#125BFF]">
+                    {method.links.map((link) => (
+                      <a
+                        key={link.href}
+                        href={link.href}
+                        target={link.href.startsWith("http") ? "_blank" : undefined}
+                        rel={
+                          link.href.startsWith("http")
+                            ? "noopener noreferrer"
+                            : undefined
+                        }
+                        className="hover:underline"
+                      >
+                        {link.label}
+                      </a>
+                    ))}
+                  </p>
+                ) : null}
               </div>
             </div>
           );
 
+          if ("links" in method) {
+            return <li key={method.label}>{content}</li>;
+          }
+
           if ("href" in method && method.href) {
             return (
               <li key={method.label}>
-                <a href={method.href} className="block transition hover:opacity-80">
+                <a
+                  href={method.href}
+                  target={method.href.startsWith("http") ? "_blank" : undefined}
+                  rel={
+                    method.href.startsWith("http")
+                      ? "noopener noreferrer"
+                      : undefined
+                  }
+                  className="block transition hover:opacity-80"
+                >
                   {content}
                 </a>
               </li>

@@ -156,6 +156,7 @@ export async function POST(request: NextRequest) {
       originalPrice: data.originalPrice ?? null,
       durationMinutes: data.durationMinutes,
       lessonCount: data.lessonCount,
+      examCount: data.examCount,
       featured: data.featured,
       homepageOrder: data.homepageOrder,
       badge: data.badge ?? null,

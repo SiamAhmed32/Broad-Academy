@@ -18,15 +18,9 @@ const emailSchema = z
   .max(254);
 
 export const EDUCATION_LEVELS = [
-  "Class 6",
-  "Class 7",
-  "Class 8",
   "Class 9",
   "Class 10",
   "SSC",
-  "HSC",
-  "University",
-  "Other",
 ] as const;
 
 export const SUBJECT_INTERESTS = [
@@ -65,24 +59,6 @@ export const counsellingBookingSchema = z.object({
   phone: phoneSchema,
   educationLevel: z.enum(EDUCATION_LEVELS, {
     error: "Select your education level.",
-  }),
-  subjectInterest: z.enum(SUBJECT_INTERESTS, {
-    error: "Select a subject.",
-  }),
-  preferredDate: z
-    .string()
-    .min(1, "Select a preferred date.")
-    .refine(
-      (val) => {
-        const date = new Date(val);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return date >= today;
-      },
-      { message: "Date must be today or a future date." }
-    ),
-  preferredTime: z.enum(TIME_SLOTS, {
-    error: "Select a preferred time slot.",
   }),
   message: z
     .string()

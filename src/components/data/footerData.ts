@@ -13,6 +13,9 @@ export const footerContact = {
   emailHref: `mailto:${contactDetails.email}`,
   phone: contactDetails.phone,
   phoneHref: contactDetails.phoneHref,
+  whatsappHref: contactDetails.whatsappHref,
+  technicalWhatsapp: contactDetails.technicalWhatsapp,
+  technicalWhatsappHref: contactDetails.technicalWhatsappHref,
   address: contactDetails.address,
   hours: contactDetails.hours,
 };

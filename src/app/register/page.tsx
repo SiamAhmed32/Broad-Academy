@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { AuthPage } from "@/components/Auth";
 import { getCurrentUser } from "@/lib/auth/session";
+import { safeNextPath } from "@/lib/auth/paths";
 
 export const metadata = {
   title: "Create account",
@@ -18,11 +19,8 @@ export default async function RegisterPage({
   const user = await getCurrentUser();
   if (user) redirect("/dashboard");
 
-  const next = safeNextPath((await searchParams).next);
-  return <AuthPage mode="signup" nextPath={next} />;
-}
-
-function safeNextPath(value: string | string[] | undefined) {
-  const path = Array.isArray(value) ? value[0] : value;
-  return path?.startsWith("/") && !path.startsWith("//") ? path : "/dashboard";
+  const params = await searchParams;
+  const next = safeNextPath(params.next);
+  const oauthError = Array.isArray(params.error) ? params.error[0] : params.error;
+  return <AuthPage mode="signup" nextPath={next} oauthError={oauthError} />;
 }

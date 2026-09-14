@@ -17,6 +17,7 @@ export type PublicCourse = {
   rating: number;
   reviewCount: number;
   studentsCount: number;
+  examCount: number;
   featured: boolean;
   badge: string | null;
   publishedAt: string | null;

@@ -34,6 +34,7 @@ type CourseForm = {
   originalPrice: number | null;
   durationMinutes: number;
   lessonCount: number;
+  examCount: number;
   featured: boolean;
   homepageOrder: number;
   badge: string;
@@ -184,6 +185,20 @@ export default function AdminCourseEditPage({ courseId }: { courseId: string }) 
                   </option>
                 ))}
               </AdminSelect>
+            </AdminField>
+            <AdminField
+              label="Exam count"
+              hint="Shown on course cards. Updates automatically when exams are linked."
+              error={fieldErrors.examCount?.[0]}
+            >
+              <AdminInput
+                type="number"
+                min={0}
+                value={form.examCount ?? 0}
+                onChange={(e) =>
+                  setForm({ ...form, examCount: Number(e.target.value) || 0 })
+                }
+              />
             </AdminField>
             <AdminField
               label="Instructor name"

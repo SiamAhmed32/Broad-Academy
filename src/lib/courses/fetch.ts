@@ -34,7 +34,7 @@ type CatalogueRow = {
 const fetchCachedCourses = unstable_cache(
   async (serializedQuery: string) =>
     fetchCoursesFromDatabase(JSON.parse(serializedQuery) as CourseListQuery),
-  ["courses-catalogue-v2"],
+  ["courses-catalogue-v4"],
   {
     revalidate: 60,
     tags: ["courses"],
@@ -84,6 +84,7 @@ async function fetchCourseBySlugFromDatabase(
       rating: true,
       reviewCount: true,
       studentsCount: true,
+      examCount: true,
       featured: true,
       badge: true,
       publishedAt: true,
@@ -132,6 +133,7 @@ async function fetchCourseBySlugFromDatabase(
         rating: true,
         reviewCount: true,
         studentsCount: true,
+        examCount: true,
         featured: true,
         badge: true,
         publishedAt: true,
@@ -196,6 +198,7 @@ export async function fetchCoursesFromDatabase(
         "rating",
         "reviewCount",
         "studentsCount",
+        "examCount",
         "featured",
         "homepageOrder",
         "badge",

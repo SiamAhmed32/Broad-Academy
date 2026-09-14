@@ -95,7 +95,8 @@ model User {
   fullName                   String
   email                      String              @unique
   phone                      String?
-  passwordHash               String
+  passwordHash               String?
+  googleId                   String?              @unique
   role                       UserRole            @default(STUDENT)
   adminRole                  AdminStaffRole?
   permissions                String[]            @default([])
@@ -378,6 +379,7 @@ model Course {
   rating             Float               @default(0)
   reviewCount        Int                 @default(0)
   studentsCount      Int                 @default(0)
+  examCount          Int                 @default(0)
   featured           Boolean             @default(false)
   homepageOrder      Int                 @default(0)
   badge              String?
@@ -388,6 +390,7 @@ model Course {
   modules            CourseModule[]
   enrollments        Enrollment[]
   enrollmentRequests EnrollmentRequest[]
+  exams              Exam[]
 
   @@index([status, category])
   @@index([status, level])
@@ -706,6 +709,8 @@ model Exam {
   endsAt             DateTime
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
+  courseId           String?
+  course             Course?                 @relation(fields: [courseId], references: [id], onDelete: SetNull)
   questions          ExamQuestion[]
   enrollments        ExamEnrollment[]
   enrollmentRequests ExamEnrollmentRequest[]
@@ -713,6 +718,7 @@ model Exam {
 
   @@index([status, startsAt, endsAt])
   @@index([status, createdAt])
+  @@index([courseId])
 }
 
 model ExamQuestion {

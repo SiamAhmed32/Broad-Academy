@@ -2,7 +2,8 @@
 
 import PrimaryButton from "@/components/reusables/PrimaryButton";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
-import { BookOpen, Sparkles, Users } from "lucide-react";
+import { BookOpen, Users } from "lucide-react";
+import Link from "next/link";
 
 const HeroLeftSection = () => {
   const shouldReduceMotion = useReducedMotion();
@@ -33,22 +34,13 @@ const HeroLeftSection = () => {
       className="max-w-2xl"
       variants={containerVariants}
       initial="initial"
-      whileInView="animate"
-      viewport={{ amount: 0.4 }}
+      animate="animate"
     >
-      <motion.span
-        variants={itemVariants}
-        className="inline-flex items-center gap-2 rounded-full border border-btnBg/15 bg-white px-4 py-2 text-sm font-semibold text-btnBg shadow-sm"
-      >
-        <Sparkles className="h-4 w-4" />
-        100% Quality Courses
-      </motion.span>
-
       <motion.h1
         variants={itemVariants}
-        className="mt-6 max-w-2xl text-4xl font-extrabold leading-[1.15] tracking-[-0.025em] text-navy sm:text-5xl lg:text-[3.4rem]"
+        className="max-w-2xl text-4xl font-extrabold leading-[1.15] tracking-[-0.025em] text-navy sm:text-5xl lg:text-[3.25rem]"
       >
-        Building Brighter Futures Through Quality Education
+        Broad Academy — Learn Today, Lead Tomorrow, Grow to Infinity
       </motion.h1>
 
       <motion.div
@@ -58,11 +50,13 @@ const HeroLeftSection = () => {
 
       <motion.p
         variants={itemVariants}
-        className="mt-6 max-w-xl text-base leading-8 text-body sm:text-lg"
+        lang="bn"
+        className="font-bangla mt-6 max-w-xl text-[1.05rem] font-medium leading-[1.9] text-body sm:text-lg sm:leading-[1.95]"
       >
-        We empower students with expert guidance, practical learning and a
-        supportive community—helping every learner build confidence, develop
-        skills, and achieve lasting success.
+        স্বপ্ন শুধু দেখার জন্য নয়, পূরণ করার জন্য।
+        <br />
+        ভয় না পেয়ে শুরু করো, প্রতিদিন একটু একটু করে এগিয়ে যাও। তোমার সফলতার গল্প
+        শুরু হোক এখান থেকেই।
       </motion.p>
 
       <motion.div
@@ -77,13 +71,13 @@ const HeroLeftSection = () => {
           Meet Our Team
         </PrimaryButton>
 
-        <PrimaryButton
+        <Link
           href="/courses"
-          className="gap-2 border border-navy/15 bg-white px-6 py-3.5 text-sm font-semibold text-btnBg transition hover:bg-navy/5"
+          className="inline-flex items-center gap-2 rounded-lg border border-navy/15 bg-white px-6 py-3.5 text-sm font-semibold text-btnBg transition hover:bg-navy/10 hover:text-btnBg"
         >
           <BookOpen className="h-4 w-4" />
           Explore Courses
-        </PrimaryButton>
+        </Link>
       </motion.div>
     </motion.div>
   );

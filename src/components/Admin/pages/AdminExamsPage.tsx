@@ -58,6 +58,7 @@ type Exam = {
   status: ExamStatus;
   startsAt: string;
   endsAt: string;
+  courseId: string | null;
   createdAt: string;
   updatedAt: string;
   _count: { questions: number; attempts: number };
@@ -81,6 +82,7 @@ const emptyForm = {
   totalMarks: 30,
   negativeMarking: 0.25,
   status: "DRAFT" as ExamStatus,
+  courseId: "",
 };
 
 const emptyPagination: AdminPaginationMeta = {
@@ -103,6 +105,7 @@ export default function AdminExamsPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [counts, setCounts] = useState({ DRAFT: 0, PUBLISHED: 0, ARCHIVED: 0 });
+  const [courseOptions, setCourseOptions] = useState<Array<{ id: string; title: string }>>([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
@@ -151,6 +154,16 @@ export default function AdminExamsPage() {
     };
   }, [search, statusFilter, priceFilter, page, loadExams]);
 
+  useEffect(() => {
+    void adminFetch<{ courses: Array<{ id: string; title: string }> }>(
+      "/api/admin/courses?compact=true&limit=100",
+    ).then((result) => {
+      if (result.success && result.data?.courses) {
+        setCourseOptions(result.data.courses);
+      }
+    });
+  }, []);
+
   function openCreate() {
     setEditingExam(null);
     setForm(emptyForm);
@@ -173,6 +186,7 @@ export default function AdminExamsPage() {
       totalMarks: exam.totalMarks,
       negativeMarking: exam.negativeMarking,
       status: exam.status,
+      courseId: exam.courseId ?? "",
     });
     setFormError("");
     setFieldErrors({});
@@ -236,6 +250,7 @@ export default function AdminExamsPage() {
       totalMarks: Number(form.totalMarks),
       negativeMarking: Number(form.negativeMarking),
       status: form.status,
+      courseId: form.courseId || null,
       ...(editingExam
         ? {
             startsAt: editingExam.startsAt,
@@ -513,6 +528,22 @@ export default function AdminExamsPage() {
 
                 <AdminField label="Code" error={fieldErrors.code?.[0]} hint="Short identifier for reports">
                   <AdminInput name="code" value={form.code} onChange={handleFormChange} placeholder="EXAM" />
+                </AdminField>
+
+                <AdminField
+                  label="Linked course"
+                  hint="Used for the exam count on course cards"
+                  error={fieldErrors.courseId?.[0]}
+                  className="sm:col-span-2"
+                >
+                  <AdminSelect name="courseId" value={form.courseId} onChange={handleFormChange}>
+                    <option value="">No linked course</option>
+                    {courseOptions.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.title}
+                      </option>
+                    ))}
+                  </AdminSelect>
                 </AdminField>
 
                 <AdminField label="Description" error={fieldErrors.description?.[0]} className="sm:col-span-2">

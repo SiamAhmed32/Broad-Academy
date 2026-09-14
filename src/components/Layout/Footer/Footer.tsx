@@ -1,7 +1,8 @@
 import { Clock3, Mail, MapPin, Phone } from "lucide-react";
 import Link from "next/link";
+import type { ComponentType } from "react";
 
-import { BrandLogo } from "@/components/Brand";
+import BrandLogo from "@/components/Brand/BrandLogo";
 import {
   footerAccountLinksFor,
   footerContact,
@@ -10,6 +11,7 @@ import {
   footerSocialLinks,
   footerTagline,
 } from "@/components/data/footerData";
+import { WhatsAppIcon } from "@/components/icons/BrandIcons";
 import { Container } from "@/components/reusables";
 import type { NavSession } from "@/lib/nav/types";
 
@@ -46,7 +48,7 @@ const ContactRow = ({
   children,
   href,
 }: {
-  icon: typeof Mail;
+  icon: ComponentType<{ className?: string }>;
   children: React.ReactNode;
   href?: string;
 }) => {
@@ -65,6 +67,9 @@ const ContactRow = ({
         <a
           href={href}
           className="group flex items-start gap-3 text-sm text-white/65 transition hover:text-white"
+          {...(href.startsWith("http")
+            ? { target: "_blank", rel: "noopener noreferrer" }
+            : {})}
         >
           {content}
         </a>
@@ -129,12 +134,15 @@ const Footer = ({ navSession }: { navSession?: NavSession | null }) => {
               </ContactRow>
               <ContactRow icon={MapPin}>{footerContact.address}</ContactRow>
               <ContactRow icon={Clock3}>{footerContact.hours}</ContactRow>
+              <ContactRow icon={WhatsAppIcon} href={footerContact.technicalWhatsappHref}>
+                সাইট সহায়তা {footerContact.technicalWhatsapp}
+              </ContactRow>
             </ul>
           </div>
         </div>
 
         <div className="mt-12 flex flex-col gap-5 border-t border-white/10 py-8 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-white/45">
+          <p className="text-sm text-white/45" suppressHydrationWarning>
             © {new Date().getFullYear()} Broad Academy. All rights reserved.
           </p>
 

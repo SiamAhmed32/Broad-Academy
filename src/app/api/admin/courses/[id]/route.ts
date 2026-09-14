@@ -104,6 +104,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         ? { durationMinutes: data.durationMinutes }
         : {}),
       ...(data.lessonCount !== undefined ? { lessonCount: data.lessonCount } : {}),
+      ...(data.examCount !== undefined ? { examCount: data.examCount } : {}),
       ...(data.featured !== undefined ? { featured: data.featured } : {}),
       ...(data.homepageOrder !== undefined
         ? { homepageOrder: data.homepageOrder }

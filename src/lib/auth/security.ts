@@ -23,7 +23,16 @@ export function getClientIp(request: NextRequest) {
 export function isTrustedOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
   if (!origin) return process.env.NODE_ENV !== "production";
-  return origin === request.nextUrl.origin;
+  try {
+    const originHost = new URL(origin).host;
+    const requestHost =
+      request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
+      request.headers.get("host") ||
+      request.nextUrl.host;
+    return originHost === requestHost;
+  } catch {
+    return false;
+  }
 }
 
 export async function checkRateLimit(key: string) {

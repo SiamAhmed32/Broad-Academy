@@ -20,8 +20,9 @@ import {
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
+
+import { logoutAndRedirect } from "@/lib/auth/logout-client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface UserProfile {
@@ -82,7 +83,6 @@ interface ToastState {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ProfilePage({ user: initialUser }: { user: UserProfile }) {
-  const router = useRouter();
   const reduceMotion = useReducedMotion();
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [user, setUser] = useState<UserProfile>(initialUser);
@@ -96,9 +96,7 @@ export default function ProfilePage({ user: initialUser }: { user: UserProfile }
 
   async function handleLogout() {
     setLogoutPending(true);
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.replace("/login");
-    router.refresh();
+    await logoutAndRedirect();
   }
 
   const initials = getInitials(user.fullName);

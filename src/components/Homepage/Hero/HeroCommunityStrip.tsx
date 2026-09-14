@@ -43,11 +43,12 @@ const communityLinks = [
 const HeroCommunityStrip = () => {
   return (
     <div className="mt-10 rounded-2xl border border-navy/10 bg-white p-5 shadow-[0_10px_30px_rgba(22,51,81,0.06)] sm:mt-12 sm:p-6">
-      <p className="text-sm font-semibold text-navy">
-        Join our community
+      <p lang="bn" className="font-bangla text-base font-semibold leading-snug text-navy">
+        আমাদের কমিউনিটির সাথে যুক্ত থাকুন
       </p>
-      <p className="mt-1 text-xs text-navy/55">
-        Stay updated with lessons, tips, and announcements.
+      <p lang="bn" className="font-bangla mt-1.5 max-w-2xl text-sm font-medium leading-[1.85] text-navy/55">
+        শিক্ষামূলক আপডেট, ফ্রি রিসোর্স এবং গুরুত্বপূর্ণ ঘোষণাগুলো সবার আগে পেতে আমাদের
+        সাথে থাকুন।
       </p>
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">

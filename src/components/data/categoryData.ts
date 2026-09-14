@@ -49,16 +49,16 @@ export const categoryData: CategoryItem[] = [
   },
   {
     id: "class-11",
-    title: "Class 11",
-    subtitle: "Stream-focused learning",
+    title: "SSC",
+    subtitle: "Board-focused learning",
     description:
       "Advanced topics with deeper explanation and guided support.",
     subjectCount: 7,
   },
   {
     id: "class-12",
-    title: "Class 12",
-    subtitle: "Final-year mastery",
+    title: "Combo",
+    subtitle: "Combined preparation",
     description:
       "Final-year preparation with strategy, review, and exam practice.",
     subjectCount: 7,

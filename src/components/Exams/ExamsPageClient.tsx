@@ -3,14 +3,18 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { FileQuestion, Users, Zap } from "lucide-react";
+import { FileQuestion, Users } from "lucide-react";
 
 import ExamCard from "@/components/Exams/ExamCard";
 import type { ExamCardData } from "@/components/Exams/ExamCard";
 import { Container, SectionHeading } from "@/components/reusables";
+import {
+  EXAM_CLASS_CATEGORIES,
+  examMatchesClass,
+} from "@/lib/exams/class-filters";
 import { cn } from "@/lib/utils";
 
-type FilterTone = "navy" | "free" | "paid";
+type FilterTone = "navy" | "free";
 
 type ExamFilter = {
   key: string;
@@ -30,11 +34,6 @@ const toneClasses: Record<FilterTone, { active: string; idle: string }> = {
     active:
       "border-[#146c43] bg-[#146c43] text-white shadow-[0_10px_24px_rgba(20,108,67,0.25)]",
     idle: "border-[#146c43]/25 bg-white text-[#146c43] hover:bg-[#146c43]/5",
-  },
-  paid: {
-    active:
-      "border-[#c2540a] bg-[#c2540a] text-white shadow-[0_10px_24px_rgba(194,84,10,0.25)]",
-    idle: "border-[#c2540a]/25 bg-white text-[#c2540a] hover:bg-[#c2540a]/5",
   },
 };
 
@@ -59,22 +58,16 @@ export default function ExamsPageClient({
   }, []);
 
   const filters = useMemo<ExamFilter[]>(() => {
-    // One chip per exam code (SSC, Class 8, ...), most-used code first.
-    const codeCounts = new Map<string, number>();
-    for (const exam of exams) {
-      const code = exam.code?.trim();
-      if (code) codeCounts.set(code, (codeCounts.get(code) ?? 0) + 1);
-    }
-
-    const codeFilters = [...codeCounts.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .map<ExamFilter>(([code, count]) => ({
-        key: `code:${code}`,
-        label: code,
-        count,
-        tone: "navy",
-        match: (exam) => exam.code?.trim() === code,
-      }));
+    const classFilters = EXAM_CLASS_CATEGORIES.map((category) => ({
+      key: category.key,
+      label: category.label,
+      count: exams.filter((exam) =>
+        examMatchesClass(exam.code, category.key, exam.title),
+      ).length,
+      tone: "navy" as const,
+      match: (exam: ExamCardData) =>
+        examMatchesClass(exam.code, category.key, exam.title),
+    }));
 
     return [
       {
@@ -91,14 +84,7 @@ export default function ExamsPageClient({
         tone: "free",
         match: isFreeExam,
       },
-      {
-        key: "paid",
-        label: "Paid",
-        count: exams.filter((exam) => !isFreeExam(exam)).length,
-        tone: "paid",
-        match: (exam) => !isFreeExam(exam),
-      },
-      ...codeFilters,
+      ...classFilters,
     ];
   }, [exams]);
 
@@ -109,35 +95,8 @@ export default function ExamsPageClient({
 
   return (
     <div className="min-h-screen bg-[#f7f9fc]">
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-navy py-20 text-soft sm:py-24">
-        <div className="pointer-events-none absolute left-[-5rem] top-0 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-0 right-[-4rem] h-80 w-80 rounded-full bg-btnBg/15 blur-3xl" />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.1),transparent_40%)]" />
-
-        <Container className="relative text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, ease: "easeOut" }}
-          >
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-              <Zap className="h-3.5 w-3.5" />
-              Exam Arena
-            </span>
-            <h1 className="mt-5 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl lg:text-6xl">
-              Compete. Rank. <span className="text-accent">Improve.</span>
-            </h1>
-            <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-soft/75 sm:text-lg">
-              Join live MCQ competitions, track your score, and climb the
-              leaderboard with Broad Academy exams.
-            </p>
-          </motion.div>
-        </Container>
-      </section>
-
       <Container className="pb-16 pt-12 sm:pb-20 sm:pt-14">
-        <SectionHeading title="আমাদের এক্সাম ব্যাচসমুহ" />
+        <SectionHeading title="আমাদের এক্সাম ব্যাচসমূহ" />
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
           {filters.map((filter) => {

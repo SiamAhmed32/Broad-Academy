@@ -1,10 +1,8 @@
 import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 
-import {
-  SESSION_COOKIE_NAME,
-  SESSION_DAYS,
-} from "@/lib/auth/constants";
+import { SESSION_DAYS } from "@/lib/auth/constants";
+import { applySessionCookie } from "@/lib/auth/session-cookie";
 import { errorResponse } from "@/lib/auth/response";
 import {
   checkRateLimit,
@@ -152,16 +150,7 @@ export async function POST(request: NextRequest) {
     { status: 201, headers: { "Cache-Control": "no-store" } },
   );
 
-  response.cookies.set({
-    name: SESSION_COOKIE_NAME,
-    value: sessionToken,
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    expires: expiresAt,
-    priority: "high",
-  });
+  applySessionCookie(response, sessionToken, request, expiresAt);
 
   return response;
 }

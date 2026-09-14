@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Award, Clock3 } from "lucide-react";
+import { ArrowRight, Award, ClipboardList } from "lucide-react";
 import Link from "next/link";
 
 import { examBannerArt, examCardTheme } from "@/lib/exams/card-theme";
@@ -18,6 +18,7 @@ export type ExamCardData = {
   originalPrice: number | null;
   durationMinutes: number;
   totalMarks: number;
+  questionCount: number;
 };
 
 type ExamCardProps = {
@@ -45,6 +46,8 @@ export default function ExamCard({
     exam.originalPrice && exam.originalPrice > exam.price
       ? Math.round((1 - exam.price / exam.originalPrice) * 100)
       : null;
+  const questionCount = exam.questionCount ?? 0;
+  const totalMarks = exam.totalMarks ?? 0;
 
   return (
     <article
@@ -58,7 +61,7 @@ export default function ExamCard({
             <img
               src={bannerSrc}
               alt={exam.title}
-              className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
+              className="absolute inset-0 h-full w-full object-cover object-top transition duration-700 group-hover:scale-[1.03]"
             />
             <div className="pointer-events-none absolute inset-0 bg-navy/25" />
           </>
@@ -126,8 +129,14 @@ export default function ExamCard({
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-2 border-t border-navy/10 pt-3.5">
-          <ExamMetric icon={Award} label={`${exam.totalMarks} Marks`} />
-          <ExamMetric icon={Clock3} label={`${exam.durationMinutes} Minutes`} />
+          <ExamMetric
+            icon={ClipboardList}
+            label={`${questionCount} ${questionCount === 1 ? "Question" : "Questions"}`}
+          />
+          <ExamMetric
+            icon={Award}
+            label={`${totalMarks} ${totalMarks === 1 ? "Mark" : "Marks"}`}
+          />
         </div>
 
         <div className="mt-auto pt-5">
@@ -152,12 +161,12 @@ function ExamMetric({
   icon: Icon,
   label,
 }: {
-  icon: typeof Award;
+  icon: typeof ClipboardList;
   label: string;
 }) {
   return (
-    <span className="flex items-center gap-1.5 text-xs font-medium text-navy/60">
-      <Icon className="h-3.5 w-3.5 shrink-0 text-navy/40" />
+    <span className="flex items-center gap-1.5 text-sm font-semibold text-navy">
+      <Icon className="h-4 w-4 shrink-0 text-navy" />
       {label}
     </span>
   );

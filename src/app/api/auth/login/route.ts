@@ -1,17 +1,13 @@
 import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 
-import {
-  SESSION_COOKIE_NAME,
-  SESSION_DAYS,
-  SHORT_SESSION_HOURS,
-  MAX_ACTIVE_STUDENT_SESSIONS,
-} from "@/lib/auth/constants";
+import { MAX_ACTIVE_STUDENT_SESSIONS } from "@/lib/auth/constants";
+import { establishUserSession } from "@/lib/auth/establish-session";
+import { applySessionCookie } from "@/lib/auth/session-cookie";
 import { errorResponse } from "@/lib/auth/response";
 import {
   checkRateLimit,
   clearRateLimit,
-  createSessionToken,
   getClientIp,
   hashValue,
   isTrustedOrigin,
@@ -79,6 +75,14 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  if (user && !user.passwordHash) {
+    await recordFailedAttempt(rateKey);
+    return errorResponse(
+      "This account uses Google. Please continue with Google.",
+      401,
+    );
+  }
+
   const passwordMatches = await bcrypt.compare(
     password,
     user?.passwordHash || DUMMY_PASSWORD_HASH,
@@ -89,59 +93,13 @@ export async function POST(request: NextRequest) {
     return errorResponse("The email or password you entered is incorrect.", 401);
   }
 
-  const sessionToken = createSessionToken();
-  const sessionLengthMs = rememberMe
-    ? SESSION_DAYS * 24 * 60 * 60 * 1000
-    : SHORT_SESSION_HOURS * 60 * 60 * 1000;
-  const expiresAt = new Date(Date.now() + sessionLengthMs);
-  const userAgent = request.headers.get("user-agent")?.slice(0, 512) || null;
-
-  let signedOutOldestDevice = false;
-
-  await db.$transaction(async (tx) => {
-    await tx.session.deleteMany({
-      where: { userId: user.id, expiresAt: { lte: new Date() } },
+  const { sessionToken, expiresAt, signedOutOldestDevice } =
+    await establishUserSession({
+      userId: user.id,
+      role: user.role,
+      request,
+      rememberMe,
     });
-    await tx.session.create({
-      data: {
-        tokenHash: hashValue(sessionToken),
-        userId: user.id,
-        userAgent,
-        ipHash,
-        expiresAt,
-      },
-    });
-
-    if (user.role === "STUDENT") {
-      const staleSessions = await tx.session.findMany({
-        where: { userId: user.id },
-        orderBy: [{ lastUsedAt: "desc" }, { createdAt: "desc" }],
-        skip: MAX_ACTIVE_STUDENT_SESSIONS,
-        select: { id: true },
-      });
-      if (staleSessions.length) {
-        signedOutOldestDevice = true;
-        await tx.session.deleteMany({
-          where: { id: { in: staleSessions.map((session) => session.id) } },
-        });
-        try {
-          await tx.learningWatchLock.deleteMany({
-            where: {
-              userId: user.id,
-              sessionId: { in: staleSessions.map((session) => session.id) },
-            },
-          });
-        } catch {
-          // Table may not exist before migration patch is applied.
-        }
-      }
-    }
-
-    await tx.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-  });
 
   await clearRateLimit(rateKey);
 
@@ -155,16 +113,12 @@ export async function POST(request: NextRequest) {
     { headers: { "Cache-Control": "no-store" } },
   );
 
-  response.cookies.set({
-    name: SESSION_COOKIE_NAME,
-    value: sessionToken,
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    ...(rememberMe ? { expires: expiresAt } : {}),
-    priority: "high",
-  });
+  applySessionCookie(
+    response,
+    sessionToken,
+    request,
+    rememberMe ? expiresAt : undefined,
+  );
 
   return response;
 }

@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
   const user = await db.user.findUnique({
     where: { email },
-    select: { id: true, fullName: true, status: true },
+    select: { id: true, fullName: true, status: true, passwordHash: true },
   });
 
   await recordFailedAttempt(rateKey);
@@ -63,6 +63,13 @@ export async function POST(request: NextRequest) {
     return errorResponse(
       "No active account found for that email address.",
       404,
+    );
+  }
+
+  if (!user.passwordHash) {
+    return errorResponse(
+      "This account uses Google sign-in. Use Continue with Google on the login page.",
+      400,
     );
   }
 

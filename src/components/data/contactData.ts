@@ -1,11 +1,14 @@
 import { Clock3, Mail, MapPin, Phone } from "lucide-react";
 
 export const contactDetails = {
-  email: "broadacademybd@gmail.com.com",
+  email: "broadacademybd@gmail.com",
   phone: "+880 1710785565",
   phoneHref: "tel:+8801710785565",
+  whatsappHref: "https://wa.me/8801710785565",
+  technicalWhatsapp: "01575863753",
+  technicalWhatsappHref: "https://wa.me/8801575863753",
   address: "Dhaka, Bangladesh",
-  hours: "Saturday – Thursday, 10:00 AM – 8:00 PM",
+  hours: "10:00 AM – 11:00 PM",
   responseTime: "We usually reply within 1–2 business days.",
 };
 

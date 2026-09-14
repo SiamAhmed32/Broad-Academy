@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const exams = await db.exam.findMany({
+  const rows = await db.exam.findMany({
     where: { status: "PUBLISHED" },
     orderBy: { createdAt: "desc" },
     select: {
@@ -19,8 +19,14 @@ export async function GET() {
       originalPrice: true,
       durationMinutes: true,
       totalMarks: true,
+      _count: { select: { questions: true } },
     },
   });
+
+  const exams = rows.map(({ _count, ...exam }) => ({
+    ...exam,
+    questionCount: _count.questions,
+  }));
 
   const freeExams = exams.filter((e) => e.price === 0);
   const paidExams = exams.filter((e) => e.price > 0);

@@ -21,6 +21,7 @@ const publicCourseSelect = {
   rating: true,
   reviewCount: true,
   studentsCount: true,
+  examCount: true,
   featured: true,
   badge: true,
   publishedAt: true,
@@ -71,6 +72,6 @@ async function loadHomepageCourses(limit: number): Promise<PublicCourse[]> {
 
 export const fetchHomepageCourses = unstable_cache(
   async (limit = 6) => loadHomepageCourses(limit),
-  ["homepage-courses-v2"],
+  ["homepage-courses-v4"],
   { revalidate: 60, tags: ["courses"] },
 );

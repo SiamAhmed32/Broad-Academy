@@ -1,5 +1,5 @@
 import type { CourseLevel } from "@/generated/prisma/client";
-import type { CourseLevelSlug, CourseSort } from "./validation";
+import type { CourseLevelSlug } from "./validation";
 
 export const courseLevelMap: Record<CourseLevelSlug, CourseLevel> = {
   "class-6": "CLASS_6",
@@ -17,8 +17,8 @@ export const courseLevelLabels: Record<CourseLevel, string> = {
   CLASS_8: "Class 8",
   CLASS_9: "Class 9",
   CLASS_10: "Class 10",
-  CLASS_11: "Class 11",
-  CLASS_12: "Class 12",
+  CLASS_11: "SSC",
+  CLASS_12: "Combo",
 };
 
 export const courseLevelOptions = Object.entries(courseLevelMap).map(
@@ -27,15 +27,6 @@ export const courseLevelOptions = Object.entries(courseLevelMap).map(
     label: courseLevelLabels[enumValue],
   }),
 );
-
-export const courseSortOptions: { value: CourseSort; label: string }[] = [
-  { value: "featured", label: "Featured" },
-  { value: "popular", label: "Most popular" },
-  { value: "rating", label: "Top rated" },
-  { value: "newest", label: "Newest" },
-  { value: "price-low", label: "Price: low to high" },
-  { value: "price-high", label: "Price: high to low" },
-];
 
 export const courseLevelSlugs = Object.fromEntries(
   Object.entries(courseLevelMap).map(([slug, level]) => [level, slug]),

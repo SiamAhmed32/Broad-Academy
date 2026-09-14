@@ -54,7 +54,8 @@ export async function getEnrolledCourses(
     orderBy: { lastAccessedAt: "desc" },
   });
 
-  return enrollments.map(({ course, lastLessonId }) => {
+  return enrollments.flatMap(({ course, lastLessonId }) => {
+    if (!course) return [];
     const lessons = course.modules.flatMap((module) => module.lessons);
     const completedLessons = lessons.filter(
       (lesson) => lesson.progress[0]?.completed,
@@ -63,20 +64,22 @@ export async function getEnrolledCourses(
       lessons.find((lesson) => !lesson.progress[0]?.completed) ?? lessons[0];
     const lastLesson = lessons.find((lesson) => lesson.id === lastLessonId);
 
-    return {
-      id: course.id,
-      slug: course.slug,
-      title: course.title,
-      subject: course.subject,
-      thumbnailUrl: course.thumbnailUrl,
-      instructorName: course.instructorName,
-      completedLessons,
-      totalLessons: lessons.length,
-      progressPercent: lessons.length
-        ? Math.round((completedLessons / lessons.length) * 100)
-        : 0,
-      continueLessonSlug: lastLesson?.slug ?? firstIncomplete?.slug ?? null,
-    };
+    return [
+      {
+        id: course.id,
+        slug: course.slug,
+        title: course.title,
+        subject: course.subject,
+        thumbnailUrl: course.thumbnailUrl,
+        instructorName: course.instructorName,
+        completedLessons,
+        totalLessons: lessons.length,
+        progressPercent: lessons.length
+          ? Math.round((completedLessons / lessons.length) * 100)
+          : 0,
+        continueLessonSlug: lastLesson?.slug ?? firstIncomplete?.slug ?? null,
+      },
+    ];
   });
 }
 

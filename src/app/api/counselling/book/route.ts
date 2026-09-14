@@ -46,15 +46,7 @@ export async function POST(request: NextRequest) {
   }
 
   const data = parsed.data;
-
   const user = await getCurrentUser();
-  if (user && data.email.toLowerCase() !== user.email.toLowerCase()) {
-    return errorResponse(
-      "When booking from your account, use your registered email address.",
-      422,
-      { email: ["Use your account email address."] },
-    );
-  }
 
   // ── IP-based rate limiting ──
   const ipHash = hashValue(getClientIp(request));
@@ -120,7 +112,6 @@ export async function POST(request: NextRequest) {
   }
 
   const userAgent = request.headers.get("user-agent")?.slice(0, 512) || null;
-  const preferredDate = new Date(data.preferredDate);
 
   try {
     const booking = await db.$transaction(async (tx) => {
@@ -139,9 +130,9 @@ export async function POST(request: NextRequest) {
           email: normalizedEmail,
           phone: data.phone,
           educationLevel: data.educationLevel,
-          subjectInterest: data.subjectInterest,
-          preferredDate,
-          preferredTime: data.preferredTime,
+          subjectInterest: "To be discussed",
+          preferredDate: new Date(),
+          preferredTime: "To be confirmed",
           message: data.message || null,
           ipHash,
           userAgent,
@@ -150,24 +141,19 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    // Send emails in background (don't block response)
     sendBookingConfirmationEmail({
       fullName: data.fullName,
       email: data.email,
       phone: data.phone,
       educationLevel: data.educationLevel,
-      subjectInterest: data.subjectInterest,
-      preferredDate: data.preferredDate,
-      preferredTime: data.preferredTime,
       message: data.message,
     }).catch((err) => {
       console.error("Failed to send booking emails:", err);
     });
 
-    // Notify admins
     void notifyActiveAdmins({
       title: "New counselling booking",
-      content: `${data.fullName} booked a session for ${preferredDate.toLocaleDateString()} at ${data.preferredTime}.`,
+      content: `${data.fullName} requested parent counselling for ${data.educationLevel}.`,
       type: "BOOKING_CREATED",
       category: "ALERT",
       link: "/admin/counselling",

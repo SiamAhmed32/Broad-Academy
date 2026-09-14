@@ -172,7 +172,6 @@ export function CounsellingTab({
   }
 
   function handleBookSuccess() {
-    notify("Parent counselling request submitted. We'll contact you about fees soon.");
     setView("sessions");
     setPagination((current) => ({ ...current, page: 1 }));
     router.refresh();
@@ -260,7 +259,6 @@ export function CounsellingTab({
                 compact
                 lockedFields={[
                   "fullName",
-                  "email",
                   ...(profile.phone ? (["phone"] as const) : []),
                 ]}
                 defaultValues={{

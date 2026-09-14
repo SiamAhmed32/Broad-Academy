@@ -6,7 +6,7 @@ import CounsellingPageContent from "@/components/ConsultationSection/Counselling
 export const metadata: Metadata = {
   title: "Parent Academic Counselling",
   description:
-    "Parents can request a one-on-one academic guidance session to choose the right course, study plan, and support path for their child.",
+    "Request a parent counselling session. Our advisors will reach out personally to help you choose the right academic path for your child.",
 };
 
 export default function CounsellingPage() {

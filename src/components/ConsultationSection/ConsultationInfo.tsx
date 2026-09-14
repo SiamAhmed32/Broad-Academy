@@ -17,7 +17,7 @@ const ConsultationInfo = () => {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: false, amount: 0.6 }}
+          viewport={{ once: true, amount: 0.6 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
           className="flex items-center gap-3"
         >
@@ -30,7 +30,7 @@ const ConsultationInfo = () => {
         <motion.h2
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: false, amount: 0.5 }}
+          viewport={{ once: true, amount: 0.5 }}
           transition={{ duration: 0.55, delay: 0.1, ease: "easeOut" }}
           lang="bn"
           className="mt-6 text-3xl font-extrabold leading-[1.2] tracking-[-0.02em] text-navy sm:text-4xl"
@@ -41,7 +41,7 @@ const ConsultationInfo = () => {
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
-          viewport={{ once: false, amount: 0.6 }}
+          viewport={{ once: true, amount: 0.6 }}
           transition={{ duration: 0.4, delay: 0.2 }}
           className="mt-5 h-1 w-16 rounded-full bg-gradient-to-r from-navy to-btnBg"
         />
@@ -49,7 +49,7 @@ const ConsultationInfo = () => {
         <motion.p
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: false, amount: 0.6 }}
+          viewport={{ once: true, amount: 0.6 }}
           transition={{ duration: 0.5, delay: 0.15, ease: "easeOut" }}
           lang="bn"
           className="mt-6 max-w-xl text-base leading-8 text-body"
@@ -62,7 +62,7 @@ const ConsultationInfo = () => {
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: false, amount: 0.6 }}
+          viewport={{ once: true, amount: 0.6 }}
           transition={{ duration: 0.45, delay: 0.25, ease: "easeOut" }}
           className="mt-8 flex flex-wrap items-center gap-4"
         >

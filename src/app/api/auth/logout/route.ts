@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { SESSION_COOKIE_NAME, MAX_ACTIVE_STUDENT_SESSIONS } from "@/lib/auth/constants";
+import { SESSION_COOKIE_NAME } from "@/lib/auth/constants";
+import { clearSessionCookie } from "@/lib/auth/session-cookie";
 import { releaseWatchLockForSession } from "@/lib/auth/sessions";
 import { isTrustedOrigin, hashValue } from "@/lib/auth/security";
 import { db } from "@/lib/db";
@@ -29,15 +30,7 @@ export async function POST(request: NextRequest) {
     { success: true },
     { headers: { "Cache-Control": "no-store" } },
   );
-  response.cookies.set({
-    name: SESSION_COOKIE_NAME,
-    value: "",
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 0,
-  });
+  clearSessionCookie(response, request);
 
   return response;
 }

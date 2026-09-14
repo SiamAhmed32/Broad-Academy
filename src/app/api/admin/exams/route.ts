@@ -9,6 +9,7 @@ import { errorResponse } from "@/lib/auth/response";
 import { isTrustedOrigin } from "@/lib/auth/security";
 import { db } from "@/lib/db";
 import { isManagedCloudinaryImage } from "@/lib/media/images";
+import { syncCourseExamCount } from "@/lib/courses/sync-exam-count";
 
 export const runtime = "nodejs";
 
@@ -144,8 +145,11 @@ export async function POST(request: NextRequest) {
       status: data.status,
       startsAt: data.startsAt ?? new Date(),
       endsAt: data.endsAt ?? DEFAULT_EXAM_END,
+      courseId: data.courseId ?? null,
     },
   });
+
+  await syncCourseExamCount(data.courseId);
 
   return NextResponse.json(
     { success: true, data: exam },

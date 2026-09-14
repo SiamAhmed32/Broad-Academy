@@ -105,7 +105,7 @@ const StatsSection = () => {
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: false, amount: 0.35 }}
+          viewport={{ once: true, amount: 0.35 }}
           transition={{ duration: 0.55, ease: "easeOut" }}
           className="max-w-2xl"
         >
@@ -143,7 +143,7 @@ const StatsSection = () => {
                 key={stat.id}
                 initial={{ opacity: 0, y: 34, scale: 0.94 }}
                 whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                viewport={{ once: false, amount: 0.35 }}
+                viewport={{ once: true, amount: 0.35 }}
                 transition={{
                   duration: 0.55,
                   delay: index * 0.08,
@@ -158,7 +158,7 @@ const StatsSection = () => {
                 <motion.div
                   initial={{ rotate: -8, scale: 0.9 }}
                   whileInView={{ rotate: 0, scale: 1 }}
-                  viewport={{ once: false, amount: 0.5 }}
+                  viewport={{ once: true, amount: 0.5 }}
                   transition={{
                     type: "spring",
                     stiffness: 260,

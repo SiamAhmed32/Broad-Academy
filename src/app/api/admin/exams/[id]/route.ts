@@ -9,6 +9,7 @@ import { errorResponse } from "@/lib/auth/response";
 import { isTrustedOrigin } from "@/lib/auth/security";
 import { db } from "@/lib/db";
 import { isManagedCloudinaryImage } from "@/lib/media/images";
+import { syncCourseExamCount } from "@/lib/courses/sync-exam-count";
 
 export const runtime = "nodejs";
 
@@ -107,8 +108,14 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         status: data.status,
         startsAt: data.startsAt ?? existingExam.startsAt,
         endsAt: data.endsAt ?? existingExam.endsAt,
+        courseId: data.courseId ?? null,
       },
     });
+
+    await Promise.all([
+      syncCourseExamCount(existingExam.courseId),
+      syncCourseExamCount(data.courseId),
+    ]);
 
     return NextResponse.json({ success: true, data: exam });
   } catch (updateError) {
@@ -131,6 +138,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   if (!existingExam) return errorResponse("Exam not found.", 404);
 
   await db.exam.delete({ where: { id } });
+  await syncCourseExamCount(existingExam.courseId);
 
   return NextResponse.json({ success: true, message: "Exam deleted successfully." });
 }

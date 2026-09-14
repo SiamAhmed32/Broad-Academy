@@ -21,6 +21,7 @@ export const publicCourseSelect = {
   rating: true,
   reviewCount: true,
   studentsCount: true,
+  examCount: true,
   featured: true,
   badge: true,
   publishedAt: true,

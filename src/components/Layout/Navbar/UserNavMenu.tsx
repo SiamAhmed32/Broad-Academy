@@ -4,10 +4,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, LayoutDashboard, LogOut, Shield } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import type { NavSession } from "@/lib/nav/types";
+import { logoutAndRedirect } from "@/lib/auth/logout-client";
 import { cn } from "@/lib/utils";
 
 export function UserNavMenu({
@@ -17,7 +17,6 @@ export function UserNavMenu({
   session: NavSession;
   variant?: "navbar" | "light";
 }) {
-  const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -34,13 +33,7 @@ export function UserNavMenu({
 
   async function logout() {
     setPending(true);
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      router.replace("/login");
-      router.refresh();
-    } finally {
-      setPending(false);
-    }
+    await logoutAndRedirect();
   }
 
   const initials = session.fullName
@@ -61,7 +54,7 @@ export function UserNavMenu({
         type="button"
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "flex items-center gap-2 rounded-full py-1 pl-1 pr-2.5 text-left transition",
+          "flex items-center gap-2 rounded-xl py-1 pl-1 pr-2.5 text-left transition",
           isLight
             ? "border border-navy/10 bg-white shadow-sm hover:bg-navy/5"
             : "border border-white/15 bg-white/5 hover:bg-white/10",
@@ -71,7 +64,7 @@ export function UserNavMenu({
         aria-haspopup="menu"
         aria-label="Account menu"
       >
-        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-btnBg to-btnBgDark text-sm font-bold text-white shadow-sm">
+        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-btnBg to-btnBgDark text-[11px] font-bold text-white ring-1 ring-navy/10">
           {session.avatarUrl ? (
             <Image
               src={session.avatarUrl}
