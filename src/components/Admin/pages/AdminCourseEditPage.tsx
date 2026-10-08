@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, Trash2 } from "lucide-react";
 
 import {
   AdminButton,
@@ -18,8 +18,14 @@ import {
   AdminTextarea,
   useAdminToast,
 } from "@/components/Admin";
+import { useAdminCan } from "@/components/Admin/AdminPermissionsContext";
+import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
+import { CourseIncludesEditor } from "@/components/Admin/content/CourseIncludesEditor";
 import { adminFetch, slugifyInput } from "@/lib/admin/client";
-import { courseLevelLabels } from "@/lib/courses/constants";
+import {
+  COURSE_DESCRIPTION_MAX_LENGTH,
+  courseLevelLabels,
+} from "@/lib/courses/constants";
 import type { CourseLevel } from "@/generated/prisma/client";
 
 type CourseForm = {
@@ -40,6 +46,15 @@ type CourseForm = {
   homepageOrder: number;
   badge: string;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  description: string;
+  includes: string[];
+  facebookGroupUrl: string;
+};
+
+type CourseResponse = Omit<CourseForm, "description" | "includes" | "facebookGroupUrl"> & {
+  description: string | null;
+  includes: string[] | null;
+  facebookGroupUrl: string | null;
 };
 
 export default function AdminCourseEditPage({ courseId }: { courseId: string }) {
@@ -53,12 +68,18 @@ export default function AdminCourseEditPage({ courseId }: { courseId: string }) 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [form, setForm] = useState<CourseForm | null>(null);
   const { showToast } = useAdminToast();
+  const canManage = useAdminCan(ADMIN_PERMISSIONS.COURSES);
 
   useEffect(() => {
     async function load() {
-      const res = await adminFetch<CourseForm>(`/api/admin/courses/${courseId}`);
+      const res = await adminFetch<CourseResponse>(`/api/admin/courses/${courseId}`);
       if (res.success && res.data) {
-        setForm(res.data as CourseForm);
+        setForm({
+          ...res.data,
+          description: res.data.description ?? "",
+          includes: res.data.includes ?? [],
+          facebookGroupUrl: res.data.facebookGroupUrl ?? "",
+        });
       } else {
         setError(res.message ?? "Course not found.");
       }
@@ -82,7 +103,12 @@ export default function AdminCourseEditPage({ courseId }: { courseId: string }) 
       const { lessonCount: _lessonCount, durationMinutes: _durationMinutes, ...payload } = form;
       const res = await adminFetch<CourseForm>(`/api/admin/courses/${courseId}`, {
         method: "PATCH",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          description: form.description.trim() || null,
+          includes: form.includes.map((line) => line.trim()).filter(Boolean),
+          facebookGroupUrl: form.facebookGroupUrl.trim() || null,
+        }),
       });
 
       if (!res.success) {
@@ -126,13 +152,26 @@ export default function AdminCourseEditPage({ courseId }: { courseId: string }) 
         title="Edit course"
         description={form.title}
         actions={
-          <Link
-            href="/admin/courses"
-            className="inline-flex items-center gap-1 text-sm font-semibold text-slate-600 hover:text-navy"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to courses
-          </Link>
+          <div className="flex flex-wrap items-center gap-4">
+            {form.status === "PUBLISHED" ? (
+              <Link
+                href={`/courses/${form.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:text-navy"
+              >
+                View course page
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Link>
+            ) : null}
+            <Link
+              href="/admin/courses"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-slate-600 hover:text-navy"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to courses
+            </Link>
+          </div>
         }
       />
 
@@ -204,6 +243,7 @@ export default function AdminCourseEditPage({ courseId }: { courseId: string }) 
             </AdminField>
             <AdminField
               label="Instructor name"
+              hint="Separate several teachers with commas. Names matching an instructor profile show their photo on the course page."
               error={fieldErrors.instructorName?.[0]}
             >
               <AdminInput
@@ -337,7 +377,56 @@ export default function AdminCourseEditPage({ courseId }: { courseId: string }) 
                 />
               </AdminField>
             </div>
+
+            <div className="border-t border-slate-100 pt-5 sm:col-span-2">
+              <h2 className="text-base font-semibold text-navy">Course page content</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                What visitors see on the public course details page.
+              </p>
+            </div>
+            <div className="sm:col-span-2">
+              <AdminField
+                label="Course details (about)"
+                hint={`Shown under “কোর্স ডিটেইলস → কোর্স সম্পর্কে”. Line breaks are kept. ${form.description.length.toLocaleString("en-US")}/${COURSE_DESCRIPTION_MAX_LENGTH.toLocaleString("en-US")} characters.`}
+                error={fieldErrors.description?.[0]}
+              >
+                <AdminTextarea
+                  rows={10}
+                  maxLength={COURSE_DESCRIPTION_MAX_LENGTH}
+                  value={form.description}
+                  placeholder="কোর্সটি কাদের জন্য, কী কী শেখানো হবে, ক্লাস কীভাবে হবে…"
+                  className="font-bangla min-h-[220px] leading-7"
+                  invalid={Boolean(fieldErrors.description)}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                />
+              </AdminField>
+            </div>
+            <div className="sm:col-span-2">
+              <CourseIncludesEditor
+                value={form.includes}
+                onChange={(includes) => setForm({ ...form, includes })}
+                error={fieldErrors.includes?.[0]}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <AdminField
+                label="Private Facebook group link (optional)"
+                hint="Only enrolled students see this link, together with their unique access code. It is never shown on the public course page."
+                error={fieldErrors.facebookGroupUrl?.[0]}
+              >
+                <AdminInput
+                  type="url"
+                  inputMode="url"
+                  value={form.facebookGroupUrl}
+                  placeholder="https://www.facebook.com/groups/…"
+                  invalid={Boolean(fieldErrors.facebookGroupUrl)}
+                  onChange={(e) => setForm({ ...form, facebookGroupUrl: e.target.value })}
+                />
+              </AdminField>
+            </div>
+
             {error ? <p className="text-sm text-red-600 sm:col-span-2">{error}</p> : null}
+            {canManage ? (
             <div className="flex flex-wrap gap-2 sm:col-span-2">
               <AdminButton
                 type="submit"
@@ -351,6 +440,11 @@ export default function AdminCourseEditPage({ courseId }: { courseId: string }) 
                 Delete course
               </AdminButton>
             </div>
+            ) : (
+              <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 sm:col-span-2">
+                View only — you can see this course but not change it.
+              </p>
+            )}
           </form>
         </AdminCard>
       </motion.div>

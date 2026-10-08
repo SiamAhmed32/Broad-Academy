@@ -127,6 +127,7 @@ model User {
   examEnrollmentRequests         ExamEnrollmentRequest[] @relation("ExamEnrollmentRequester")
   reviewedExamEnrollmentRequests ExamEnrollmentRequest[] @relation("ExamEnrollmentReviewer")
   examAttempts                   ExamAttempt[]
+  teachingCourses                CourseTeacher[]
 
   @@index([role])
   @@index([adminRole])
@@ -329,6 +330,9 @@ model CounsellingBooking {
   preferredDate   DateTime
   preferredTime   String
   message         String?
+  schoolName      String?
+  classRoll       String?
+  studentGroup    String?
   status          CounsellingStatus @default(PENDING)
   ipHash          String?
   userAgent       String?
@@ -385,6 +389,9 @@ model Course {
   featured           Boolean             @default(false)
   homepageOrder      Int                 @default(0)
   badge              String?
+  description        String?
+  includes           String[]            @default([])
+  facebookGroupUrl   String?
   status             CourseStatus        @default(DRAFT)
   publishedAt        DateTime?
   createdAt          DateTime            @default(now())
@@ -393,6 +400,7 @@ model Course {
   enrollments        Enrollment[]
   enrollmentRequests EnrollmentRequest[]
   exams              Exam[]
+  teachers           CourseTeacher[]
 
   @@index([status, category])
   @@index([status, level])
@@ -407,6 +415,7 @@ model CourseModule {
   id           String   @id @default(cuid())
   courseId     String
   title        String
+  label        String?
   description  String?
   displayOrder Int      @default(0)
   createdAt    DateTime @default(now())
@@ -467,6 +476,7 @@ model Enrollment {
   grantedById    String?
   grantNote      String?
   grantedAt      DateTime?
+  accessCode     String?          @unique
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   course         Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
   grantedBy      User?            @relation("EnrollmentGranter", fields: [grantedById], references: [id], onDelete: SetNull)
@@ -545,6 +555,7 @@ model QuizQuestion {
   quizId       String
   prompt       String
   explanation  String?
+  explanationVideoUrl String?
   displayOrder Int          @default(0)
   quiz         Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
   options      QuizOption[]
@@ -676,6 +687,18 @@ model Notification {
   @@index([userId, archived, read, createdAt])
 }
 
+/// Staff members with the Teacher role who teach (and may edit) a course.
+model CourseTeacher {
+  courseId  String
+  userId    String
+  createdAt DateTime @default(now())
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([courseId, userId])
+  @@index([userId])
+}
+
 model Notice {
   id          String   @id @default(cuid())
   title       String
@@ -753,6 +776,7 @@ model ExamQuestion {
   imageUrl      String?
   imagePublicId String?
   explanation   String?
+  explanationVideoUrl String?
   displayOrder  Int          @default(0)
   exam          Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
   options       ExamOption[]

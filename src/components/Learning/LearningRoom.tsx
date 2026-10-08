@@ -26,6 +26,8 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { BrandLogo } from "@/components/Brand";
+import FacebookGroupAccess from "@/components/Learning/FacebookGroupAccess";
+import ExplanationVideoLink from "@/components/reusables/ExplanationVideoLink";
 import { ProtectedYouTubePlayer } from "@/components/Learning/ProtectedYouTubePlayer";
 import type {
   CurrentLearningLesson,
@@ -245,6 +247,14 @@ export default function LearningRoom({
             </AnimatePresence>
           </section>
 
+          {data.accessCode ? (
+            <FacebookGroupAccess
+              accessCode={data.accessCode}
+              groupUrl={data.course.facebookGroupUrl}
+              email={studentEmail}
+            />
+          ) : null}
+
           {theaterMode ? (
             <motion.section
               initial={reduceMotion ? false : { opacity: 0, y: 10 }}
@@ -443,7 +453,7 @@ function Curriculum({
               <summary className="group flex cursor-pointer list-none items-start justify-between gap-3 rounded-xl px-3 py-4 transition hover:bg-navy/4">
                 <span className="min-w-0">
                   <span className="block text-xs font-bold uppercase tracking-[0.12em] text-btnBg">
-                    Module {index + 1}
+                    {module.label || `Module ${index + 1}`}
                   </span>
                   <strong className="mt-1 block text-sm leading-5">{module.title}</strong>
                   <span className="mt-1 flex items-center gap-1.5 text-xs text-navy/40">
@@ -676,6 +686,10 @@ function QuizPanel({ quiz }: { quiz: PublicQuiz }) {
   }
 
   if (timed && !hasStarted) {
+    const instructionLines = (quiz.description ?? "")
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^\s*[-•*]\s*/, "").trim())
+      .filter(Boolean);
     const minutes = Math.floor((quiz.timeLimitSeconds ?? 0) / 60);
     const seconds = (quiz.timeLimitSeconds ?? 0) % 60;
     const durationLabel =
@@ -695,11 +709,6 @@ function QuizPanel({ quiz }: { quiz: PublicQuiz }) {
           <h2 className="mt-3 text-2xl font-bold text-navy sm:text-3xl">
             {quiz.title}
           </h2>
-          {quiz.description ? (
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-navy/60">
-              {quiz.description}
-            </p>
-          ) : null}
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
@@ -738,10 +747,17 @@ function QuizPanel({ quiz }: { quiz: PublicQuiz }) {
 
         <div className="mt-6 rounded-xl border border-amber-200/60 bg-amber-50/60 p-4 text-xs leading-relaxed text-amber-900">
           <p className="font-semibold">Important instructions:</p>
-          <ul className="mt-1.5 list-inside list-disc space-y-1 text-amber-800/90">
-            <li>The timer will start counting down as soon as you click <strong>Start exam</strong>.</li>
-            <li>If the timer reaches 0, your answers will be automatically submitted.</li>
-            <li>Please ensure you have a stable connection before starting.</li>
+          <ul className="font-bangla mt-1.5 list-inside list-disc space-y-1 text-sm text-amber-800/90">
+            {instructionLines.length ? (
+              // Admins write these in the quiz's "Instructions" field, one per line.
+              instructionLines.map((line, index) => <li key={index}>{line}</li>)
+            ) : (
+              <>
+                <li>The timer will start counting down as soon as you click <strong>Start exam</strong>.</li>
+                <li>If the timer reaches 0, your answers will be automatically submitted.</li>
+                <li>Please ensure you have a stable connection before starting.</li>
+              </>
+            )}
           </ul>
         </div>
 
@@ -852,6 +868,7 @@ type QuizResult = {
     selectedOptionIds: string[];
     correct: boolean;
     explanation: string | null;
+    explanationVideoUrl: string | null;
   }>;
 };
 
@@ -922,6 +939,9 @@ function QuizResultView({
                 <p className="mt-4 rounded-xl bg-[#f7f9fc] p-4 text-sm leading-6 text-navy/60">
                   {review.explanation}
                 </p>
+              ) : null}
+              {review?.explanationVideoUrl ? (
+                <ExplanationVideoLink url={review.explanationVideoUrl} />
               ) : null}
             </article>
           );

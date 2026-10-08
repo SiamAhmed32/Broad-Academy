@@ -28,3 +28,15 @@ export function lessonTypeLabel(type: "VIDEO" | "READING" | "QUIZ") {
   if (type === "READING") return "Reading";
   return "Video";
 }
+
+const banglaDigits = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
+
+/** "1,500" → "১,৫০০". Deterministic (no Intl locale data), so SSR and hydration match. */
+export function toBanglaDigits(value: string | number) {
+  return String(value).replace(/\d/g, (digit) => banglaDigits[Number(digit)]);
+}
+
+/** Course fee in Bangla digits, e.g. "৳১,৫০০". */
+export function formatBanglaTaka(amount: number) {
+  return `৳${toBanglaDigits(amount.toLocaleString("en-US"))}`;
+}

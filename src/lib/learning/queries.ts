@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { ensureEnrollmentAccessCode } from "@/lib/enrollments/access-code";
 import type {
   EnrolledCourseSummary,
   LearningRoomData,
@@ -120,6 +121,7 @@ export async function getLearningRoom(
     where: activeEnrollmentWhere(userId, courseSlug),
     select: {
       id: true,
+      accessCode: true,
       course: {
         select: {
           id: true,
@@ -128,11 +130,13 @@ export async function getLearningRoom(
           subject: true,
           instructorName: true,
           thumbnailUrl: true,
+          facebookGroupUrl: true,
           modules: {
             orderBy: { displayOrder: "asc" },
             select: {
               id: true,
               title: true,
+              label: true,
               description: true,
               displayOrder: true,
               lessons: {
@@ -248,8 +252,12 @@ export async function getLearningRoom(
     data: { lastAccessedAt: new Date(), lastLessonId: currentLesson.id },
   });
 
+  const accessCode =
+    enrollment.accessCode ?? (await ensureEnrollmentAccessCode(enrollment.id));
+
   return {
     enrollmentId: enrollment.id,
+    accessCode,
     course: {
       id: enrollment.course.id,
       slug: enrollment.course.slug,
@@ -257,6 +265,7 @@ export async function getLearningRoom(
       subject: enrollment.course.subject,
       instructorName: enrollment.course.instructorName,
       thumbnailUrl: enrollment.course.thumbnailUrl,
+      facebookGroupUrl: enrollment.course.facebookGroupUrl,
     },
     modules,
     currentLesson,

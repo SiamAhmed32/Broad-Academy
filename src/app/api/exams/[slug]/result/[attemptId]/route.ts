@@ -50,6 +50,7 @@ export async function GET(
       prompt: true,
       imageUrl: true,
       explanation: true,
+      explanationVideoUrl: true,
       displayOrder: true,
       options: {
         orderBy: { displayOrder: "asc" },

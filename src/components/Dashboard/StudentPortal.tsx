@@ -10,7 +10,6 @@ import {
   Clock3,
   Eye,
   EyeOff,
-  Gamepad2,
   GraduationCap,
   KeyRound,
   LayoutDashboard,
@@ -35,7 +34,6 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
 import { CounsellingTab } from "./CounsellingTab";
-import { StudentGameTab } from "./StudentGameTab";
 import { NotificationBell } from "@/components/Layout/Navbar/NotificationBell";
 import { UserNavMenu } from "@/components/Layout/Navbar/UserNavMenu";
 
@@ -56,7 +54,6 @@ const tabs = [
   { id: "courses", label: "My Courses", icon: BookOpenCheck },
   { id: "enrollments", label: "Enrollment Requests", icon: ReceiptText },
   { id: "counselling", label: "Counselling", icon: CalendarDays },
-  { id: "game", label: "Game", icon: Gamepad2 },
   { id: "progress", label: "Progress", icon: BarChart3 },
   { id: "quizzes", label: "Quiz Results", icon: Trophy },
   { id: "profile", label: "Profile", icon: UserRound },
@@ -64,6 +61,9 @@ const tabs = [
 ] as const;
 
 type PortalTab = (typeof tabs)[number]["id"];
+
+const toBanglaDigits = (value: number) =>
+  String(value).replace(/\d/g, (digit) => "০১২৩৪৫৬৭৮৯"[Number(digit)]);
 
 export default function StudentPortal({
   data,
@@ -292,12 +292,6 @@ export default function StudentPortal({
                   <EnrollmentRequests data={data} />
                 ) : activeTab === "counselling" ? (
                   <CounsellingTab profile={profile} notify={showToast} />
-                ) : activeTab === "game" ? (
-                  <StudentGameTab
-                    hasEnrollment={hasEnrollment}
-                    firstName={profile.fullName.split(/\s+/)[0] ?? "Student"}
-                    onBrowseEnrollments={() => selectTab("enrollments")}
-                  />
                 ) : activeTab === "progress" ? (
                   <Progress data={data} />
                 ) : activeTab === "quizzes" ? (
@@ -949,14 +943,14 @@ function Security({
             </button>
           ) : null}
           <div className="mt-5 space-y-3">
-            <div className="rounded-2xl bg-[#f7f9fc] p-4 text-xs leading-6 text-navy/55">
-              Your account can stay signed in on up to {data.devicePolicy.maxSessions} devices at once. Signing in on a third device signs out the oldest session automatically.
+            <div className="font-bangla rounded-2xl bg-[#f7f9fc] p-4 text-sm leading-7 text-navy/65">
+              তুমি একই সময়ে সর্বোচ্চ {toBanglaDigits(data.devicePolicy.maxSessions)}টি ডিভাইসে লগইন করে থাকতে পারবে। নতুন কোনো ডিভাইসে লগইন করলে, স্বয়ংক্রিয়ভাবে সবচেয়ে আগে লগইন করা ডিভাইসটি থেকে লগআউট হয়ে যাবে।
             </div>
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-900">
-              Only one device can play lesson videos at a time. If playback is blocked, sign out the other device here or wait about a minute after it stops.
+            <div className="font-bangla rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900">
+              একই সময়ে শুধু ১টি ডিভাইসে ভিডিও চালানো যাবে। ভিডিও চালাতে সমস্যা হলে অন্য ডিভাইস থেকে লগআউট করো অথবা সেখানে ভিডিও বন্ধ করার পর প্রায় ১ মিনিট অপেক্ষা করো বা রিলোড করো।
             </div>
-            <div className="rounded-2xl bg-[#f7f9fc] p-4 text-xs leading-6 text-navy/55">
-              Changing your password signs out every other device while keeping this session active.
+            <div className="font-bangla rounded-2xl bg-[#f7f9fc] p-4 text-sm leading-7 text-navy/65">
+              পাসওয়ার্ড পরিবর্তন করলে, বর্তমানে ব্যবহার করা এই ডিভাইসটি লগইন থাকবে, তবে অন্য সব ডিভাইস স্বয়ংক্রিয়ভাবে লগআউট হয়ে যাবে।
             </div>
           </div>
         </Panel>

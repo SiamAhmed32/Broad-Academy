@@ -19,6 +19,8 @@ import {
   AdminTextarea,
   useAdminToast,
 } from "@/components/Admin";
+import { useAdminCan } from "@/components/Admin/AdminPermissionsContext";
+import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
 import { adminFetch } from "@/lib/admin/client";
 
 type CourseOption = { id: string; title: string };
@@ -33,6 +35,7 @@ type QuizOption = { text: string; isCorrect: boolean; displayOrder: number };
 type QuizQuestion = {
   prompt: string;
   explanation: string;
+  explanationVideoUrl: string;
   displayOrder: number;
   options: QuizOption[];
 };
@@ -58,6 +61,7 @@ const emptyQuiz = (): Quiz => ({
 const emptyQuestion = (): QuizQuestion => ({
   prompt: "",
   explanation: "",
+  explanationVideoUrl: "",
   displayOrder: 0,
   options: [
     { text: "", isCorrect: true, displayOrder: 0 },
@@ -74,6 +78,7 @@ function mapQuizFromApi(data: QuizApiPayload): Quiz {
     questions: data.questions.map((q, qi) => ({
       prompt: q.prompt,
       explanation: q.explanation ?? "",
+      explanationVideoUrl: q.explanationVideoUrl ?? "",
       displayOrder: qi,
       options: q.options.map((o, oi) => ({
         text: o.text,
@@ -104,6 +109,7 @@ export default function AdminQuizzesPage() {
   const [error, setError] = useState("");
   const [quiz, setQuiz] = useState<Quiz>(emptyQuiz());
   const { showToast } = useAdminToast();
+  const canEdit = useAdminCan(ADMIN_PERMISSIONS.CONTENT);
 
   const syncUrl = useCallback(
     (nextCourseId: string, nextLessonId: string) => {
@@ -326,6 +332,7 @@ export default function AdminQuizzesPage() {
       questions: quiz.questions.map((q, qi) => ({
         prompt: q.prompt.trim(),
         explanation: q.explanation.trim() || null,
+        explanationVideoUrl: q.explanationVideoUrl.trim() || null,
         displayOrder: qi,
         options: q.options
           .filter((o) => o.text.trim())
@@ -535,13 +542,23 @@ export default function AdminQuizzesPage() {
                   </button>
                 ) : null}
               </div>
-              <AdminField label="Explanation (optional)" className="mt-4">
-                <AdminInput
-                  value={question.explanation}
-                  onChange={(e) => updateQuestion(qIndex, { explanation: e.target.value })}
-                  placeholder="Shown after answering"
-                />
-              </AdminField>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <AdminField label="Explanation (optional)">
+                  <AdminInput
+                    value={question.explanation}
+                    onChange={(e) => updateQuestion(qIndex, { explanation: e.target.value })}
+                    placeholder="Shown after answering"
+                  />
+                </AdminField>
+                <AdminField label="Explanation video (optional)" hint="YouTube link shown with the explanation.">
+                  <AdminInput
+                    value={question.explanationVideoUrl}
+                    onChange={(e) => updateQuestion(qIndex, { explanationVideoUrl: e.target.value })}
+                    placeholder="https://youtu.be/..."
+                    inputMode="url"
+                  />
+                </AdminField>
+              </div>
             </AdminCard>
           ))}
 
@@ -551,24 +568,30 @@ export default function AdminQuizzesPage() {
             </p>
           ) : null}
 
-          <div className="flex flex-wrap gap-2">
-            <AdminButton
-              type="button"
-              variant="ghost"
-              onClick={() =>
-                setQuiz((prev) => ({
-                  ...prev,
-                  questions: [...prev.questions, emptyQuestion()],
-                }))
-              }
-            >
-              <Plus className="h-4 w-4" />
-              Add question
-            </AdminButton>
-            <AdminButton type="submit" isLoading={saving}>
-              Save quiz
-            </AdminButton>
-          </div>
+          {canEdit ? (
+            <div className="flex flex-wrap gap-2">
+              <AdminButton
+                type="button"
+                variant="ghost"
+                onClick={() =>
+                  setQuiz((prev) => ({
+                    ...prev,
+                    questions: [...prev.questions, emptyQuestion()],
+                  }))
+                }
+              >
+                <Plus className="h-4 w-4" />
+                Add question
+              </AdminButton>
+              <AdminButton type="submit" isLoading={saving}>
+                Save quiz
+              </AdminButton>
+            </div>
+          ) : (
+            <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              View only — you can see this quiz but not change it.
+            </p>
+          )}
         </motion.form>
       )}
     </div>

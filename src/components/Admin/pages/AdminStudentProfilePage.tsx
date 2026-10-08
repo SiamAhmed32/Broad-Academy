@@ -27,6 +27,8 @@ import {
   AdminLoading,
   useAdminToast,
 } from "@/components/Admin";
+import { useAdminCan } from "@/components/Admin/AdminPermissionsContext";
+import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
 import {
   UserAccountModal,
   type WebsiteUserRecord,
@@ -131,6 +133,7 @@ export default function AdminStudentProfilePage({ studentId }: { studentId: stri
   const [accountAction, setAccountAction] = useState<"suspend" | "approve" | null>(null);
   const [accountFieldErrors, setAccountFieldErrors] = useState<{ message?: string[] }>({});
   const { showToast } = useAdminToast();
+  const canManageStudents = useAdminCan(ADMIN_PERMISSIONS.STUDENTS);
 
   const applyResult = useCallback((result: StudentProfile | null) => {
     setProfile(result);
@@ -353,9 +356,11 @@ export default function AdminStudentProfilePage({ studentId }: { studentId: stri
                       </AdminButton>
                     </Link>
                   ) : null}
-                  <AdminButton variant="secondary" onClick={openAccountModal}>
-                    Manage account
-                  </AdminButton>
+                  {canManageStudents ? (
+                    <AdminButton variant="secondary" onClick={openAccountModal}>
+                      Manage account
+                    </AdminButton>
+                  ) : null}
                 </div>
               </div>
             </AdminCard>

@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
         status: true,
         lastLoginAt: true,
         createdAt: true,
+        _count: { select: { teachingCourses: true } },
       },
       orderBy: [{ adminRole: "asc" }, { createdAt: "asc" }],
     }),

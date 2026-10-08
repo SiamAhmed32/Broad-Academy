@@ -32,6 +32,8 @@ import {
   useAdminToast,
   type AdminPaginationMeta,
 } from "@/components/Admin";
+import { useAdminCan } from "@/components/Admin/AdminPermissionsContext";
+import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
 import Modal from "@/components/reusables/Modal";
 import { adminFetch, formatAdminDate, slugifyInput } from "@/lib/admin/client";
 import { courseLevelLabels } from "@/lib/courses/constants";
@@ -105,6 +107,7 @@ export default function AdminCoursesPage() {
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState("");
   const { showToast } = useAdminToast();
+  const canManage = useAdminCan(ADMIN_PERMISSIONS.COURSES);
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -251,10 +254,12 @@ export default function AdminCoursesPage() {
         title="Courses"
         description="Create and manage courses. Published courses appear on the website."
         actions={
-          <AdminButton onClick={() => setShowForm((v) => !v)}>
-            <Plus className="h-4 w-4" />
-            Add new course
-          </AdminButton>
+          canManage ? (
+            <AdminButton onClick={() => setShowForm((v) => !v)}>
+              <Plus className="h-4 w-4" />
+              Add new course
+            </AdminButton>
+          ) : null
         }
       />
 
@@ -505,7 +510,7 @@ export default function AdminCoursesPage() {
                         </Link>
 
                         {/* Archive / Unarchive */}
-                        {course.status !== "ARCHIVED" ? (
+                        {!canManage ? null : course.status !== "ARCHIVED" ? (
                           <ActionBtn
                             title="Archive Course"
                             hoverClass="hover:border-amber-400/40 hover:bg-amber-50 hover:text-amber-600"
@@ -528,7 +533,7 @@ export default function AdminCoursesPage() {
                         )}
 
                         {/* Permanent delete — only for archived */}
-                        {course.status === "ARCHIVED" && (
+                        {canManage && course.status === "ARCHIVED" && (
                           <ActionBtn
                             title="Permanently Delete"
                             hoverClass="hover:border-red-300 hover:bg-red-50 hover:text-red-600"
@@ -609,7 +614,7 @@ export default function AdminCoursesPage() {
             <div className="mt-6 flex flex-wrap justify-between gap-3 border-t border-slate-100 pt-5">
               {/* Left side: archive / unarchive / delete */}
               <div className="flex flex-wrap gap-2">
-                {previewCourse.status !== "ARCHIVED" ? (
+                {!canManage ? null : previewCourse.status !== "ARCHIVED" ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -675,7 +680,7 @@ export default function AdminCoursesPage() {
             <h2 className="text-lg font-bold text-navy mb-2">{confirmConfig.title}</h2>
             <p className="text-sm text-slate-500 leading-relaxed mb-1">{confirmConfig.description}</p>
             <p className="text-sm font-semibold text-navy mt-3 mb-6 truncate px-4">
-              "{confirmAction.course.title}"
+              &ldquo;{confirmAction.course.title}&rdquo;
             </p>
             <div className="flex flex-col gap-2">
               <button

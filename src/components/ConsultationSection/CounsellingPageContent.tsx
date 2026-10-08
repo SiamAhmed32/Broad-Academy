@@ -14,12 +14,12 @@ export default function CounsellingPageContent() {
               <CalendarCheck className="h-5 w-5" />
             </span>
             <div>
-              <h1 className="text-lg font-semibold text-navy sm:text-xl">
-                Request a parent counselling session
+              <h1 className="font-bangla text-lg font-semibold text-navy sm:text-xl">
+                স্টাডি প্ল্যান ও কাউন্সেলিং সেশনের জন্য আবেদন করুন
               </h1>
-              <p className="mt-1 text-sm leading-6 text-navy/70">
-                Class 9 to SSC. We’ll confirm availability with you before the
-                session is finalised.
+              <p className="font-bangla mt-1 text-sm leading-6 text-navy/70">
+                সর্তকতার সাথে ফরমটি ফিলাপ করুন, খুব অল্প কথায় শিক্ষার্থীর সমস্যাগুলো
+                জানান পরবর্তীতে আমাদের টিম আপনার সাথে যোগাযোগ করবে।
               </p>
               <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800">
                 <ShieldCheck className="h-3.5 w-3.5" />

@@ -11,7 +11,7 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ attemptId: string }> },
 ) {
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.EXAMS);
+  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.EXAMS_VIEW);
   if (error) return error;
 
   const { attemptId } = await params;

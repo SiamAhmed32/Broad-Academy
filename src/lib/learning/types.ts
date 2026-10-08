@@ -20,6 +20,7 @@ export type CurrentLearningLesson = LearningLesson & {
 export type LearningModule = {
   id: string;
   title: string;
+  label: string | null;
   description: string | null;
   displayOrder: number;
   lessons: LearningLesson[];
@@ -46,6 +47,8 @@ export type PublicQuiz = {
 
 export type LearningRoomData = {
   enrollmentId: string;
+  /** Shared with the course's private Facebook group admin to verify join requests. */
+  accessCode: string | null;
   course: {
     id: string;
     slug: string;
@@ -53,6 +56,7 @@ export type LearningRoomData = {
     subject: string;
     instructorName: string;
     thumbnailUrl: string;
+    facebookGroupUrl: string | null;
   };
   modules: LearningModule[];
   currentLesson: CurrentLearningLesson;

@@ -93,6 +93,10 @@ export async function GET(request: NextRequest) {
     data: {
       bookings: bookings.map((booking) => ({
         id: booking.id,
+        fullName: booking.fullName,
+        schoolName: booking.schoolName,
+        classRoll: booking.classRoll,
+        studentGroup: booking.studentGroup,
         educationLevel: booking.educationLevel,
         subjectInterest: booking.subjectInterest,
         preferredDate: booking.preferredDate.toISOString(),

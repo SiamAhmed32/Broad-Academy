@@ -188,14 +188,14 @@ export function CounsellingTab({
         <div className="relative flex w-full min-w-0 flex-col gap-4 sm:gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-accent sm:text-xs sm:tracking-[0.22em]">
-              Parent academic support
+              Study plan &amp; guidance
             </p>
             <h1 className="mt-2 break-words text-2xl font-semibold text-navy sm:text-3xl lg:text-4xl">
-              Parent counselling sessions
+              Study Plan / Counselling
             </h1>
             <p className="mt-2 break-words text-sm leading-6 text-navy/55 sm:mt-3 sm:max-w-2xl sm:leading-7 sm:text-base">
-              Request a one-on-one guidance session for your child. Fees are confirmed by
-              our team before your appointment — no surprises.
+              Request a personal study plan or counselling session. Our team confirms the
+              schedule and fee with you before the appointment.
             </p>
           </div>
 
@@ -222,7 +222,7 @@ export function CounsellingTab({
                 className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-btnBg px-5 text-sm font-bold text-white shadow-lg shadow-btnBg/20 transition hover:bg-btnBg/90 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none sm:w-auto sm:hover:-translate-y-0.5 disabled:sm:hover:translate-y-0"
               >
                 <Plus className="h-4 w-4" />
-                {hasActiveBooking ? "Active request exists" : "Book parent session"}
+                {hasActiveBooking ? "Active request exists" : "Book a Session"}
               </button>
             )}
           </div>
@@ -248,21 +248,16 @@ export function CounsellingTab({
             transition={{ duration: 0.28 }}
             className="w-full min-w-0 rounded-2xl border border-navy/8 bg-white p-4 shadow-sm sm:p-6 lg:p-8"
           >
-            <h2 className="text-xl font-semibold text-navy">New parent counselling request</h2>
-            <p className="mt-2 text-sm text-navy/55">
-              Tell us what your child needs help with. We&apos;ll reach out to confirm
-              timing and session fees.
+            <h2 className="font-bangla text-xl font-semibold text-navy">স্টাডি প্ল্যান ও কাউন্সেলিং সেশনের জন্য আবেদন করুন</h2>
+            <p className="font-bangla mt-2 text-sm text-navy/55">
+              সর্তকতার সাথে ফরমটি ফিলাপ করুন, খুব অল্প কথায় শিক্ষার্থীর সমস্যাগুলো জানান
+              পরবর্তীতে আমাদের টিম আপনার সাথে যোগাযোগ করবে।
             </p>
             <div className="mt-6 max-w-3xl">
               <BookingForm
                 mode="dashboard"
                 compact
-                lockedFields={[
-                  "fullName",
-                  ...(profile.phone ? (["phone"] as const) : []),
-                ]}
                 defaultValues={{
-                  fullName: profile.fullName,
                   email: profile.email,
                   phone: profile.phone ?? "",
                 }}
@@ -338,11 +333,11 @@ export function CounsellingTab({
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-semibold text-navy">
-                                {booking.subjectInterest}
+                                {booking.fullName} · {booking.educationLevel}
                               </p>
                               <p className="mt-1 flex items-center gap-1.5 text-xs text-navy/45">
                                 <CalendarDays className="h-3.5 w-3.5" />
-                                {formatDate(booking.preferredDate)}
+                                Submitted {formatDate(booking.createdAt)}
                               </p>
                             </div>
                             <StatusBadge status={booking.status} compact />
@@ -461,8 +456,8 @@ function EmptySessions({ onBook }: { onBook: () => void }) {
       </div>
       <h3 className="mt-4 font-semibold text-navy">No sessions yet</h3>
       <p className="mt-2 max-w-xs text-sm leading-6 text-navy/45">
-        Book your first parent counselling session and our team will contact you
-        about fees and scheduling.
+        Book your first Study Plan / Counselling session and our team will contact
+        you about fees and scheduling.
       </p>
       <button
         type="button"
@@ -470,7 +465,7 @@ function EmptySessions({ onBook }: { onBook: () => void }) {
         className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-btnBg px-4 text-sm font-semibold text-white"
       >
         <Plus className="h-4 w-4" />
-        Book parent session
+        Book a Session
       </button>
     </div>
   );
@@ -563,6 +558,8 @@ function BookingDetails({
 
   const showPaymentSection =
     booking.paymentStatus !== "UNQUOTED" || booking.sessionFee != null;
+  // Students may share files only once staff have confirmed the session.
+  const canShareFiles = booking.status === "CONFIRMED";
 
   return (
     <div className="space-y-5 pb-4 sm:space-y-8 sm:pb-0">
@@ -590,13 +587,23 @@ function BookingDetails({
           </button>
         </div>
         <h2 className="mt-3 text-xl font-semibold tracking-tight text-navy sm:mt-4 sm:text-2xl">
-          {booking.subjectInterest}
+          Study Plan / Counselling
         </h2>
+        <p className="mt-1 text-sm text-navy/55">{booking.fullName}</p>
 
         <div className="mt-4 grid gap-3 rounded-2xl bg-[#f7f9fc] p-3.5 sm:mt-5 sm:gap-4 sm:p-4 sm:grid-cols-2">
-          <InfoCell icon={CalendarDays} label="Preferred date" value={formatDate(booking.preferredDate)} />
-          <InfoCell icon={Clock3} label="Preferred time" value={booking.preferredTime} />
-          <InfoCell icon={FileText} label="Education level" value={booking.educationLevel} />
+          <InfoCell icon={CalendarDays} label="Submission date" value={formatDate(booking.createdAt)} />
+          <InfoCell icon={Clock3} label="Session time" value={booking.preferredTime} />
+          <InfoCell icon={FileText} label="Class" value={booking.educationLevel} />
+          {booking.classRoll ? (
+            <InfoCell icon={FileText} label="Class roll" value={booking.classRoll} />
+          ) : null}
+          {booking.schoolName ? (
+            <InfoCell icon={FileText} label="School" value={booking.schoolName} />
+          ) : null}
+          {booking.studentGroup ? (
+            <InfoCell icon={FileText} label="Group" value={booking.studentGroup} />
+          ) : null}
         </div>
 
         {booking.status === "PENDING" ? (
@@ -694,22 +701,31 @@ function BookingDetails({
       <div className="border-t border-navy/8 pt-5 pb-4 sm:pt-6 sm:pb-2">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold text-navy">Shared files</p>
-          <label className="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-navy/10 bg-white px-3 py-2.5 text-xs font-bold text-navy transition hover:bg-navy/5 sm:w-auto sm:py-1.5">
-            {uploading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Upload className="h-3.5 w-3.5" />
-            )}
-            {uploading ? "Uploading..." : "Upload file"}
-            <input
-              type="file"
-              className="hidden"
-              onChange={handleFileUpload}
-              disabled={uploading}
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.txt,.zip"
-            />
-          </label>
+          {canShareFiles ? (
+            <label className="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-navy/10 bg-white px-3 py-2.5 text-xs font-bold text-navy transition hover:bg-navy/5 sm:w-auto sm:py-1.5">
+              {uploading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Upload className="h-3.5 w-3.5" />
+              )}
+              {uploading ? "Uploading..." : "Upload file"}
+              <input
+                type="file"
+                className="hidden"
+                onChange={handleFileUpload}
+                disabled={uploading}
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.txt,.zip"
+              />
+            </label>
+          ) : null}
         </div>
+
+        {!canShareFiles && booking.status === "PENDING" ? (
+          <p className="mb-4 rounded-xl border border-navy/8 bg-[#f7f9fc] px-4 py-3 text-xs leading-5 text-navy/60">
+            You can upload documents after our team reviews your request, talks with
+            you and confirms the session.
+          </p>
+        ) : null}
 
         {booking.files.length > 0 ? (
           <ul className="space-y-2">

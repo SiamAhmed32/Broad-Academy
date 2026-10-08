@@ -11,7 +11,7 @@ interface BookingModalProps {
 
 export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Request parent counselling">
+    <Modal isOpen={isOpen} onClose={onClose} title="Study Plan / Counselling">
       <div className="p-6 sm:p-8">
         <div className="mb-6">
           <div className="mb-3 flex items-center gap-2">
@@ -23,13 +23,12 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
               Fees confirmed before session
             </div>
           </div>
-          <h2 className="text-xl font-bold text-navy sm:text-2xl">
-            Request a parent counselling session
+          <h2 className="font-bangla text-xl font-bold text-navy sm:text-2xl">
+            স্টাডি প্ল্যান ও কাউন্সেলিং সেশনের জন্য আবেদন করুন
           </h2>
-          <p className="mt-1.5 text-sm leading-relaxed text-gray-500">
-            Tell us about your child&apos;s class, subject needs, and study
-            concerns. Our team will contact you to confirm timing and discuss
-            session fees before the appointment is scheduled.
+          <p className="font-bangla mt-1.5 text-sm leading-relaxed text-gray-500">
+            সর্তকতার সাথে ফরমটি ফিলাপ করুন, খুব অল্প কথায় শিক্ষার্থীর সমস্যাগুলো
+            জানান পরবর্তীতে আমাদের টিম আপনার সাথে যোগাযোগ করবে।
           </p>
         </div>
 

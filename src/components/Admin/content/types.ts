@@ -22,6 +22,7 @@ export type Lesson = {
 export type Module = {
   id: string;
   title: string;
+  label: string | null;
   displayOrder: number;
   lessons: Lesson[];
 };

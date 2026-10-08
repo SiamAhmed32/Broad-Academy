@@ -27,6 +27,15 @@ export async function POST(request: NextRequest) {
     return errorResponse("Request is too large.", 413);
   }
 
+  // ── Account required, so the team can reach the family and share files ──
+  const user = await getCurrentUser();
+  if (!user) {
+    return errorResponse(
+      "Please log in or create an account to book a Study Plan / Counselling session.",
+      401,
+    );
+  }
+
   // ── Parse body ──
   let body: unknown;
   try {
@@ -46,7 +55,7 @@ export async function POST(request: NextRequest) {
   }
 
   const data = parsed.data;
-  const user = await getCurrentUser();
+  const contactEmail = (data.email || user.email).toLowerCase();
 
   // ── IP-based rate limiting ──
   const ipHash = hashValue(getClientIp(request));
@@ -72,7 +81,7 @@ export async function POST(request: NextRequest) {
   // ── Per-email daily limit ──
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
-  const normalizedEmail = data.email.toLowerCase();
+  const normalizedEmail = contactEmail;
 
   const bookingsToday = await db.counsellingBooking.count({
     where: {
@@ -93,10 +102,7 @@ export async function POST(request: NextRequest) {
   const activeBookingWhere = {
     status: { in: ["PENDING", "CONFIRMED"] as ("PENDING" | "CONFIRMED")[] },
     archivedAt: null,
-    OR: [
-      ...(user ? [{ userId: user.id }] : []),
-      { email: normalizedEmail },
-    ],
+    OR: [{ userId: user.id }, { email: normalizedEmail }],
   };
 
   const existingActiveBooking = await db.counsellingBooking.findFirst({
@@ -134,16 +140,19 @@ export async function POST(request: NextRequest) {
           preferredDate: new Date(),
           preferredTime: "To be confirmed",
           message: data.message || null,
+          schoolName: data.schoolName,
+          classRoll: data.classRoll,
+          studentGroup: data.studentGroup || null,
           ipHash,
           userAgent,
-          ...(user ? { userId: user.id } : {}),
+          userId: user.id,
         },
       });
     });
 
     sendBookingConfirmationEmail({
       fullName: data.fullName,
-      email: data.email,
+      email: normalizedEmail,
       phone: data.phone,
       educationLevel: data.educationLevel,
       message: data.message,
@@ -153,7 +162,7 @@ export async function POST(request: NextRequest) {
 
     void notifyActiveAdmins({
       title: "New counselling booking",
-      content: `${data.fullName} requested parent counselling for ${data.educationLevel}.`,
+      content: `${data.fullName} (${data.educationLevel}, ${data.schoolName}) requested a Study Plan / Counselling session.`,
       type: "BOOKING_CREATED",
       category: "ALERT",
       link: "/admin/counselling",

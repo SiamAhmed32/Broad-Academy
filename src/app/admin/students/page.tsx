@@ -9,11 +9,11 @@ import {
 
 export default async function Page() {
   const user = await requireStaff();
-  const canViewUsers = hasAdminPermission(user, ADMIN_PERMISSIONS.STUDENTS);
+  const canViewUsers = hasAdminPermission(user, ADMIN_PERMISSIONS.STUDENTS_VIEW);
   const canViewEnrollments = hasAdminPermission(user, ADMIN_PERMISSIONS.ENROLLMENTS);
 
   if (!canViewUsers && !canViewEnrollments) {
-    await requireStaff(ADMIN_PERMISSIONS.STUDENTS);
+    await requireStaff(ADMIN_PERMISSIONS.STUDENTS_VIEW);
   }
 
   return (

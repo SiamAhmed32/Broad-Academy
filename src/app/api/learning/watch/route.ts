@@ -15,20 +15,31 @@ const claimSchema = z.object({
   lessonId: z.string().min(1).max(64),
   courseSlug: z.string().min(1).max(120),
   lessonSlug: z.string().min(1).max(120),
+  // The student pressed "Play here": move playback to this device.
+  takeover: z.boolean().optional(),
 });
+
+// The player treats this as a temporary problem and keeps playing.
+function lockUnavailableResponse() {
+  return errorResponse("Playback check is temporarily unavailable.", 503);
+}
 
 export async function GET() {
   const auth = await requireStudentSession();
   if (!auth) return errorResponse("Unauthorized.", 401);
 
-  const status = await getLearningWatchLockStatus(auth.user.id, auth.sessionId);
-  return NextResponse.json(
-    {
-      success: true,
-      ...status,
-    },
-    { headers: { "Cache-Control": "no-store" } },
-  );
+  try {
+    const status = await getLearningWatchLockStatus(auth.user.id, auth.sessionId);
+    return NextResponse.json(
+      {
+        success: true,
+        ...status,
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch {
+    return lockUnavailableResponse();
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -51,20 +62,26 @@ export async function POST(request: NextRequest) {
     return errorResponse("Invalid lesson details.", 422);
   }
 
-  const result = await claimLearningWatchLock(
-    auth.user.id,
-    auth.sessionId,
-    parsed.data.lessonId,
-    parsed.data.courseSlug,
-    parsed.data.lessonSlug,
-  );
+  let result: Awaited<ReturnType<typeof claimLearningWatchLock>>;
+  try {
+    result = await claimLearningWatchLock(
+      auth.user.id,
+      auth.sessionId,
+      parsed.data.lessonId,
+      parsed.data.courseSlug,
+      parsed.data.lessonSlug,
+      { takeover: parsed.data.takeover === true },
+    );
+  } catch {
+    return lockUnavailableResponse();
+  }
 
   if (!result.ok) {
     return NextResponse.json(
       {
         success: false,
         code: result.code,
-        message: `Another device (${result.device}) is already playing a lesson video. Sign out that device from Security in your dashboard, or wait about a minute after it stops.`,
+        message: `Another device (${result.device}) is already playing a lesson on your account.`,
         holderDevice: result.device,
       },
       { status: 409, headers: { "Cache-Control": "no-store" } },
@@ -85,7 +102,13 @@ export async function PATCH(request: NextRequest) {
   const auth = await requireStudentSession();
   if (!auth) return errorResponse("Unauthorized.", 401);
 
-  const result = await heartbeatLearningWatchLock(auth.user.id, auth.sessionId);
+  let result: Awaited<ReturnType<typeof heartbeatLearningWatchLock>>;
+  try {
+    result = await heartbeatLearningWatchLock(auth.user.id, auth.sessionId);
+  } catch {
+    return lockUnavailableResponse();
+  }
+
   if (!result.ok) {
     return NextResponse.json(
       {
@@ -114,7 +137,11 @@ export async function DELETE(request: NextRequest) {
   const auth = await requireStudentSession();
   if (!auth) return errorResponse("Unauthorized.", 401);
 
-  await releaseLearningWatchLock(auth.user.id, auth.sessionId);
+  try {
+    await releaseLearningWatchLock(auth.user.id, auth.sessionId);
+  } catch {
+    return lockUnavailableResponse();
+  }
   return NextResponse.json(
     { success: true },
     { headers: { "Cache-Control": "no-store" } },

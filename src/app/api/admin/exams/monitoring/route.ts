@@ -14,7 +14,7 @@ import {
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.EXAMS);
+  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.EXAMS_VIEW);
   if (error) return error;
 
   const parsed = adminExamMonitoringQuerySchema.safeParse(

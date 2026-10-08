@@ -17,6 +17,10 @@ export type StudentProfile = {
 
 export type CounsellingBookingSummary = {
   id: string;
+  fullName: string;
+  schoolName: string | null;
+  classRoll: string | null;
+  studentGroup: string | null;
   educationLevel: string;
   subjectInterest: string;
   preferredDate: string;

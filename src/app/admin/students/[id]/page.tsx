@@ -9,7 +9,7 @@ export default async function AdminStudentProfileRoute({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireStaff(ADMIN_PERMISSIONS.STUDENTS);
+  await requireStaff(ADMIN_PERMISSIONS.STUDENTS_VIEW);
   const { id } = await params;
   return <AdminStudentProfilePage studentId={id} />;
 }

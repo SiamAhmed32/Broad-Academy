@@ -5,6 +5,6 @@ import AdminExamMonitoringPage from "@/components/Admin/pages/AdminExamMonitorin
 export const metadata = { title: "Exam Monitoring | Admin" };
 
 export default async function AdminExamMonitoringRoute() {
-  await requireStaff(ADMIN_PERMISSIONS.EXAMS);
+  await requireStaff(ADMIN_PERMISSIONS.EXAMS_VIEW);
   return <AdminExamMonitoringPage />;
 }

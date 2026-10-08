@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
         select: {
           id: true,
           explanation: true,
+          explanationVideoUrl: true,
           options: {
             select: { id: true, isCorrect: true },
           },
@@ -112,6 +113,7 @@ export async function POST(request: NextRequest) {
       correctOptionIds: correctIds,
       correct,
       explanation: question.explanation,
+      explanationVideoUrl: question.explanationVideoUrl,
     };
   });
 

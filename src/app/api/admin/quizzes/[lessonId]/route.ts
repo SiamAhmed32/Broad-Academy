@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
+import { courseAccessError, courseIdForLesson } from "@/lib/admin/course-scope";
 import { requireStaffApi } from "@/lib/admin/guard";
 import { adminQuizSchema } from "@/lib/admin/validation";
 import { errorResponse } from "@/lib/auth/response";
@@ -10,10 +11,12 @@ import { db } from "@/lib/db";
 type RouteContext = { params: Promise<{ lessonId: string }> };
 
 export async function GET(_request: NextRequest, context: RouteContext) {
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
-  if (error) return error;
+  const { user, error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT_VIEW);
+  if (error || !user) return error!;
 
   const { lessonId } = await context.params;
+  const scopeDenied = await courseAccessError(user, await courseIdForLesson(lessonId));
+  if (scopeDenied) return scopeDenied;
   const quiz = await db.quiz.findUnique({
     where: { lessonId },
     include: {
@@ -32,10 +35,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     return errorResponse("Request origin could not be verified.", 403);
   }
 
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
-  if (error) return error;
+  const { user, error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
+  if (error || !user) return error!;
 
   const { lessonId } = await context.params;
+  const denied = await courseAccessError(user, await courseIdForLesson(lessonId));
+  if (denied) return denied;
   let body: unknown;
   try {
     body = await request.json();
@@ -68,6 +73,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
           create: parsed.data.questions.map((question) => ({
             prompt: question.prompt,
             explanation: question.explanation ?? null,
+            explanationVideoUrl: question.explanationVideoUrl ?? null,
             displayOrder: question.displayOrder,
             options: {
               create: question.options.map((option) => ({

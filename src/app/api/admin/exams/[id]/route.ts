@@ -31,7 +31,7 @@ function examSaveErrorMessage(error: unknown) {
 }
 
 export async function GET(_request: NextRequest, context: RouteContext) {
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.EXAMS);
+  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.EXAMS_VIEW);
   if (error) return error;
 
   const { id } = await context.params;

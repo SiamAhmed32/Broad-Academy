@@ -1,7 +1,9 @@
+import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 import { Prisma } from "@/generated/prisma/client";
 import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
+import { getCourseScope } from "@/lib/admin/course-scope";
 import { requireStaffApi } from "@/lib/admin/guard";
 import { paginate, paginationMeta, slugify } from "@/lib/admin/utils";
 import { adminCourseSchema, adminListQuerySchema } from "@/lib/admin/validation";
@@ -11,8 +13,9 @@ import { db } from "@/lib/db";
 import { isManagedCloudinaryImage } from "@/lib/media/images";
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.COURSES);
-  if (error) return error;
+  const { user, error } = await requireStaffApi(ADMIN_PERMISSIONS.COURSES_VIEW);
+  if (error || !user) return error!;
+  const scope = await getCourseScope(user);
 
   const parsed = adminListQuerySchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
@@ -21,6 +24,7 @@ export async function GET(request: NextRequest) {
 
   const { search, status, page, limit, compact } = parsed.data;
   const where = {
+    ...(scope ? { id: { in: scope } } : {}),
     ...(status ? { status: status as "DRAFT" | "PUBLISHED" | "ARCHIVED" } : {}),
     ...(search
       ? {
@@ -160,10 +164,17 @@ export async function POST(request: NextRequest) {
       featured: data.featured,
       homepageOrder: data.homepageOrder,
       badge: data.badge ?? null,
+      description: data.description || null,
+      includes: data.includes ?? [],
+      facebookGroupUrl: data.facebookGroupUrl || null,
       status: data.status,
       publishedAt: data.status === "PUBLISHED" ? new Date() : null,
     },
   });
+
+  // Expire immediately (not "max" stale-while-revalidate) so the public
+  // catalogue and course pages show the change on the very next visit.
+  revalidateTag("courses", { expire: 0 });
 
   return NextResponse.json(
     { success: true, data: course },

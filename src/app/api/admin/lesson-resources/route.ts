@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
+import { courseAccessError, courseIdForLesson, courseIdForResource } from "@/lib/admin/course-scope";
 import { requireStaffApi } from "@/lib/admin/guard";
 import { adminLessonResourceSchema } from "@/lib/admin/validation";
 import { errorResponse } from "@/lib/auth/response";
@@ -12,8 +13,8 @@ export async function POST(request: NextRequest) {
     return errorResponse("Request origin could not be verified.", 403);
   }
 
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
-  if (error) return error;
+  const { user, error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
+  if (error || !user) return error!;
 
   let body: unknown;
   try {
@@ -31,6 +32,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const denied = await courseAccessError(user, await courseIdForLesson(parsed.data.lessonId));
+  if (denied) return denied;
   const lesson = await db.lesson.findUnique({ where: { id: parsed.data.lessonId } });
   if (!lesson) {
     return errorResponse("Lesson not found.", 404);
@@ -57,11 +60,13 @@ export async function DELETE(request: NextRequest) {
     return errorResponse("Request origin could not be verified.", 403);
   }
 
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
-  if (error) return error;
+  const { user, error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
+  if (error || !user) return error!;
 
   const id = request.nextUrl.searchParams.get("id");
   if (!id) return errorResponse("Resource id required.", 400);
+  const denied = await courseAccessError(user, await courseIdForResource(id));
+  if (denied) return denied;
 
   await db.lessonResource.delete({ where: { id } });
   return NextResponse.json({ success: true });

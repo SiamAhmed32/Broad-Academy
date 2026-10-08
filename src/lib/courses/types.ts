@@ -64,12 +64,32 @@ export type EnrollmentGuideVideo = {
   embedUrl: string;
 };
 
+/**
+ * Public course detail. Deliberately excludes `facebookGroupUrl`: that link is
+ * only for enrolled students and must never reach the public page or API.
+ */
+export type PublicCourseDetail = PublicCourse & {
+  /** Long "about the course" text from Admin; line breaks are preserved. */
+  description: string | null;
+};
+
+/**
+ * One teacher shown on the course page. `slug`/`avatarUrl` are set when the
+ * name in `Course.instructorName` matches an active instructor profile;
+ * otherwise the page falls back to an initials card.
+ */
+export type CourseInstructor = {
+  name: string;
+  slug: string | null;
+  avatarUrl: string | null;
+  subjects: string[];
+};
+
 export type CourseDetailData = {
-  course: PublicCourse;
-  outcomes: string[];
-  requirements: string[];
+  course: PublicCourseDetail;
+  /** Admin-defined "এই কোর্সে যা থাকছে" lines, or generated ones when none are set. */
   includes: string[];
-  curriculum: CourseCurriculumSection[];
+  instructors: CourseInstructor[];
   related: PublicCourse[];
   enrollmentGuideVideo: EnrollmentGuideVideo | null;
 };

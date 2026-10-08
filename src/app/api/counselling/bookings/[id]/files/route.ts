@@ -6,8 +6,15 @@ import { isTrustedOrigin } from "@/lib/auth/security";
 import { db } from "@/lib/db";
 import { uploadCounsellingFile } from "@/lib/counselling/cloudinary";
 import { createUserNotification, notifyActiveAdmins } from "@/lib/notifications/service";
+import { ADMIN_PERMISSIONS, hasAdminPermission } from "@/lib/admin/permissions";
+import { getStaffUserFromRequest } from "@/lib/admin/session";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+async function canManageCounselling() {
+  const staff = await getStaffUserFromRequest();
+  return Boolean(staff && hasAdminPermission(staff, ADMIN_PERMISSIONS.COUNSELLING));
+}
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -49,6 +56,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (!isOwner) {
       return errorResponse("You are not authorized to view files for this booking.", 403);
     }
+  } else if (!(await canManageCounselling())) {
+    return errorResponse("You do not have permission for this action.", 403);
   }
 
   const files = await db.counsellingFile.findMany({
@@ -92,6 +101,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!isOwner) {
       return errorResponse("You are not authorized to upload files for this booking.", 403);
     }
+    // Students may share files only after staff confirm the session.
+    if (booking.status !== "CONFIRMED") {
+      return errorResponse(
+        "You can upload documents after our team confirms your session.",
+        403,
+      );
+    }
+  } else if (!(await canManageCounselling())) {
+    return errorResponse("You do not have permission for this action.", 403);
   }
 
   let formData: FormData;

@@ -8,6 +8,7 @@ import { errorResponse } from "@/lib/auth/response";
 import { isTrustedOrigin } from "@/lib/auth/security";
 import { db } from "@/lib/db";
 import { enrollmentReviewSchema } from "@/lib/enrollments/validation";
+import { ensureEnrollmentAccessCode } from "@/lib/enrollments/access-code";
 import { sendEnrollmentDecisionEmail } from "@/lib/enrollments/email";
 import { ensureStudentId } from "@/lib/students/id";
 import { createUserNotification, notifyActiveAdmins } from "@/lib/notifications/service";
@@ -199,6 +200,7 @@ export async function PATCH(request: NextRequest) {
       });
       return { enrollment, enrollmentRequest, studentId };
     });
+    void ensureEnrollmentAccessCode(result.enrollment.id).catch(() => undefined);
     void sendEnrollmentDecisionEmail({
       studentName: requestRecord.user.fullName,
       studentEmail: requestRecord.user.email,

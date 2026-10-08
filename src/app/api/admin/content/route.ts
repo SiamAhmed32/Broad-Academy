@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
+import { courseScopeWhere, getCourseScope } from "@/lib/admin/course-scope";
 import { requireStaffApi } from "@/lib/admin/guard";
 import { db } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
-  if (error) return error;
+  const { user, error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT_VIEW);
+  if (error || !user) return error!;
 
   const courseId = request.nextUrl.searchParams.get("courseId");
+  const scope = await getCourseScope(user);
 
   const courses = await db.course.findMany({
+    where: courseScopeWhere(scope),
     select: {
       id: true,
       title: true,
@@ -20,7 +23,8 @@ export async function GET(request: NextRequest) {
     orderBy: { title: "asc" },
   });
 
-  const selectedCourseId = courseId || courses[0]?.id || null;
+  const requested = courseId && courses.some((c) => c.id === courseId) ? courseId : null;
+  const selectedCourseId = requested || courses[0]?.id || null;
   if (!selectedCourseId) {
     return NextResponse.json(
       { success: true, data: { courses, course: null, selectedCourseId: null } },
@@ -37,6 +41,7 @@ export async function GET(request: NextRequest) {
         select: {
           id: true,
           title: true,
+          label: true,
           displayOrder: true,
           lessons: {
             orderBy: { displayOrder: "asc" },

@@ -39,7 +39,9 @@ import {
   type Lesson,
   type Module,
 } from "@/components/Admin/content/types";
+import { useAdminCan } from "@/components/Admin/AdminPermissionsContext";
 import { adminFetch } from "@/lib/admin/client";
+import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
 
 type PendingDelete =
   | { kind: "module"; id: string; title: string; lessonCount: number }
@@ -68,6 +70,7 @@ export default function AdminContentPage() {
   const [addingChapter, setAddingChapter] = useState(false);
   const [editor, setEditor] = useState<LessonEditorState | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+  const canEdit = useAdminCan(ADMIN_PERMISSIONS.CONTENT);
   const [deleting, setDeleting] = useState(false);
 
   const applyContent = useCallback(
@@ -142,21 +145,23 @@ export default function AdminContentPage() {
     setAddingChapter(false);
   }
 
-  async function renameChapter(id: string, title: string) {
+  async function renameChapter(id: string, title: string, label: string) {
     if (title.length < 2) {
       showToast("Write a chapter name (at least 2 letters).", true);
       return false;
     }
     const res = await adminFetch("/api/admin/modules", {
       method: "PATCH",
-      body: JSON.stringify({ id, title }),
+      body: JSON.stringify({ id, title, label: label || null }),
     });
     if (!res.success) {
       showToast(res.message ?? "Could not rename the chapter.", true);
       return false;
     }
-    setModules((current) => current.map((m) => (m.id === id ? { ...m, title } : m)));
-    showToast("Chapter renamed.");
+    setModules((current) =>
+      current.map((m) => (m.id === id ? { ...m, title, label: label || null } : m)),
+    );
+    showToast("Chapter updated.");
     return true;
   }
 
@@ -258,7 +263,11 @@ export default function AdminContentPage() {
     <div>
       <AdminPageHeader
         title="Course content"
-        description="Build each course like a book: add chapters, then put video, reading and quiz lessons inside them."
+        description={
+          canEdit
+            ? "Build each course like a book: add chapters, then put video, reading and quiz lessons inside them."
+            : "View-only: see what each course contains — chapters, videos, quizzes and files."
+        }
         actions={
           course ? (
             <>
@@ -338,7 +347,7 @@ export default function AdminContentPage() {
                   reordering={reordering}
                   onToggle={() => toggleChapter(mod.id)}
                   onMove={(direction) => moveChapter(index, direction)}
-                  onRename={(title) => renameChapter(mod.id, title)}
+                  onRename={(title, label) => renameChapter(mod.id, title, label)}
                   onDelete={() =>
                     setPendingDelete({
                       kind: "module",
@@ -355,9 +364,11 @@ export default function AdminContentPage() {
                   onMoveLesson={(lessonIndex, direction) =>
                     moveLesson(mod.id, lessonIndex, direction)
                   }
+                  readOnly={!canEdit}
                 />
               ))}
 
+              {canEdit ? (
               <form
                 onSubmit={addChapter}
                 className="rounded-2xl border-2 border-dashed border-slate-200 bg-white/60 p-4 sm:p-5"
@@ -383,6 +394,7 @@ export default function AdminContentPage() {
                   </AdminButton>
                 </div>
               </form>
+              ) : null}
             </div>
           </div>
         </>

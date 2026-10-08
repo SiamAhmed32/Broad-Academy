@@ -15,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.EXAMS);
+  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.EXAMS_VIEW);
   if (error) return error;
 
   const questions = await db.examQuestion.findMany({
@@ -81,6 +81,7 @@ export async function PUT(
           prompt: q.prompt,
           imageUrl: q.imageUrl ?? null,
           explanation: q.explanation ?? null,
+          explanationVideoUrl: q.explanationVideoUrl ?? null,
           displayOrder: q.displayOrder,
           options: {
             create: q.options.map((opt) => ({

@@ -56,7 +56,19 @@ export type StudentProgressFilters = {
   search?: string;
   courseId?: string;
   classLevel?: number;
+  /** Limits results to these courses (a teacher's assigned courses). */
+  courseIds?: string[];
 };
+
+function courseFilter(filters: StudentProgressFilters) {
+  if (filters.courseId) {
+    if (filters.courseIds && !filters.courseIds.includes(filters.courseId)) {
+      return { in: [] as string[] };
+    }
+    return filters.courseId;
+  }
+  return filters.courseIds ? { in: filters.courseIds } : undefined;
+}
 
 /**
  * Computes overall learning progress for every student matching `filters`.
@@ -73,12 +85,13 @@ export async function loadStudentProgress(
   now: Date = new Date(),
 ): Promise<{ rows: StudentProgressRow[]; truncated: boolean }> {
   const search = filters.search?.trim();
+  const courseIdFilter = courseFilter(filters);
 
   const studentWhere = {
     role: "STUDENT" as const,
     ...(filters.classLevel ? { classLevel: filters.classLevel } : {}),
-    ...(filters.courseId
-      ? { enrollments: { some: { courseId: filters.courseId } } }
+    ...(courseIdFilter
+      ? { enrollments: { some: { courseId: courseIdFilter } } }
       : {}),
     ...(search
       ? {
@@ -121,7 +134,7 @@ export async function loadStudentProgress(
   const enrollments = await db.enrollment.findMany({
     where: {
       userId: { in: studentIds },
-      ...(filters.courseId ? { courseId: filters.courseId } : {}),
+      ...(courseIdFilter ? { courseId: courseIdFilter } : {}),
     },
     select: {
       userId: true,

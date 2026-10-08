@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
+import { getCourseScope } from "@/lib/admin/course-scope";
 import { requireStaffApi } from "@/lib/admin/guard";
 import { paginate, paginationMeta } from "@/lib/admin/utils";
 import {
@@ -17,8 +18,9 @@ import {
 } from "@/lib/students/account-email";
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.STUDENTS);
-  if (error) return error;
+  const { user, error } = await requireStaffApi(ADMIN_PERMISSIONS.STUDENTS_VIEW);
+  if (error || !user) return error!;
+  const scope = await getCourseScope(user);
 
   const parsed = adminListQuerySchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
@@ -28,6 +30,7 @@ export async function GET(request: NextRequest) {
   const { search, status, page, limit } = parsed.data;
   const where = {
     role: "STUDENT" as const,
+    ...(scope ? { enrollments: { some: { courseId: { in: scope } } } } : {}),
     ...(status ? { status: status as "ACTIVE" | "SUSPENDED" } : {}),
     ...(search
       ? {

@@ -15,7 +15,7 @@ export const aboutStats = [
   { id: 1, label: "Students Guided", value: 130000, suffix: "+", icon: UsersRound },
   { id: 2, label: "Expert Mentors", value: 27, suffix: "+", icon: GraduationCap },
   { id: 3, label: "Courses Offered", value: 120, suffix: "+", icon: BookOpen },
-  { id: 4, label: "Parent Sessions", value: 2000, suffix: "+", icon: HeartHandshake },
+  { id: 4, label: "Counselling Sessions", value: 2000, suffix: "+", icon: HeartHandshake },
 ];
 
 export const aboutMission = {
@@ -118,7 +118,7 @@ export const aboutTimeline = [
   },
   {
     year: "2022",
-    title: "Parent Counselling",
+    title: "Study Plan / Counselling",
     description:
       "Introduced dedicated parent guidance sessions — helping families navigate academic decisions together.",
   },

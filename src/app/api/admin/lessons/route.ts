@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
+import { courseAccessError, courseIdForLesson, courseIdForModule } from "@/lib/admin/course-scope";
 import { requireStaffApi } from "@/lib/admin/guard";
 import {
   lessonCreateErrorMessage,
@@ -23,8 +24,8 @@ export async function POST(request: NextRequest) {
     return errorResponse("Request origin could not be verified.", 403);
   }
 
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
-  if (error) return error;
+  const { user, error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
+  if (error || !user) return error!;
 
   let body: unknown;
   try {
@@ -40,6 +41,8 @@ export async function POST(request: NextRequest) {
   if (parsed.data.type === "VIDEO" && !parsed.data.youtubeVideoId) {
     return errorResponse("A valid YouTube link is required for video lessons.", 422);
   }
+  const denied = await courseAccessError(user, await courseIdForModule(parsed.data.moduleId));
+  if (denied) return denied;
 
   try {
     const courseModule = await db.courseModule.findUnique({
@@ -87,8 +90,8 @@ export async function PATCH(request: NextRequest) {
     return errorResponse("Request origin could not be verified.", 403);
   }
 
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
-  if (error) return error;
+  const { user, error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
+  if (error || !user) return error!;
 
   let body: unknown;
   try {
@@ -101,6 +104,8 @@ export async function PATCH(request: NextRequest) {
   if (!parsed.success) return errorResponse("Invalid lesson.", 422);
 
   const { id, ...data } = parsed.data;
+  const denied = await courseAccessError(user, await courseIdForLesson(id));
+  if (denied) return denied;
   if (data.type === "VIDEO" && !data.youtubeVideoId) {
     return errorResponse("A valid YouTube link is required for video lessons.", 422);
   }
@@ -138,11 +143,13 @@ export async function DELETE(request: NextRequest) {
     return errorResponse("Request origin could not be verified.", 403);
   }
 
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
-  if (error) return error;
+  const { user, error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
+  if (error || !user) return error!;
 
   const id = request.nextUrl.searchParams.get("id");
   if (!id) return errorResponse("Lesson id required.", 400);
+  const denied = await courseAccessError(user, await courseIdForLesson(id));
+  if (denied) return denied;
 
   const lesson = await db.lesson.findUnique({
     where: { id },

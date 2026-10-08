@@ -3,11 +3,9 @@ import { unstable_cache } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { courseLevelLabels, courseLevelMap } from "./constants";
-import {
-  buildCurriculumFromModules,
-  computeCourseContentStats,
-} from "./content-stats";
+import { computeCourseContentStats } from "./content-stats";
 import { featuredCourseRawOrderBy } from "./homepage-order";
+import { matchCourseInstructors } from "./instructors";
 import {
   courseSearchFilter,
   courseSearchOrderBy,
@@ -55,10 +53,10 @@ export async function fetchCourseBySlug(
 
 const fetchCachedCourseBySlug = unstable_cache(
   async (slug: string) => fetchCourseBySlugFromDatabase(slug),
-  ["course-detail-v1"],
+  ["course-detail-v2"],
   {
     revalidate: 60,
-    tags: ["courses", "site-config"],
+    tags: ["courses", "instructors", "site-config"],
   },
 );
 
@@ -88,12 +86,14 @@ async function fetchCourseBySlugFromDatabase(
       featured: true,
       badge: true,
       publishedAt: true,
+      description: true,
+      includes: true,
     },
   });
 
   if (!course) return null;
 
-  const [modules, related, enrollmentGuideVideo] = await Promise.all([
+  const [modules, related, enrollmentGuideVideo, instructorProfiles] = await Promise.all([
     db.courseModule.findMany({
       where: { courseId: course.id },
       orderBy: { displayOrder: "asc" },
@@ -142,19 +142,37 @@ async function fetchCourseBySlugFromDatabase(
       take: 3,
     }),
     getEnrollmentGuideVideo(),
+    db.instructor.findMany({
+      where: { status: "ACTIVE" },
+      select: {
+        slug: true,
+        fullName: true,
+        avatarUrl: true,
+        subjects: true,
+        specialty: true,
+      },
+    }),
   ]);
 
   const stats = computeCourseContentStats(modules);
-  const curriculum = buildCurriculumFromModules(modules);
+  const { description, includes, ...courseFields } = course;
   const publicCourse = serializeCourse({
-    ...course,
+    ...courseFields,
     lessonCount: stats.lessonCount,
     durationMinutes: stats.durationMinutes,
   });
+  const customIncludes = includes.map((item) => item.trim()).filter(Boolean);
 
   return {
-    course: publicCourse,
-    ...buildCourseLearningContent(publicCourse, stats, curriculum),
+    course: { ...publicCourse, description: description?.trim() || null },
+    includes: customIncludes.length
+      ? customIncludes
+      : buildGeneratedIncludes(stats),
+    instructors: matchCourseInstructors(
+      course.instructorName,
+      instructorProfiles,
+      course.subject,
+    ),
     related: related.map(serializeCourse),
     enrollmentGuideVideo,
   };
@@ -352,15 +370,10 @@ function serializeCourse(
   };
 }
 
-function buildCourseLearningContent(
-  course: PublicCourse,
+/** Fallback "This course includes" list, used until Admin adds its own lines. */
+function buildGeneratedIncludes(
   stats: ReturnType<typeof computeCourseContentStats>,
-  curriculum: ReturnType<typeof buildCurriculumFromModules>,
 ) {
-  const subject = course.subject;
-  const level = courseLevelLabels[course.level];
-  const isExamCourse = /board|final|ssc|hsc/i.test(course.title);
-
   const includes = [
     stats.videoCount > 0
       ? `${stats.videoCount} video lesson${stats.videoCount === 1 ? "" : "s"}`
@@ -377,30 +390,13 @@ function buildCourseLearningContent(
     "Completion progress tracking",
   ].filter((item): item is string => Boolean(item));
 
-  return {
-    outcomes: [
-      `Build a clear, chapter-by-chapter understanding of ${subject}.`,
-      "Solve textbook and exam-style problems with a repeatable method.",
-      "Identify common mistakes and improve answer presentation.",
-      isExamCourse
-        ? "Prepare confidently with timed practice and model-test strategies."
-        : "Track progress through focused quizzes and guided practice.",
-    ],
-    requirements: [
-      `${level} textbook and a notebook for practice`,
-      "A phone, tablet, or computer with a stable internet connection",
-      "A willingness to complete short practice tasks after each lesson",
-    ],
-    includes:
-      includes.length > 0
-        ? includes
-        : [
-            "Structured lessons as they are published",
-            "Teacher-guided academic support",
-            "Mobile and desktop access",
-          ],
-    curriculum,
-  };
+  return includes.length > 0
+    ? includes
+    : [
+        "Structured lessons as they are published",
+        "Teacher-guided academic support",
+        "Mobile and desktop access",
+      ];
 }
 
 function levelOrder(level: PublicCourse["level"]) {

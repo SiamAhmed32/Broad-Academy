@@ -1,6 +1,8 @@
+import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
+import { courseAccessError } from "@/lib/admin/course-scope";
 import { requireStaffApi } from "@/lib/admin/guard";
 import { slugify } from "@/lib/admin/utils";
 import { adminCourseSchema } from "@/lib/admin/validation";
@@ -12,10 +14,12 @@ import { isManagedCloudinaryImage } from "@/lib/media/images";
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, context: RouteContext) {
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.COURSES);
-  if (error) return error;
+  const { user, error } = await requireStaffApi(ADMIN_PERMISSIONS.COURSES_VIEW);
+  if (error || !user) return error!;
 
   const { id } = await context.params;
+  const denied = await courseAccessError(user, id);
+  if (denied) return denied;
   const course = await db.course.findUnique({
     where: { id },
     include: {
@@ -59,7 +63,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return errorResponse("Invalid course data.", 422, parsed.error.flatten().fieldErrors);
   }
 
-  const data = parsed.data;
+  // Zod 4 still fills `.default()` values inside `.partial()`, so a status-only
+  // PATCH (archive / restore) or the edit form (which leaves out the
+  // auto-calculated lessonCount) would silently reset featured, homepageOrder,
+  // examCount and lessonCount. Only apply the fields the client actually sent.
+  const sentKeys = new Set(
+    body && typeof body === "object" ? Object.keys(body) : [],
+  );
+  const data = Object.fromEntries(
+    Object.entries(parsed.data).filter(([key]) => sentKeys.has(key)),
+  ) as typeof parsed.data;
   const existing = await db.course.findUnique({ where: { id } });
   if (!existing) return errorResponse("Course not found.", 404);
 
@@ -110,6 +123,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         ? { homepageOrder: data.homepageOrder }
         : {}),
       ...(data.badge !== undefined ? { badge: data.badge } : {}),
+      ...(data.description !== undefined
+        ? { description: data.description || null }
+        : {}),
+      ...(data.includes !== undefined ? { includes: data.includes } : {}),
+      ...(data.facebookGroupUrl !== undefined
+        ? { facebookGroupUrl: data.facebookGroupUrl || null }
+        : {}),
       ...(data.status !== undefined
         ? {
             status: data.status,
@@ -124,6 +144,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     },
   });
 
+  // Expire immediately so the public pages reflect the edit on the next visit.
+  revalidateTag("courses", { expire: 0 });
+
   return NextResponse.json({ success: true, data: course });
 }
 
@@ -137,5 +160,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params;
   await db.course.delete({ where: { id } });
+  revalidateTag("courses", { expire: 0 });
   return NextResponse.json({ success: true, message: "Course deleted." });
 }

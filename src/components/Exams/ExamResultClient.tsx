@@ -17,6 +17,7 @@ import {
 
 import Container from "@/components/reusables/Container";
 import { Badge } from "@/components/ui/badge";
+import ExplanationVideoLink from "@/components/reusables/ExplanationVideoLink";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ type Question = {
   prompt: string;
   imageUrl: string | null;
   explanation: string | null;
+  explanationVideoUrl: string | null;
   displayOrder: number;
   options: Option[];
 };
@@ -365,6 +367,11 @@ export default function ExamResultClient({
                             Explanation
                           </span>
                           {q.explanation}
+                        </div>
+                      ) : null}
+                      {q.explanationVideoUrl ? (
+                        <div className="ml-11">
+                          <ExplanationVideoLink url={q.explanationVideoUrl} />
                         </div>
                       ) : null}
                     </CardContent>

@@ -5,7 +5,7 @@ import { requireStaffApi } from "@/lib/admin/guard";
 import { getAdminDashboardStats } from "@/lib/admin/dashboard-stats";
 
 export async function GET() {
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.STUDENTS);
+  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.STUDENTS_VIEW);
   if (error) return error;
 
   const stats = await getAdminDashboardStats();

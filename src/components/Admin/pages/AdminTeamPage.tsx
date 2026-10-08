@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import {
+  BookOpen,
   Search,
   ShieldCheck,
   Trash2,
@@ -11,6 +12,7 @@ import {
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import type { AdminStaffRole } from "@/generated/prisma/client";
+import TeacherCoursesDialog from "@/components/Admin/TeacherCoursesDialog";
 import {
   AdminBadge,
   AdminButton,
@@ -36,6 +38,7 @@ type StaffMember = {
   status: "ACTIVE" | "SUSPENDED";
   lastLoginAt: string | null;
   createdAt: string;
+  _count?: { teachingCourses: number };
 };
 
 type Candidate = {
@@ -63,6 +66,7 @@ export default function AdminTeamPage() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<Record<string, AdminStaffRole>>({});
+  const [coursesFor, setCoursesFor] = useState<StaffMember | null>(null);
   const { showToast } = useAdminToast();
 
   const loadTeam = useCallback(async (query = "") => {
@@ -313,6 +317,18 @@ export default function AdminTeamPage() {
                             {ADMIN_ROLE_LABELS[member.adminRole]}
                           </AdminBadge>
                         )}
+                        {member.adminRole === "TEACHER" ? (
+                          <button
+                            type="button"
+                            onClick={() => setCoursesFor(member)}
+                            disabled={!editable}
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-accent/10 px-2.5 py-1 text-xs font-semibold text-accent transition hover:bg-accent/15 disabled:cursor-default disabled:opacity-70"
+                          >
+                            <BookOpen className="h-3.5 w-3.5" />
+                            {member._count?.teachingCourses ?? 0} assigned course
+                            {(member._count?.teachingCourses ?? 0) === 1 ? "" : "s"}
+                          </button>
+                        ) : null}
                       </td>
                       <td className="px-5 py-4">
                         <AdminBadge variant={member.status === "ACTIVE" ? "success" : "danger"}>
@@ -346,6 +362,15 @@ export default function AdminTeamPage() {
           </div>
         </AdminCard>
       )}
+
+      <TeacherCoursesDialog
+        teacher={coursesFor}
+        onClose={() => setCoursesFor(null)}
+        onSaved={() => {
+          setCoursesFor(null);
+          void loadTeam();
+        }}
+      />
     </div>
   );
 }

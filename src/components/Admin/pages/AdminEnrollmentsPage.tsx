@@ -39,6 +39,7 @@ type Enrollment = {
   enrolledAt: string;
   source: "MANUAL_PAYMENT" | "ADMIN_DIRECT" | "LEGACY";
   grantNote: string | null;
+  accessCode: string | null;
   grantedBy: { fullName: string } | null;
   user: { id: string; fullName: string; email: string };
   course: { id: string; title: string };
@@ -570,7 +571,7 @@ export default function AdminEnrollmentsPage({
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <AdminInput
                   className="pl-10"
-                  placeholder="Search student or course..."
+                  placeholder="Search student, course or access code (BA-...)"
                   value={enrollmentSearch}
                   onChange={(e) => {
                     setEnrollmentSearch(e.target.value);
@@ -618,11 +619,12 @@ export default function AdminEnrollmentsPage({
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[720px] text-left text-sm">
+                <table className="w-full min-w-[820px] text-left text-sm">
                   <thead className="border-b border-slate-200 bg-slate-50/80">
                     <tr>
                       <th className="px-5 py-3 font-semibold text-navy">Student</th>
                       <th className="px-5 py-3 font-semibold text-navy">Course</th>
+                      <th className="px-5 py-3 font-semibold text-navy">Access code</th>
                       <th className="px-5 py-3 font-semibold text-navy">Status</th>
                       <th className="px-5 py-3 font-semibold text-navy">Enrolled</th>
                       <th className="px-5 py-3 text-right font-semibold text-navy">
@@ -646,6 +648,9 @@ export default function AdminEnrollmentsPage({
                           </div>
                         </td>
                         <td className="px-5 py-4 text-slate-700">{row.course.title}</td>
+                        <td className="px-5 py-4 font-mono text-xs font-semibold text-navy">
+                          {row.accessCode ?? "—"}
+                        </td>
                         <td className="px-5 py-4">
                           <AdminBadge variant={enrollmentStatusVariant[row.status]}>
                             {row.status.charAt(0) + row.status.slice(1).toLowerCase()}
@@ -715,6 +720,10 @@ export default function AdminEnrollmentsPage({
             <dl className="mt-5 space-y-3 text-sm">
               <Row label="Email" value={selectedEnrollment.user.email} />
               <Row label="Course" value={selectedEnrollment.course.title} />
+              <Row
+                label="Facebook group code"
+                value={selectedEnrollment.accessCode ?? "Created when the student opens the course"}
+              />
               <Row label="Status" value={selectedEnrollment.status} />
               <Row
                 label="Source"

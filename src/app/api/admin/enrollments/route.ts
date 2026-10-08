@@ -10,6 +10,7 @@ import { errorResponse } from "@/lib/auth/response";
 import { isTrustedOrigin } from "@/lib/auth/security";
 import { db } from "@/lib/db";
 import { adminDirectEnrollmentSchema } from "@/lib/enrollments/validation";
+import { ensureEnrollmentAccessCode } from "@/lib/enrollments/access-code";
 import { createUserNotification } from "@/lib/notifications/service";
 import { ensureStudentId } from "@/lib/students/id";
 import { z } from "zod";
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
             { user: { fullName: { contains: search, mode: "insensitive" as const } } },
             { user: { email: { contains: search, mode: "insensitive" as const } } },
             { course: { title: { contains: search, mode: "insensitive" as const } } },
+            { accessCode: { contains: search.trim(), mode: "insensitive" as const } },
           ],
         }
       : {}),
@@ -131,6 +133,7 @@ export async function POST(request: NextRequest) {
   const userId = parsed.data.userId;
   const isNewStudentId = !previous?.studentId && studentId;
   after(async () => {
+    await ensureEnrollmentAccessCode(enrollment.id).catch(console.error);
     await createUserNotification({
       userId,
       title: "Course access granted",

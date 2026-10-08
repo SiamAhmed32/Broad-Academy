@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
+import { courseAccessError, courseIdForModule } from "@/lib/admin/course-scope";
 import { requireStaffApi } from "@/lib/admin/guard";
 import { errorResponse } from "@/lib/auth/response";
 import { isTrustedOrigin } from "@/lib/auth/security";
@@ -20,8 +21,8 @@ export async function PUT(request: NextRequest) {
     return errorResponse("Request origin could not be verified.", 403);
   }
 
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
-  if (error) return error;
+  const { user, error } = await requireStaffApi(ADMIN_PERMISSIONS.CONTENT);
+  if (error || !user) return error!;
 
   let body: unknown;
   try {
@@ -34,6 +35,8 @@ export async function PUT(request: NextRequest) {
   if (!parsed.success) return errorResponse("Invalid order.", 422);
 
   const { moduleId, ids } = parsed.data;
+  const denied = await courseAccessError(user, await courseIdForModule(moduleId));
+  if (denied) return denied;
   const existing = await db.lesson.findMany({
     where: { moduleId },
     select: { id: true },

@@ -1,9 +1,11 @@
-import { ArrowRight, ClipboardList, GraduationCap } from "lucide-react";
+import { ClipboardList, GraduationCap } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
 import type { PublicCourse } from "@/lib/courses/types";
 import { cn } from "@/lib/utils";
+
+import CourseCardAction from "./CourseCardAction";
 
 export default function CourseCard({
   course,
@@ -81,16 +83,16 @@ export default function CourseCard({
         </div>
 
         <div className="mt-auto pt-5">
-          <Link
-            href={`/courses/${course.slug}`}
-            aria-label={`View ${course.title}`}
-            className="flex h-11 w-full items-center justify-center rounded-xl bg-navy text-sm font-semibold text-white transition group-hover:bg-btnBg"
-          >
-            এনরোল করুন
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
+          <CourseCardAction slug={course.slug} title={course.title} />
         </div>
       </div>
+
+      {/* Makes the whole card open the course details page. */}
+      <Link
+        href={`/courses/${course.slug}`}
+        aria-label={`View ${course.title}`}
+        className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-btnBg"
+      />
     </article>
   );
 }

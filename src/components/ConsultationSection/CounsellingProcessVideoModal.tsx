@@ -24,7 +24,7 @@ const processSteps = [
   {
     icon: UserRoundCheck,
     title: "Our team reviews it",
-    description: "We confirm availability, explain the parent counselling fee, and help finalize the session.",
+    description: "We confirm availability, explain the Study Plan / Counselling fee, and help finalize the session.",
   },
   {
     icon: CalendarCheck,
@@ -118,7 +118,7 @@ export default function CounsellingProcessVideoModal({
                       id="counselling-process-video-title"
                       className="mt-2 max-w-2xl text-xl font-semibold sm:text-2xl"
                     >
-                      See how parents can book counselling
+                      See how to book a Study Plan / Counselling session
                     </h2>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
                       Watch the parent request, confirmation, payment, and session process.
@@ -230,7 +230,7 @@ export default function CounsellingProcessVideoModal({
                     className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-accent px-5 text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:-translate-y-0.5 hover:bg-accent/90"
                   >
                     <CalendarCheck className="h-4 w-4" />
-                    Book parent counselling now
+                    Book Study Plan / Counselling now
                   </button>
                   <button
                     type="button"

@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 
 import { BrandLogo } from "@/components/Brand";
 import AdminLogoutButton from "@/components/Admin/AdminLogoutButton";
+import { AdminPermissionsProvider } from "@/components/Admin/AdminPermissionsContext";
 import { NotificationBell } from "@/components/Layout/Navbar/NotificationBell";
 import {
   ADMIN_ROLE_LABELS,
@@ -232,7 +233,7 @@ export default function AdminShell({
           transition={{ duration: 0.35, ease: "easeOut" }}
           className="px-4 py-6 sm:px-6 sm:py-8"
         >
-          {children}
+          <AdminPermissionsProvider value={permissions}>{children}</AdminPermissionsProvider>
         </motion.main>
       </div>
     </div>

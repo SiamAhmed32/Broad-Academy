@@ -21,7 +21,7 @@ const examListQuerySchema = adminListQuerySchema.extend({
 });
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.EXAMS);
+  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.EXAMS_VIEW);
   if (error) return error;
 
   const parsed = examListQuerySchema.safeParse(

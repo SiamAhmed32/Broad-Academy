@@ -18,9 +18,18 @@ const emailSchema = z
   .max(254);
 
 export const EDUCATION_LEVELS = [
+  "Class 6",
+  "Class 7",
+  "Class 8",
   "Class 9",
   "Class 10",
   "SSC",
+] as const;
+
+export const STUDENT_GROUPS = [
+  "Science",
+  "Business Studies",
+  "Humanities",
 ] as const;
 
 export const SUBJECT_INTERESTS = [
@@ -53,21 +62,32 @@ export const counsellingBookingSchema = z.object({
   fullName: z
     .string()
     .trim()
-    .min(2, "Enter your full name.")
+    .min(2, "Enter the student's name.")
     .max(80, "Name must be 80 characters or fewer."),
-  email: emailSchema,
   phone: phoneSchema,
+  schoolName: z
+    .string()
+    .trim()
+    .min(2, "Enter the school name.")
+    .max(120, "School name must be 120 characters or fewer."),
   educationLevel: z.enum(EDUCATION_LEVELS, {
-    error: "Select your education level.",
+    error: "Select the class.",
   }),
+  classRoll: z
+    .string()
+    .trim()
+    .min(1, "Enter the class roll.")
+    .max(20, "Class roll must be 20 characters or fewer."),
+  // Optional: the signed-in account email is used when this is left empty.
+  email: emailSchema.optional().or(z.literal("")),
+  studentGroup: z.enum(STUDENT_GROUPS).optional().or(z.literal("")),
   message: z
     .string()
     .trim()
-    .max(500, "Message must be 500 characters or fewer.")
-    .optional()
-    .or(z.literal("")),
+    .min(5, "Briefly describe the student's problems or weak subjects.")
+    .max(1000, "Please keep this under 1000 characters."),
   pricingAcknowledged: z.literal(true, {
-    error: "Please confirm you understand session fees are discussed before the session.",
+    error: "Please give your consent to continue.",
   }),
 });
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { getCourseScope } from "@/lib/admin/course-scope";
 import { requireStaffApi } from "@/lib/admin/guard";
 import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
 import { paginate, paginationMeta } from "@/lib/admin/utils";
@@ -13,8 +14,8 @@ import {
 } from "@/lib/students/progress";
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.STUDENTS);
-  if (error) return error;
+  const { user, error } = await requireStaffApi(ADMIN_PERMISSIONS.STUDENTS_VIEW);
+  if (error || !user) return error!;
 
   const parsed = adminStudentProgressQuerySchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
@@ -25,7 +26,9 @@ export async function GET(request: NextRequest) {
 
   const now = new Date();
   const [{ rows, truncated }, classGroups] = await Promise.all([
-    loadStudentProgress({ search, courseId, classLevel }, now),
+    getCourseScope(user).then((courseIds) =>
+      loadStudentProgress({ search, courseId, classLevel, courseIds: courseIds ?? undefined }, now),
+    ),
     // Class filter options, from the whole student roster rather than the
     // current page so the dropdown does not change as filters are applied.
     db.user.groupBy({

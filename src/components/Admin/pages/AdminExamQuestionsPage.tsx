@@ -41,6 +41,7 @@ type Question = {
   prompt: string;
   imageUrl: string | null;
   explanation: string | null;
+  explanationVideoUrl: string | null;
   displayOrder: number;
   options: Option[];
 };
@@ -50,6 +51,7 @@ type QuestionDraft = {
   prompt: string;
   imageUrl: string;
   explanation: string;
+  explanationVideoUrl: string;
   options: { localId: string; text: string; isCorrect: boolean }[];
 };
 
@@ -59,6 +61,7 @@ function createEmptyQuestion(order: number): QuestionDraft {
     prompt: "",
     imageUrl: "",
     explanation: "",
+    explanationVideoUrl: "",
     options: [
       { localId: `o-${Date.now()}-0`, text: "", isCorrect: false },
       { localId: `o-${Date.now()}-1`, text: "", isCorrect: false },
@@ -86,6 +89,7 @@ export default function AdminExamQuestionsPage({ examId, examTitle }: { examId: 
             prompt: q.prompt,
             imageUrl: q.imageUrl ?? "",
             explanation: q.explanation ?? "",
+            explanationVideoUrl: q.explanationVideoUrl ?? "",
             options: q.options.map((o) => ({
               localId: o.id,
               text: o.text,
@@ -215,6 +219,7 @@ export default function AdminExamQuestionsPage({ examId, examTitle }: { examId: 
         prompt: q.prompt.trim(),
         imageUrl: q.imageUrl || undefined,
         explanation: q.explanation || undefined,
+        explanationVideoUrl: q.explanationVideoUrl.trim() || undefined,
         displayOrder: qi,
         options: q.options.map((o, oi) => ({
           text: o.text.trim(),
@@ -383,6 +388,18 @@ export default function AdminExamQuestionsPage({ examId, examTitle }: { examId: 
                     onChange={(e) => updateQuestion(qi, "explanation", e.target.value)}
                     rows={2}
                     placeholder="Optional explanation for the correct answer..."
+                  />
+                </AdminField>
+
+                <AdminField
+                  label="Explanation video (optional)"
+                  hint="YouTube link students can watch with the explanation after the exam."
+                >
+                  <AdminInput
+                    value={q.explanationVideoUrl}
+                    onChange={(e) => updateQuestion(qi, "explanationVideoUrl", e.target.value)}
+                    placeholder="https://youtu.be/..."
+                    inputMode="url"
                   />
                 </AdminField>
               </motion.div>

@@ -5,7 +5,7 @@ import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
 type PageProps = { params: Promise<{ id: string }> };
 
 export default async function Page({ params }: PageProps) {
-  await requireStaff(ADMIN_PERMISSIONS.COURSES);
+  await requireStaff(ADMIN_PERMISSIONS.COURSES_VIEW);
   const { id } = await params;
   return <AdminCourseEditPage courseId={id} />;
 }

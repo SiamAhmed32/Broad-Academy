@@ -9,7 +9,7 @@ export default async function AdminStudentExamOverviewRoute({
 }: {
   params: Promise<{ attemptId: string }>;
 }) {
-  await requireStaff(ADMIN_PERMISSIONS.EXAMS);
+  await requireStaff(ADMIN_PERMISSIONS.EXAMS_VIEW);
   const { attemptId } = await params;
   return <AdminStudentExamOverviewPage attemptId={attemptId} />;
 }

@@ -12,3 +12,4 @@ export { AdminImageUpload } from "./ui/AdminImageUpload";
 export { AdminPagination, type AdminPaginationMeta } from "./ui/AdminPagination";
 export { AdminConfirmDialog } from "./ui/AdminConfirmDialog";
 export { useAdminToast } from "./ui/AdminToast";
+export { AdminPermissionsProvider, useAdminCan } from "./AdminPermissionsContext";

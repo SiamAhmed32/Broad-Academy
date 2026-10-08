@@ -28,12 +28,14 @@ type SectionCardProps = {
   reordering: boolean;
   onToggle: () => void;
   onMove: (direction: -1 | 1) => void;
-  onRename: (title: string) => Promise<boolean>;
+  onRename: (title: string, label: string) => Promise<boolean>;
   onDelete: () => void;
   onAddLesson: () => void;
   onEditLesson: (lesson: Lesson) => void;
   onDeleteLesson: (lesson: Lesson) => void;
   onMoveLesson: (lessonIndex: number, direction: -1 | 1) => void;
+  /** Hides every editing control (view-only staff). */
+  readOnly?: boolean;
 };
 
 const iconButton =
@@ -54,9 +56,11 @@ export function SectionCard({
   onEditLesson,
   onDeleteLesson,
   onMoveLesson,
+  readOnly = false,
 }: SectionCardProps) {
   const [renaming, setRenaming] = useState(false);
   const [draftTitle, setDraftTitle] = useState(module.title);
+  const [draftLabel, setDraftLabel] = useState(module.label ?? "");
   const [savingTitle, setSavingTitle] = useState(false);
 
   const totalSeconds = module.lessons.reduce((sum, l) => sum + l.durationSeconds, 0);
@@ -66,12 +70,13 @@ export function SectionCard({
   async function submitRename(event: React.FormEvent) {
     event.preventDefault();
     const next = draftTitle.trim();
-    if (next === module.title) {
+    const nextLabel = draftLabel.trim();
+    if (next === module.title && nextLabel === (module.label ?? "")) {
       setRenaming(false);
       return;
     }
     setSavingTitle(true);
-    const ok = await onRename(next);
+    const ok = await onRename(next, nextLabel);
     setSavingTitle(false);
     if (ok) setRenaming(false);
   }
@@ -84,13 +89,23 @@ export function SectionCard({
         </span>
 
         {renaming ? (
-          <form onSubmit={submitRename} className="flex min-w-0 flex-1 items-center gap-2">
+          <form onSubmit={submitRename} className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-nowrap">
+            <AdminInput
+              value={draftLabel}
+              onChange={(e) => setDraftLabel(e.target.value)}
+              aria-label={`Label shown instead of Module ${index + 1}`}
+              placeholder={`Module ${index + 1}`}
+              title="Label shown above the chapter name (e.g. a subject name). Leave empty to show Module number."
+              className="h-9 sm:w-40"
+              maxLength={40}
+            />
             <AdminInput
               value={draftTitle}
               onChange={(e) => setDraftTitle(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
                   setDraftTitle(module.title);
+                  setDraftLabel(module.label ?? "");
                   setRenaming(false);
                 }
               }}
@@ -111,6 +126,7 @@ export function SectionCard({
               type="button"
               onClick={() => {
                 setDraftTitle(module.title);
+                setDraftLabel(module.label ?? "");
                 setRenaming(false);
               }}
               className={iconButton}
@@ -126,6 +142,9 @@ export function SectionCard({
             className="min-w-0 flex-1 text-left"
             aria-expanded={!collapsed}
           >
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-accent">
+              {module.label || `Module ${index + 1}`}
+            </p>
             <h3 className="truncate font-semibold text-navy">{module.title}</h3>
             <p className="text-xs text-slate-500">
               {lessonLabel}
@@ -134,7 +153,7 @@ export function SectionCard({
           </button>
         )}
 
-        {!renaming ? (
+        {!renaming && !readOnly ? (
           <div className="flex shrink-0 items-center gap-0.5">
             <button
               type="button"
@@ -160,11 +179,12 @@ export function SectionCard({
               type="button"
               onClick={() => {
                 setDraftTitle(module.title);
+                setDraftLabel(module.label ?? "");
                 setRenaming(true);
               }}
               className={iconButton}
               aria-label="Rename chapter"
-              title="Rename"
+              title="Edit name and label"
             >
               <Pencil className="h-4 w-4" />
             </button>
@@ -198,11 +218,13 @@ export function SectionCard({
                   onEdit={() => onEditLesson(lesson)}
                   onDelete={() => onDeleteLesson(lesson)}
                   onMove={(direction) => onMoveLesson(lessonIndex, direction)}
+                  readOnly={readOnly}
                 />
               ))}
             </ol>
           )}
 
+          {readOnly ? null : (
           <button
             type="button"
             onClick={onAddLesson}
@@ -211,6 +233,7 @@ export function SectionCard({
             <Plus className="h-4 w-4" />
             Add a lesson to this chapter
           </button>
+          )}
         </div>
       ) : null}
     </section>
@@ -226,6 +249,7 @@ function LessonRow({
   onEdit,
   onDelete,
   onMove,
+  readOnly = false,
 }: {
   lesson: Lesson;
   courseId: string;
@@ -235,6 +259,7 @@ function LessonRow({
   onEdit: () => void;
   onDelete: () => void;
   onMove: (direction: -1 | 1) => void;
+  readOnly?: boolean;
 }) {
   const meta = LESSON_TYPES[lesson.type];
   const Icon = meta.icon;
@@ -245,7 +270,7 @@ function LessonRow({
 
   return (
     <li className="group flex flex-wrap items-center gap-3 rounded-xl border border-slate-100 bg-white px-2 py-2 transition hover:border-slate-200 hover:bg-slate-50/60 sm:flex-nowrap sm:px-3">
-      <div className="flex flex-col">
+      <div className={cn("flex flex-col", readOnly && "invisible")}>
         <button
           type="button"
           onClick={() => onMove(-1)}
@@ -270,7 +295,11 @@ function LessonRow({
         <Icon className="h-4 w-4" />
       </span>
 
-      <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-left">
+      <button
+        type="button"
+        onClick={readOnly ? undefined : onEdit}
+        className={cn("min-w-0 flex-1 text-left", readOnly && "cursor-default")}
+      >
         <p className="truncate text-sm font-medium text-navy group-hover:text-accent">
           {lesson.title}
         </p>
@@ -295,6 +324,7 @@ function LessonRow({
       </button>
 
       <div className="ml-auto flex shrink-0 items-center gap-1">
+        {readOnly ? null : (
         <button
           type="button"
           onClick={onEdit}
@@ -302,6 +332,7 @@ function LessonRow({
         >
           Edit
         </button>
+        )}
         <Link
           href={quizHref(courseId, lesson.id)}
           className={cn(
@@ -312,8 +343,9 @@ function LessonRow({
           )}
           title={isQuiz ? "Write the quiz questions" : "Add an optional pop quiz to this lesson"}
         >
-          {isQuiz ? "Questions" : questionCount ? "Pop quiz" : "+ Quiz"}
+          {isQuiz ? "Questions" : questionCount ? "Pop quiz" : readOnly ? "Quiz" : "+ Quiz"}
         </Link>
+        {readOnly ? null : (
         <button
           type="button"
           onClick={onDelete}
@@ -323,6 +355,7 @@ function LessonRow({
         >
           <Trash2 className="h-4 w-4" />
         </button>
+        )}
       </div>
     </li>
   );

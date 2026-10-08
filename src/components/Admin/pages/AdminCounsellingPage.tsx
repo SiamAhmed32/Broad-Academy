@@ -13,7 +13,6 @@ import {
   FileText,
   Inbox,
   Link as LinkIcon,
-  Loader2,
   RotateCcw,
   Save,
   Search,
@@ -68,6 +67,9 @@ type Booking = {
   email: string;
   phone: string;
   educationLevel: string;
+  schoolName: string | null;
+  classRoll: string | null;
+  studentGroup: string | null;
   subjectInterest: string;
   preferredDate: string;
   preferredTime: string;
@@ -455,7 +457,7 @@ export default function AdminCounsellingPage() {
       >
         {selected ? (
           <SessionWorkspace
-            key={`${selected.id}:${selected.updatedAt}`}
+            key={selected.id}
             booking={selected}
             canPermanentlyDelete={canPermanentlyDelete}
             onChanged={async (updated) => {
@@ -510,7 +512,8 @@ function SessionWorkspace({
   const [paymentNote, setPaymentNote] = useState(booking.paymentNote || "");
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
-  const [uploading, setUploading] = useState(false);
+  // Files chosen here are only uploaded when "Save changes" is clicked.
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   async function patch(body: Record<string, unknown>, successMessage: string) {
     const response = await adminFetch<Booking>("/api/admin/counselling", {
@@ -522,7 +525,35 @@ function SessionWorkspace({
       return false;
     }
     showToast(response.message || successMessage);
+    // Payment actions can change the status on the server; keep the select in sync
+    // without touching other fields the admin may still be editing.
+    setStatus(response.data.status);
     await onChanged(response.data);
+    return true;
+  }
+
+  async function uploadPendingFiles() {
+    const queue = [...pendingFiles];
+    while (queue.length > 0) {
+      const [file] = queue;
+      const body = new FormData();
+      body.append("file", file);
+      const response = await fetch(`/api/counselling/bookings/${booking.id}/files`, {
+        method: "POST",
+        body,
+        credentials: "same-origin",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        message?: string;
+      } | null;
+      if (!response.ok || !payload?.success) {
+        showToast(`${file.name}: ${payload?.message || "upload failed."}`, true);
+        return false;
+      }
+      queue.shift();
+      setPendingFiles([...queue]);
+    }
     return true;
   }
 
@@ -533,6 +564,10 @@ function SessionWorkspace({
       return;
     }
     setSaving(true);
+    if (!(await uploadPendingFiles())) {
+      setSaving(false);
+      return;
+    }
     await patch(
       {
         status,
@@ -565,33 +600,21 @@ function SessionWorkspace({
     if (success) onClosed();
   }
 
-  async function uploadFile(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  function addPendingFiles(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
     event.target.value = "";
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      showToast("File size must be under 10 MB.", true);
-      return;
+    const tooLarge = files.filter((file) => file.size > 10 * 1024 * 1024);
+    if (tooLarge.length) {
+      showToast(`${tooLarge.map((file) => file.name).join(", ")}: must be under 10 MB.`, true);
     }
-    setUploading(true);
-    const body = new FormData();
-    body.append("file", file);
-    const response = await fetch(`/api/counselling/bookings/${booking.id}/files`, {
-      method: "POST",
-      body,
-      credentials: "same-origin",
-    });
-    const payload = (await response.json().catch(() => null)) as {
-      success?: boolean;
-      message?: string;
-    } | null;
-    setUploading(false);
-    if (!response.ok || !payload?.success) {
-      showToast(payload?.message || "File upload failed.", true);
-      return;
-    }
-    showToast("File uploaded.");
-    await patch({}, "Session refreshed.");
+    const accepted = files.filter((file) => file.size > 0 && file.size <= 10 * 1024 * 1024);
+    if (accepted.length) setPendingFiles((current) => [...current, ...accepted]);
+  }
+
+  function previewPendingFile(file: File) {
+    const url = URL.createObjectURL(file);
+    window.open(url, "_blank", "noopener");
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 
   return (
@@ -637,10 +660,12 @@ function SessionWorkspace({
       <div className="mt-6 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="space-y-5">
           <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 sm:grid-cols-2">
-            <Detail icon={UserRound} label="Education" value={booking.educationLevel} />
-            <Detail label="Subject" value={booking.subjectInterest} />
-            <Detail icon={CalendarClock} label="Preferred date" value={formatAdminDate(booking.preferredDate)} />
-            <Detail label="Preferred time" value={booking.preferredTime} />
+            <Detail icon={UserRound} label="Class" value={booking.educationLevel} />
+            <Detail label="Class roll" value={booking.classRoll || "—"} />
+            <Detail label="School" value={booking.schoolName || "—"} />
+            <Detail label="Group" value={booking.studentGroup || "—"} />
+            <Detail icon={CalendarClock} label="Submission date" value={formatAdminDate(booking.createdAt)} />
+            <Detail label="Session time" value={booking.preferredTime} />
           </div>
 
           {booking.message ? (
@@ -778,11 +803,46 @@ function SessionWorkspace({
             <div className="flex items-center justify-between gap-3">
               <h3 className="font-semibold text-navy">Shared files</h3>
               {!booking.archivedAt ? <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-navy hover:bg-slate-50">
-                {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                Upload
-                <input type="file" className="sr-only" disabled={uploading} onChange={uploadFile} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.txt,.zip" />
+                <Upload className="h-3.5 w-3.5" />
+                Add file
+                <input type="file" multiple className="sr-only" disabled={saving} onChange={addPendingFiles} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.txt,.zip" />
               </label> : null}
             </div>
+            {pendingFiles.length ? (
+              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+                <p className="text-xs font-semibold text-amber-800">
+                  Not shared yet — click Save changes to upload.
+                </p>
+                <ul className="mt-2 space-y-2">
+                  {pendingFiles.map((file, index) => (
+                    <li key={`${file.name}-${index}`} className="flex items-center justify-between gap-2 rounded-lg bg-white p-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-navy">{file.name}</p>
+                        <p className="text-xs text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => previewPendingFile(file)}
+                          className="rounded-lg p-2 text-slate-500 hover:bg-slate-50 hover:text-navy"
+                          aria-label={`Open ${file.name}`}
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() => setPendingFiles((current) => current.filter((_, i) => i !== index))}
+                          className="rounded-lg px-2 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             {booking.files.length ? (
               <ul className="mt-3 space-y-2">
                 {booking.files.map((file) => (
@@ -797,7 +857,7 @@ function SessionWorkspace({
                   </li>
                 ))}
               </ul>
-            ) : (
+            ) : pendingFiles.length ? null : (
               <p className="mt-3 rounded-xl border border-dashed border-slate-200 py-6 text-center text-sm text-slate-400">No files shared.</p>
             )}
           </div>
@@ -807,7 +867,8 @@ function SessionWorkspace({
       {!booking.archivedAt ? (
         <div className="mt-6 flex justify-end border-t border-slate-200 pt-5">
           <AdminButton isLoading={saving} onClick={() => void save()}>
-            <Save className="h-4 w-4" /> Save changes
+            <Save className="h-4 w-4" />
+            {pendingFiles.length ? `Save changes & share ${pendingFiles.length} file${pendingFiles.length > 1 ? "s" : ""}` : "Save changes"}
           </AdminButton>
         </div>
       ) : null}

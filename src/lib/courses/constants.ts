@@ -31,3 +31,8 @@ export const courseLevelOptions = Object.entries(courseLevelMap).map(
 export const courseLevelSlugs = Object.fromEntries(
   Object.entries(courseLevelMap).map(([slug, level]) => [level, slug]),
 ) as Record<CourseLevel, CourseLevelSlug>;
+
+/** Admin-editable course page content limits (shared by the API and the admin form). */
+export const COURSE_DESCRIPTION_MAX_LENGTH = 10000;
+export const COURSE_INCLUDES_MAX_ITEMS = 20;
+export const COURSE_INCLUDE_MAX_LENGTH = 150;

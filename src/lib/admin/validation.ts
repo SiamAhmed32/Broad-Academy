@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  COURSE_DESCRIPTION_MAX_LENGTH,
+  COURSE_INCLUDE_MAX_LENGTH,
+  COURSE_INCLUDES_MAX_ITEMS,
+} from "@/lib/courses/constants";
 import { isSafeStoredImageReference } from "@/lib/media/images";
 import { STUDENT_PROGRESS_STATUSES } from "@/lib/students/progress";
 import { extractYouTubeVideoId } from "@/lib/video/youtube";
@@ -11,6 +16,23 @@ const slugSchema = z
   .min(2)
   .max(80)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+
+// Optional YouTube link shown with a question's explanation; saved as a clean watch URL.
+const explanationVideoUrlSchema = z
+  .string()
+  .trim()
+  .max(300)
+  .optional()
+  .nullable()
+  .transform((value, ctx) => {
+    if (!value) return null;
+    const videoId = extractYouTubeVideoId(value);
+    if (!videoId) {
+      ctx.addIssue({ code: "custom", message: "Paste a valid YouTube link." });
+      return z.NEVER;
+    }
+    return `https://www.youtube.com/watch?v=${videoId}`;
+  });
 
 export const adminCourseSchema = z.object({
   title: z.string().trim().min(3).max(120),
@@ -42,11 +64,63 @@ export const adminCourseSchema = z.object({
   homepageOrder: z.coerce.number().int().min(0).max(9999).default(0),
   badge: z.string().trim().max(40).optional().nullable(),
   status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).default("DRAFT"),
+  // Long "about the course" text on the public course page; line breaks are kept.
+  description: z
+    .string()
+    .trim()
+    .max(
+      COURSE_DESCRIPTION_MAX_LENGTH,
+      `Course details can be up to ${COURSE_DESCRIPTION_MAX_LENGTH.toLocaleString("en-US")} characters.`,
+    )
+    .optional()
+    .nullable(),
+  // "এই কোর্সে যা থাকছে" lines, in display order. Blank lines are dropped.
+  includes: z
+    .array(
+      z
+        .string()
+        .trim()
+        .max(
+          COURSE_INCLUDE_MAX_LENGTH,
+          `Each line can be up to ${COURSE_INCLUDE_MAX_LENGTH} characters.`,
+        ),
+    )
+    .max(COURSE_INCLUDES_MAX_ITEMS, `Add up to ${COURSE_INCLUDES_MAX_ITEMS} lines.`)
+    .transform((lines) => lines.filter(Boolean))
+    .optional(),
+  // Private group for enrolled students only — never exposed on the public page.
+  facebookGroupUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .refine(
+      (value) => value === "" || isHttpsUrl(value),
+      "Enter a valid https:// link.",
+    )
+    .optional()
+    .nullable(),
 });
+
+function isHttpsUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname.includes(".");
+  } catch {
+    return false;
+  }
+}
 
 export const adminModuleSchema = z.object({
   courseId: z.string().min(1),
   title: z.string().trim().min(2).max(120),
+  // Shown above the title instead of "Module 1", e.g. a subject name in combo courses.
+  label: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .nullable()
+    .transform((value) => (value ? value : null)),
   description: z.string().trim().max(500).optional().nullable(),
   displayOrder: z.coerce.number().int().min(0).optional(),
 });
@@ -127,6 +201,7 @@ export const adminQuizSchema = z.object({
       z.object({
         prompt: z.string().trim().min(3).max(500),
         explanation: z.string().trim().max(500).optional().nullable(),
+        explanationVideoUrl: explanationVideoUrlSchema,
         displayOrder: z.coerce.number().int().min(0),
         options: z
           .array(
@@ -343,6 +418,7 @@ export const adminExamQuestionSchema = z.object({
     .optional()
     .nullable(),
   explanation: z.string().trim().max(1000).optional().nullable(),
+  explanationVideoUrl: explanationVideoUrlSchema,
   displayOrder: z.coerce.number().int().min(0),
   options: z
     .array(
