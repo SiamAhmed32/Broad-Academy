@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { Layout } from "@/components/Layout";
-import { PrivacyPolicy } from "@/components/Legal";
+import { LegalPage } from "@/components/Legal";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Broad Academy",
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 const PrivacyPolicyPage = () => {
   return (
     <Layout>
-      <PrivacyPolicy />
+      <LegalPage slug="privacy-policy" />
     </Layout>
   );
 };
