@@ -145,7 +145,7 @@ function LessonEditorForm({
     if (minutes && (Number(minutes) < 0 || Number(minutes) > 600)) {
       next.duration = "Enter minutes between 1 and 600.";
     }
-    if (type === "READING" && content.length > 10000) {
+    if (type !== "QUIZ" && content.length > 10000) {
       next.content = "Keep the text under 10,000 characters.";
     }
     setErrors(next);
@@ -167,7 +167,7 @@ function LessonEditorForm({
       youtubeVideoId: type === "VIDEO" ? videoId : null,
       durationSeconds:
         type !== "QUIZ" && minutes ? Math.max(0, Math.round(Number(minutes) * 60)) : 0,
-      content: type === "READING" ? content.trim() || null : null,
+      content: type === "QUIZ" ? null : content.trim() || null,
     };
 
     setSaving(true);
@@ -341,6 +341,21 @@ function LessonEditorForm({
                 )}
               </div>
             ) : null}
+            <AdminField
+              label="Notes under the video (optional)"
+              hint="Shown in the grey box below the lesson description. Leave empty to hide the box."
+              error={errors.content}
+              className="sm:col-span-2"
+            >
+              <AdminTextarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Key points, instructions, or what to focus on in this video..."
+                className="min-h-[110px]"
+                maxLength={10000}
+                invalid={Boolean(errors.content)}
+              />
+            </AdminField>
           </div>
         ) : null}
 

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 
 import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
 import { requireStaffApi } from "@/lib/admin/guard";
@@ -10,6 +10,7 @@ import { errorResponse } from "@/lib/auth/response";
 import { isTrustedOrigin } from "@/lib/auth/security";
 import { db } from "@/lib/db";
 import { adminDirectEnrollmentSchema } from "@/lib/enrollments/validation";
+import { createUserNotification } from "@/lib/notifications/service";
 import { ensureStudentId } from "@/lib/students/id";
 import { z } from "zod";
 
@@ -85,6 +86,11 @@ export async function POST(request: NextRequest) {
   }
 
   const enrolledAt = new Date();
+  const previous = await db.user.findUnique({
+    where: { id: parsed.data.userId },
+    select: { studentId: true },
+  });
+  let studentId: string | null = null;
   const enrollment = await db.$transaction(async (tx) => {
     const record = await tx.enrollment.upsert({
       where: {
@@ -114,12 +120,36 @@ export async function POST(request: NextRequest) {
       },
       include: {
         user: { select: { fullName: true, email: true } },
-        course: { select: { title: true } },
+        course: { select: { title: true, slug: true } },
       },
     });
 
-    await ensureStudentId(tx, parsed.data.userId, enrolledAt);
+    studentId = await ensureStudentId(tx, parsed.data.userId, enrolledAt);
     return record;
+  });
+
+  const userId = parsed.data.userId;
+  const isNewStudentId = !previous?.studentId && studentId;
+  after(async () => {
+    await createUserNotification({
+      userId,
+      title: "Course access granted",
+      content: `You now have access to "${enrollment.course.title}". You can start learning right away.`,
+      type: "ENROLLMENT_GRANTED",
+      category: "ALERT",
+      link: `/learn/${enrollment.course.slug}`,
+    }).catch(console.error);
+
+    if (isNewStudentId) {
+      await createUserNotification({
+        userId,
+        title: "Your student ID is ready",
+        content: `Your Broad Academy student ID is ${studentId}. Find it anytime in your dashboard profile.`,
+        type: "STUDENT_ID_ASSIGNED",
+        category: "UPDATE",
+        link: "/dashboard?tab=profile",
+      }).catch(console.error);
+    }
   });
 
   return NextResponse.json({ success: true, data: enrollment }, { status: 201 });

@@ -4,9 +4,11 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Download,
+  MessageSquareReply,
   Search,
 } from "lucide-react";
 
+import DocumentReplyDialog from "@/components/Admin/documents/DocumentReplyDialog";
 import {
   AdminBadge,
   AdminCard,
@@ -34,6 +36,10 @@ type Document = {
   fileFormat: string | null;
   message: string | null;
   status: DocumentStatus;
+  reviewNote: string | null;
+  reviewedAt: string | null;
+  replyFileUrl: string | null;
+  replyFileName: string | null;
   createdAt: string;
 };
 
@@ -94,6 +100,7 @@ export default function AdminDocumentsPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Document | null>(null);
 
   const loadDocuments = useCallback(async (q: string, st: string, pg: number) => {
     setLoading(true);
@@ -256,10 +263,21 @@ export default function AdminDocumentsPage() {
                       )}
                     </div>
                     {doc.message && (
-                      <p className="mt-2 rounded-lg bg-slate-50 p-2.5 text-xs text-slate-600 line-clamp-1 border border-slate-100 max-w-2xl">
+                      <p className="mt-2 max-w-2xl whitespace-pre-line rounded-lg border border-slate-100 bg-slate-50 p-2.5 text-xs text-slate-600">
                         &quot;{doc.message}&quot;
                       </p>
                     )}
+                    {doc.reviewNote || doc.replyFileUrl ? (
+                      <p className="mt-2 flex max-w-2xl items-start gap-1.5 text-xs text-emerald-700">
+                        <MessageSquareReply size={13} className="mt-0.5 shrink-0" />
+                        <span className="line-clamp-2">
+                          Replied
+                          {doc.reviewedAt ? ` ${formatAdminDate(doc.reviewedAt)}` : ""}
+                          {doc.reviewNote ? `: ${doc.reviewNote}` : ""}
+                          {doc.replyFileName ? ` (attachment: ${doc.replyFileName})` : ""}
+                        </span>
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-2 flex-shrink-0 sm:justify-end">
                     <AdminSelect
@@ -284,6 +302,14 @@ export default function AdminDocumentsPage() {
                     >
                       <Download size={14} /> Download
                     </a>
+                    <button
+                      type="button"
+                      onClick={() => setReplyingTo(doc)}
+                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-accent px-3.5 text-sm font-semibold text-white transition hover:bg-accent/90"
+                    >
+                      <MessageSquareReply size={14} />
+                      {doc.reviewNote || doc.replyFileUrl ? "Edit reply" : "Reply"}
+                    </button>
                   </div>
                 </div>
               </AdminCard>
@@ -294,6 +320,16 @@ export default function AdminDocumentsPage() {
 
       {/* Pagination */}
       <AdminPagination pagination={pagination} onPageChange={setPage} />
+
+      <DocumentReplyDialog
+        document={replyingTo}
+        onClose={() => setReplyingTo(null)}
+        onSaved={async () => {
+          showToast("Reply saved. The student has been notified.");
+          setReplyingTo(null);
+          await loadDocuments(search, statusFilter, page);
+        }}
+      />
     </div>
   );
 }

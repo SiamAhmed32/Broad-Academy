@@ -4,6 +4,10 @@ import { redirect } from "next/navigation";
 import SubmitDocumentsPage from "@/components/Documents/SubmitDocumentsPage";
 import { Layout } from "@/components/Layout";
 import { getCurrentUser } from "@/lib/auth/session";
+import {
+  getStudentSubmissions,
+  hasActiveEnrollment,
+} from "@/lib/documents/student";
 
 export const metadata: Metadata = {
   title: "Submit Documents | Broad Academy",
@@ -17,6 +21,11 @@ export default async function SubmitDocumentsRoute() {
   if (!user) redirect("/login?next=/submit-documents");
   if (user.role !== "STUDENT") redirect("/dashboard");
 
+  const [isEnrolled, submissions] = await Promise.all([
+    hasActiveEnrollment(user.id),
+    getStudentSubmissions(user),
+  ]);
+
   return (
     <Layout>
       <SubmitDocumentsPage
@@ -25,6 +34,8 @@ export default async function SubmitDocumentsRoute() {
           email: user.email,
           phone: user.phone,
         }}
+        isEnrolled={isEnrolled}
+        submissions={submissions}
       />
     </Layout>
   );

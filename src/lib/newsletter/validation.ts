@@ -7,7 +7,11 @@ const emailSchema = z
   .email("Enter a valid email address.")
   .max(254);
 
-export const newsletterSources = ["footer", "homepage"] as const;
+export const newsletterSources = [
+  "footer",
+  "homepage",
+  "contact-section",
+] as const;
 
 export const newsletterSchema = z.object({
   email: emailSchema,

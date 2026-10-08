@@ -371,19 +371,21 @@ function Overview({
         <StatCard icon={Trophy} label="Average quiz score" value={`${data.stats.averageQuizScore}%`} color="amber" />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Link
-          href="/submit-documents"
-          className="flex items-center gap-4 rounded-2xl border border-navy/8 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-btnBg/25"
-        >
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-btnBg/10 text-btnBg">
-            <ReceiptText className="h-6 w-6" />
-          </span>
-          <div>
-            <p className="font-semibold text-navy">Submit documents</p>
-            <p className="mt-1 text-sm text-navy/50">Upload assignments or school papers for review.</p>
-          </div>
-        </Link>
+      <div className={`grid gap-4 ${data.courses.length > 0 ? "sm:grid-cols-2" : ""}`}>
+        {data.courses.length > 0 ? (
+          <Link
+            href="/submit-documents"
+            className="flex items-center gap-4 rounded-2xl border border-navy/8 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-btnBg/25"
+          >
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-btnBg/10 text-btnBg">
+              <ReceiptText className="h-6 w-6" />
+            </span>
+            <div>
+              <p className="font-semibold text-navy">Submit documents</p>
+              <p className="mt-1 text-sm text-navy/50">Upload files and track replies from our team.</p>
+            </div>
+          </Link>
+        ) : null}
         <Link
           href="/notices"
           className="flex items-center gap-4 rounded-2xl border border-navy/8 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-btnBg/25"

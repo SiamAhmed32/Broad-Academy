@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
 
 import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
@@ -8,6 +8,7 @@ import { adminDocumentUpdateSchema, adminListQuerySchema } from "@/lib/admin/val
 import { errorResponse } from "@/lib/auth/response";
 import { isTrustedOrigin } from "@/lib/auth/security";
 import { db } from "@/lib/db";
+import { notifyStudentAboutDocument } from "@/lib/documents/notify";
 
 const patchSchema = adminDocumentUpdateSchema.extend({ id: z.string().min(1) });
 
@@ -91,15 +92,28 @@ export async function PATCH(request: NextRequest) {
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return errorResponse("Invalid data.", 422);
 
+  const existing = await db.documentSubmission.findUnique({
+    where: { id: parsed.data.id },
+    select: { status: true },
+  });
+  if (!existing) return errorResponse("Document not found.", 404);
+
   const document = await db.documentSubmission.update({
     where: { id: parsed.data.id },
     data: {
       status: parsed.data.status,
+      reviewedAt: new Date(),
       ...("reviewNote" in parsed.data
         ? { reviewNote: parsed.data.reviewNote ?? null }
         : {}),
     },
   });
+
+  if (existing.status !== document.status) {
+    after(() =>
+      notifyStudentAboutDocument(document, { replied: false }).catch(console.error),
+    );
+  }
 
   return NextResponse.json({ success: true, data: document });
 }

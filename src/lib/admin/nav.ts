@@ -5,6 +5,7 @@ import {
   FileText,
   GraduationCap,
   Layers,
+  Megaphone,
   MessageSquare,
   MonitorCheck,
   Star,
@@ -110,6 +111,14 @@ export const adminNavItems: AdminNavItem[] = [
       ADMIN_PERMISSIONS.ENROLLMENTS,
     ],
     icon: Users,
+    group: "people",
+  },
+  {
+    label: "Academy Notices",
+    description: "Official updates for students",
+    href: "/admin/notices",
+    permission: ADMIN_PERMISSIONS.STUDENTS,
+    icon: Megaphone,
     group: "people",
   },
   {

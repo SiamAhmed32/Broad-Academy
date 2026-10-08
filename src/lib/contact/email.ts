@@ -80,6 +80,56 @@ export async function sendContactNotification(
   });
 }
 
+export async function sendContactReply(data: {
+  email: string;
+  fullName: string;
+  subject: string;
+  originalMessage: string;
+  reply: string;
+}) {
+  const user = getSenderEmail();
+  const appName = "Broad Academy";
+  const subjectLabel =
+    contactSubjectLabels[data.subject as keyof typeof contactSubjectLabels] ??
+    data.subject;
+
+  await getMailTransporter().sendMail({
+    from: `"${appName}" <${user}>`,
+    to: data.email,
+    replyTo: process.env.CONTACT_ADMIN_EMAIL || user,
+    subject: `Re: ${subjectLabel} — ${appName}`,
+    text: [
+      `Hello ${data.fullName},`,
+      "",
+      data.reply,
+      "",
+      `— ${appName} support team`,
+      "",
+      "Your original message:",
+      data.originalMessage,
+    ].join("\n"),
+    html: `
+      <div style="margin:0;background:#f3f7fb;padding:32px 16px;font-family:Arial,sans-serif;color:#163351">
+        <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e5edf5">
+          <div style="background:#163351;padding:28px 32px;color:#ffffff">
+            <div style="font-size:20px;font-weight:700">${appName}</div>
+            <div style="margin-top:6px;font-size:12px;letter-spacing:1.6px;color:#8cf0d0">REPLY TO YOUR MESSAGE</div>
+          </div>
+          <div style="padding:32px">
+            <p style="margin:0 0 16px;font-size:16px">Hello ${escapeHtml(data.fullName)},</p>
+            <div style="font-size:15px;line-height:1.8;white-space:pre-wrap">${escapeHtml(data.reply)}</div>
+            <p style="margin:24px 0 0;color:#61758a">— ${appName} support team</p>
+            <div style="margin-top:28px;padding:16px 18px;border-radius:16px;background:#f8fbff;border:1px solid #e5edf5">
+              <div style="font-size:12px;letter-spacing:1.2px;color:#61758a">YOUR MESSAGE · ${escapeHtml(subjectLabel)}</div>
+              <div style="margin-top:8px;font-size:14px;line-height:1.7;color:#4d5a78;white-space:pre-wrap">${escapeHtml(data.originalMessage)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `,
+  });
+}
+
 export async function sendContactConfirmation(
   data: Pick<ContactInput, "email" | "fullName" | "subject">,
 ) {

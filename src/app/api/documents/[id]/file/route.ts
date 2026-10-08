@@ -1,14 +1,14 @@
 import { NextRequest } from "next/server";
 
-import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
-import { requireStaffApi } from "@/lib/admin/guard";
 import { errorResponse } from "@/lib/auth/response";
+import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import {
   documentFileSelect,
   pickDocumentFile,
   streamDocumentFile,
 } from "@/lib/documents/stream";
+import { studentDocumentsWhere } from "@/lib/documents/student";
 
 export const runtime = "nodejs";
 
@@ -16,16 +16,17 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { error } = await requireStaffApi(ADMIN_PERMISSIONS.DOCUMENTS);
-  if (error) return error;
+  const user = await getCurrentUser();
+  if (!user) return errorResponse("Authentication required.", 401);
 
   const { id } = await context.params;
   const download = request.nextUrl.searchParams.get("download") === "1";
   const which =
     request.nextUrl.searchParams.get("which") === "reply" ? "reply" : "original";
 
-  const document = await db.documentSubmission.findUnique({
-    where: { id },
+  // Students can only open files from their own submissions.
+  const document = await db.documentSubmission.findFirst({
+    where: { id, ...studentDocumentsWhere(user) },
     select: documentFileSelect,
   });
 

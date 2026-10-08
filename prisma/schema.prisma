@@ -276,6 +276,8 @@ model ContactMessage {
   status    ContactMessageStatus @default(NEW)
   ipHash    String?
   userAgent String?
+  replyMessage String?
+  repliedAt    DateTime?
   createdAt DateTime             @default(now())
 
   @@index([email, createdAt])
@@ -627,12 +629,20 @@ model DocumentSubmission {
   message          String?
   status           DocumentSubmissionStatus @default(PENDING)
   reviewNote       String?
+  reviewedAt       DateTime?
+  replyFileUrl          String?
+  replyFilePublicId     String?
+  replyFileName         String?
+  replyFileFormat       String?
+  replyFileResourceType String?
+  userId           String?
   ipHash           String?
   createdAt        DateTime                 @default(now())
   updatedAt        DateTime                 @updatedAt
 
   @@index([status, createdAt])
   @@index([email, createdAt])
+  @@index([userId, createdAt])
 }
 
 model CounsellingFile {
@@ -664,6 +674,21 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, archived, read, createdAt])
+}
+
+model Notice {
+  id          String   @id @default(cuid())
+  title       String
+  body        String
+  linkUrl     String?
+  linkLabel   String?
+  pinned      Boolean  @default(false)
+  published   Boolean  @default(true)
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([published, pinned, publishedAt])
 }
 
 model SiteConfig {

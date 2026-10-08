@@ -96,7 +96,7 @@ export default function NotFoundView() {
               </div>
 
               <h1 className="mt-5 text-3xl font-semibold tracking-tight text-navy sm:mt-6 sm:text-5xl">
-                Looks like this lesson is missing.
+                Looks like this page is missing.
               </h1>
 
               <p className="mt-4 text-sm leading-7 text-slate-600 sm:text-base lg:max-w-xl">

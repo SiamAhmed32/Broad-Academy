@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, useReducedMotion } from "framer-motion";
 import {
+  BookOpenCheck,
   CheckCircle2,
   FileUp,
   Loader2,
@@ -10,6 +11,8 @@ import {
   ShieldCheck,
   Upload,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -17,12 +20,15 @@ import { z } from "zod";
 import FormField from "@/components/ConsultationSection/FormField";
 import FormSelect from "@/components/ConsultationSection/FormSelect";
 import { Container } from "@/components/reusables";
+import type { StudentSubmission } from "@/lib/documents/student";
 import {
   DOCUMENT_TYPES,
   documentSubmissionSchema,
 } from "@/lib/documents/validation";
 import { apiFetch } from "@/lib/api/client";
 import { notify } from "@/lib/toast";
+
+import MySubmissions from "./MySubmissions";
 
 type DocumentFormInput = z.infer<typeof documentSubmissionSchema>;
 
@@ -34,6 +40,8 @@ export type SubmitDocumentsProfile = {
 
 type SubmitDocumentsPageProps = {
   profile: SubmitDocumentsProfile;
+  isEnrolled: boolean;
+  submissions: StudentSubmission[];
 };
 
 const inputShell =
@@ -47,8 +55,13 @@ const ALLOWED_TYPES = new Set([
   "application/pdf",
 ]);
 
-export default function SubmitDocumentsPage({ profile }: SubmitDocumentsPageProps) {
+export default function SubmitDocumentsPage({
+  profile,
+  isEnrolled,
+  submissions,
+}: SubmitDocumentsPageProps) {
   const reduceMotion = useReducedMotion();
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -58,6 +71,7 @@ export default function SubmitDocumentsPage({ profile }: SubmitDocumentsPageProp
     register,
     handleSubmit,
     setError,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<DocumentFormInput>({
     resolver: zodResolver(documentSubmissionSchema),
@@ -132,6 +146,15 @@ export default function SubmitDocumentsPage({ profile }: SubmitDocumentsPageProp
     }
 
     setIsSubmitted(true);
+    router.refresh();
+  };
+
+  const startAnother = () => {
+    reset();
+    setSelectedFile(null);
+    setFileError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setIsSubmitted(false);
   };
 
   return (
@@ -170,8 +193,10 @@ export default function SubmitDocumentsPage({ profile }: SubmitDocumentsPageProp
             transition={{ duration: 0.5, delay: 0.1 }}
             className="mx-auto max-w-2xl rounded-2xl border border-white/80 bg-white p-6 shadow-[0_20px_70px_rgba(22,51,81,0.08)] sm:p-8"
           >
-            {isSubmitted ? (
-              <SuccessState />
+            {!isEnrolled ? (
+              <EnrollmentRequired />
+            ) : isSubmitted ? (
+              <SuccessState onSubmitAnother={startAnother} />
             ) : (
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
                 <div className="flex items-start gap-3 rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4">
@@ -331,13 +356,40 @@ export default function SubmitDocumentsPage({ profile }: SubmitDocumentsPageProp
               </form>
             )}
           </motion.div>
+
+          {submissions.length > 0 ? (
+            <MySubmissions submissions={submissions} />
+          ) : null}
         </Container>
       </section>
     </main>
   );
 }
 
-function SuccessState() {
+function EnrollmentRequired() {
+  return (
+    <div className="flex flex-col items-center py-10 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-btnBg/10 text-btnBg">
+        <BookOpenCheck className="h-8 w-8" />
+      </div>
+      <h3 className="mt-5 text-xl font-semibold text-navy">
+        Enroll in a course to submit documents
+      </h3>
+      <p className="mt-2 max-w-sm text-sm leading-relaxed text-navy/60">
+        Document submission opens once you are enrolled in at least one Broad
+        Academy course.
+      </p>
+      <Link
+        href="/courses"
+        className="mt-6 inline-flex items-center justify-center rounded-xl bg-btnBg px-5 py-3 text-sm font-semibold text-white transition hover:bg-btnBgDark"
+      >
+        Browse courses
+      </Link>
+    </div>
+  );
+}
+
+function SuccessState({ onSubmitAnother }: { onSubmitAnother: () => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.96 }}
@@ -355,9 +407,24 @@ function SuccessState() {
       </motion.div>
       <h3 className="mt-5 text-xl font-semibold text-navy">Document submitted</h3>
       <p className="mt-2 max-w-sm text-sm leading-relaxed text-navy/55">
-        Your file was received securely. Our team will review it and contact you if
-        we need anything else.
+        Your file was received securely. You can follow its status and our
+        team&apos;s reply under My submissions below.
       </p>
+      <div className="mt-6 flex w-full max-w-sm flex-col gap-2.5">
+        <button
+          type="button"
+          onClick={onSubmitAnother}
+          className="rounded-xl bg-btnBg px-5 py-3 text-sm font-semibold text-white transition hover:bg-btnBgDark"
+        >
+          Submit another document
+        </button>
+        <a
+          href="#my-submissions"
+          className="rounded-xl border border-navy/12 px-5 py-3 text-sm font-semibold text-navy transition hover:bg-navy/5"
+        >
+          View my submissions
+        </a>
+      </div>
     </motion.div>
   );
 }

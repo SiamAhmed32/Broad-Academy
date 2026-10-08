@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/security";
 import { db } from "@/lib/db";
 import { uploadDocumentSubmission } from "@/lib/documents/cloudinary";
+import { hasActiveEnrollment } from "@/lib/documents/student";
 import { documentSubmissionSchema } from "@/lib/documents/validation";
 import { notifyActiveAdmins } from "@/lib/notifications/service";
 
@@ -42,6 +43,10 @@ export async function POST(request: NextRequest) {
     const user = await getCurrentUser();
     if (!user || user.role !== "STUDENT") {
       return errorResponse("Sign in with a student account to submit documents.", 401);
+    }
+
+    if (!(await hasActiveEnrollment(user.id))) {
+      return errorResponse("Document submission opens after you enroll in a course.", 403);
     }
 
     const ipHash = hashValue(getClientIp(request));
@@ -117,6 +122,7 @@ export async function POST(request: NextRequest) {
         fileName: file.name,
         fileResourceType: upload.resource_type,
         message: parsed.data.message || null,
+        userId: user.id,
         ipHash,
       },
     });

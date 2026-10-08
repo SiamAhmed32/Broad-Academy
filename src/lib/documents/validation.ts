@@ -1,11 +1,13 @@
 import { z } from "zod";
 
 export const DOCUMENT_TYPES = [
-  "Handwritten assignment",
-  "Report card / marksheet",
-  "School ID or admission form",
-  "Guardian consent letter",
-  "Other academic document",
+  "Question / Problem",
+  "Assignment",
+  "Exam Paper",
+  "Result / Mark Sheet",
+  "Study Plan / Routine",
+  "Teacher's Feedback",
+  "Other",
 ] as const;
 
 export const documentSubmissionSchema = z.object({

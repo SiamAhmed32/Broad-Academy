@@ -7,8 +7,10 @@ import {
   Eye,
   Inbox,
   Mail,
+  MessageSquareReply,
   RotateCcw,
   Search,
+  Send,
   UserRound,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -23,7 +25,9 @@ import {
   AdminPageHeader,
   AdminPagination,
   AdminSelect,
+  AdminTextarea,
   type AdminPaginationMeta,
+  useAdminToast,
 } from "@/components/Admin";
 import Modal from "@/components/reusables/Modal";
 import { adminFetch, formatAdminDate } from "@/lib/admin/client";
@@ -40,6 +44,8 @@ type Message = {
   message: string;
   source: string;
   status: MessageStatus;
+  replyMessage: string | null;
+  repliedAt: string | null;
   createdAt: string;
 };
 
@@ -74,6 +80,10 @@ export default function AdminContactPage() {
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState(emptyPagination);
   const [counts, setCounts] = useState({ NEW: 0, READ: 0, ARCHIVED: 0 });
+  const [replyText, setReplyText] = useState("");
+  const [replyError, setReplyError] = useState("");
+  const [sendingReply, setSendingReply] = useState(false);
+  const { showToast } = useAdminToast();
 
   const loadMessages = useCallback(async () => {
     setLoading(true);
@@ -120,7 +130,32 @@ export default function AdminContactPage() {
     }
   }
 
+  async function sendReply() {
+    if (!selected) return;
+    if (replyText.trim().length < 2) {
+      setReplyError("Write a reply first.");
+      return;
+    }
+    setSendingReply(true);
+    setReplyError("");
+    const result = await adminFetch<Message>(`/api/admin/contact/${selected.id}/reply`, {
+      method: "POST",
+      body: JSON.stringify({ reply: replyText.trim() }),
+    });
+    setSendingReply(false);
+    if (result.success && result.data) {
+      setSelected(result.data);
+      setReplyText("");
+      showToast(`Reply emailed to ${result.data.email}.`);
+      await loadMessages();
+    } else {
+      setReplyError(result.message ?? "Could not send the reply.");
+    }
+  }
+
   async function openMessage(message: Message) {
+    setReplyText("");
+    setReplyError("");
     setSelected(message);
     if (message.status === "NEW") {
       const result = await adminFetch<Message>("/api/admin/contact", {
@@ -239,9 +274,14 @@ export default function AdminContactPage() {
                         </div>
                       </td>
                       <td className="px-5 py-4">
-                        <AdminBadge variant={statusVariant[message.status]}>
-                          {statusLabel[message.status]}
-                        </AdminBadge>
+                        <div className="flex flex-wrap gap-1.5">
+                          <AdminBadge variant={statusVariant[message.status]}>
+                            {statusLabel[message.status]}
+                          </AdminBadge>
+                          {message.repliedAt ? (
+                            <AdminBadge variant="success">Replied</AdminBadge>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-5 py-4 text-slate-500">
                         {formatAdminDate(message.createdAt)}
@@ -304,6 +344,48 @@ export default function AdminContactPage() {
               </p>
             </div>
 
+            {selected.replyMessage ? (
+              <div className="mt-6">
+                <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.16em] text-emerald-600">
+                  <MessageSquareReply className="h-3.5 w-3.5" />
+                  Your reply
+                  {selected.repliedAt ? (
+                    <span className="font-medium normal-case tracking-normal text-slate-400">
+                      · sent {formatAdminDate(selected.repliedAt)}
+                    </span>
+                  ) : null}
+                </p>
+                <p className="mt-3 whitespace-pre-wrap rounded-2xl border border-emerald-100 bg-emerald-50/50 p-5 text-sm leading-7 text-slate-700">
+                  {selected.replyMessage}
+                </p>
+              </div>
+            ) : null}
+
+            <div className="mt-6">
+              <label
+                htmlFor="contact-reply"
+                className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400"
+              >
+                {selected.replyMessage ? "Send another reply" : "Reply"}
+              </label>
+              <AdminTextarea
+                id="contact-reply"
+                className="mt-3"
+                rows={5}
+                maxLength={5000}
+                value={replyText}
+                onChange={(event) => {
+                  setReplyText(event.target.value);
+                  if (replyError) setReplyError("");
+                }}
+                placeholder={`Write your reply to ${selected.fullName}. It will be emailed to ${selected.email}.`}
+                invalid={Boolean(replyError)}
+              />
+              {replyError ? (
+                <p className="mt-1.5 text-xs text-red-600">{replyError}</p>
+              ) : null}
+            </div>
+
             <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-5">
               {selected.status === "ARCHIVED" ? (
                 <AdminButton
@@ -324,13 +406,13 @@ export default function AdminContactPage() {
                   Archive
                 </AdminButton>
               )}
-              <a
-                href={`mailto:${selected.email}?subject=${encodeURIComponent(`Re: ${selected.subject}`)}`}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent/90"
+              <AdminButton
+                isLoading={sendingReply}
+                onClick={() => void sendReply()}
               >
-                <Mail className="h-4 w-4" />
-                Reply by email
-              </a>
+                <Send className="h-4 w-4" />
+                Send reply
+              </AdminButton>
             </div>
           </div>
         ) : null}
