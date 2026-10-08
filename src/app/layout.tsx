@@ -3,6 +3,7 @@ import { Hind_Siliguri, Inter } from "next/font/google";
 import "./globals.css";
 import { FloatingScrollToTop } from "@/components/Layout/Footer/BackToTop";
 import MobileBottomNav from "@/components/Layout/MobileBottomNav";
+import AppToaster from "@/components/ui/AppToaster";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getNavSession } from "@/lib/nav/session";
 import { getSiteUrl } from "@/lib/site/url";
@@ -67,6 +68,7 @@ export default async function RootLayout({
           signedIn={Boolean(user)}
           initialUnreadCount={navSession?.unreadCount ?? 0}
         />
+        <AppToaster />
         <Analytics />
       </body>
     </html>

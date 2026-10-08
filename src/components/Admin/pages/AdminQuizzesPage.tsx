@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 
 import {
   AdminButton,
@@ -17,6 +17,7 @@ import {
   AdminPageHeader,
   AdminSelect,
   AdminTextarea,
+  useAdminToast,
 } from "@/components/Admin";
 import { adminFetch } from "@/lib/admin/client";
 
@@ -101,8 +102,8 @@ export default function AdminQuizzesPage() {
   const [contentLoading, setContentLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState(false);
   const [quiz, setQuiz] = useState<Quiz>(emptyQuiz());
+  const { showToast } = useAdminToast();
 
   const syncUrl = useCallback(
     (nextCourseId: string, nextLessonId: string) => {
@@ -222,13 +223,11 @@ export default function AdminQuizzesPage() {
   function handleCourseChange(nextCourseId: string) {
     setCourseId(nextCourseId);
     setLessonId("");
-    setSaved(false);
     setError("");
   }
 
   function handleLessonChange(nextLessonId: string) {
     setLessonId(nextLessonId);
-    setSaved(false);
     setError("");
     syncUrl(courseId, nextLessonId);
   }
@@ -295,7 +294,6 @@ export default function AdminQuizzesPage() {
     e.preventDefault();
     if (!lessonId) return;
     setError("");
-    setSaved(false);
 
     const invalidQuestion = quiz.questions.findIndex((question) => {
       const filledOptions = question.options.filter((option) => option.text.trim());
@@ -342,14 +340,14 @@ export default function AdminQuizzesPage() {
     setSaving(false);
 
     if (!response.success) {
-      setError(response.message ?? "Could not save the quiz.");
+      showToast(response.message ?? "Could not save the quiz.", true);
       return;
     }
 
     if (response.data) {
       setQuiz(mapQuizFromApi(response.data));
     }
-    setSaved(true);
+    showToast("Quiz saved. Students will see a \"Lesson quiz\" tab on this lesson.");
     syncUrl(courseId, lessonId);
   }
 
@@ -550,12 +548,6 @@ export default function AdminQuizzesPage() {
           {error ? (
             <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               {error}
-            </p>
-          ) : null}
-          {saved ? (
-            <p className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-700">
-              <CheckCircle2 className="h-4 w-4" />
-              Quiz saved. Students will see a &quot;Lesson quiz&quot; tab on this lesson.
             </p>
           ) : null}
 

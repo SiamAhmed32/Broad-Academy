@@ -23,7 +23,7 @@ const ConsultationInfo = () => {
         >
           <FamilyIcon className="h-7 w-11 shrink-0 text-btnBg" />
           <span className="inline-flex items-center rounded-full border border-btnBg/15 bg-white px-4 py-2 text-sm font-semibold text-btnBg shadow-sm">
-            অভিভাবকদের জন্য
+            অভিভাবক ও স্টুডেন্টদের জন্য
           </span>
         </motion.div>
 
@@ -35,7 +35,7 @@ const ConsultationInfo = () => {
           lang="bn"
           className="mt-6 text-3xl font-extrabold leading-[1.2] tracking-[-0.02em] text-navy sm:text-4xl"
         >
-          সন্তানের লক্ষ্য অনুযায়ী তৈরি করুন সঠিক শিক্ষার পরিকল্পনা
+          শিক্ষার্থীর জন্য তৈরি করুন পূর্ণাঙ্গ একাডেমিক গাইডলাইন ও স্টাডি প্ল্যান
         </motion.h2>
 
         <motion.div
@@ -54,9 +54,11 @@ const ConsultationInfo = () => {
           lang="bn"
           className="mt-6 max-w-xl text-base leading-8 text-body"
         >
-          সন্তানের পড়াশোনা, শেখার অগ্রগতি এবং ভবিষ্যৎ লক্ষ্য নিয়ে সঠিক
-          সিদ্ধান্ত নিতে আমাদের একাডেমিক কাউন্সেলর আপনার পাশে আছেন। ব্যক্তিগত
-          পরামর্শের মাধ্যমে সন্তানের জন্য সেরা শেখার পরিকল্পনা নির্ধারণ করুন।
+          একাডেমিক গাইডলাইন, ব্যক্তিগত স্টাডি প্ল্যান বা রুটিন, সঠিক শিক্ষক
+          নির্বাচন, পরীক্ষার পূর্বেই সিলেবাস শেষ করে রিভিশন, অভিভাবকদের
+          সৃজনশীল পদ্ধতি ও সিলেবাস সম্পর্কে সঠিক ধারণা ও মনিটরিং, পরীক্ষার খাতা
+          সুন্দরভাবে উপস্থাপন এসকল কিছু ভালো নম্বর পাওয়ার পূর্বশর্ত। এ সকল
+          গুরুত্বপূর্ণ দিক নিয়ে থাকবে বাস্তবভিত্তিক নির্দেশনা।
         </motion.p>
 
         <motion.div
@@ -72,7 +74,7 @@ const ConsultationInfo = () => {
             onClick={() => setIsModalOpen(true)}
           >
             <CalendarCheck className="h-4 w-4" />
-            কাউন্সেলিং বুক করুন
+            স্টাডিপ্ল্যান/কাউন্সেলিং বুক করুন
           </PrimaryButton>
 
           <Link

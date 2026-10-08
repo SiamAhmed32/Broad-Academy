@@ -33,6 +33,7 @@ import type {
   LearningRoomData,
   PublicQuiz,
 } from "@/lib/learning/types";
+import { notify } from "@/lib/toast";
 
 type Tab = "overview" | "resources" | "quiz";
 
@@ -584,7 +585,6 @@ function QuizPanel({ quiz }: { quiz: PublicQuiz }) {
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
   const [result, setResult] = useState<QuizResult | null>(null);
 
   const timed = Boolean(quiz.timeLimitSeconds && quiz.timeLimitSeconds > 0);
@@ -597,7 +597,6 @@ function QuizPanel({ quiz }: { quiz: PublicQuiz }) {
 
   useEffect(() => {
     setAnswers({});
-    setError("");
     setResult(null);
     autoSubmitted.current = false;
     const isTimed = Boolean(quiz.timeLimitSeconds && quiz.timeLimitSeconds > 0);
@@ -615,7 +614,6 @@ function QuizPanel({ quiz }: { quiz: PublicQuiz }) {
 
   const handleRetake = () => {
     setAnswers({});
-    setError("");
     setResult(null);
     autoSubmitted.current = false;
     if (timed) {
@@ -630,7 +628,6 @@ function QuizPanel({ quiz }: { quiz: PublicQuiz }) {
   const submitQuiz = useCallback(async () => {
     if (pending || result) return;
     setPending(true);
-    setError("");
     try {
       const response = await fetch("/api/learning/quiz/submit", {
         method: "POST",
@@ -643,13 +640,13 @@ function QuizPanel({ quiz }: { quiz: PublicQuiz }) {
       });
       const payload = await response.json();
       if (!response.ok) {
-        setError(payload.message ?? "Could not submit the quiz.");
+        notify.error(payload.message ?? "Could not submit the quiz.");
         return;
       }
       setResult(payload.data);
       router.refresh();
     } catch {
-      setError("Could not reach the server. Please try again.");
+      notify.error("Could not reach the server. Please try again.");
     } finally {
       setPending(false);
     }
@@ -832,7 +829,6 @@ function QuizPanel({ quiz }: { quiz: PublicQuiz }) {
         ))}
       </div>
 
-      {error ? <p role="alert" className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
       <button
         type="submit"
         disabled={pending}

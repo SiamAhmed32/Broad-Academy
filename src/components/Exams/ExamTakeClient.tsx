@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import QuestionImageViewer from "@/components/Exams/QuestionImageViewer";
+import { notify } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 type Option = {
@@ -197,7 +198,7 @@ export default function ExamTakeClient({ slug }: { slug: string }) {
       if (json.success) {
         router.push(`/exams/${slug}/result/${json.data.id}`);
       } else {
-        setError(json.message ?? "Submission failed.");
+        notify.error(json.message ?? "Submission failed.");
         setSubmitting(false);
         if (forced) setAutoSubmit(false);
       }

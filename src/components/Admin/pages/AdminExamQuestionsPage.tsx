@@ -69,7 +69,7 @@ function createEmptyQuestion(order: number): QuestionDraft {
 }
 
 export default function AdminExamQuestionsPage({ examId, examTitle }: { examId: string; examTitle?: string }) {
-  const { showToast, ToastViewport } = useAdminToast();
+  const { showToast } = useAdminToast();
   const shouldReduceMotion = useReducedMotion();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -411,8 +411,6 @@ export default function AdminExamQuestionsPage({ examId, examTitle }: { examId: 
           {!saving && <Check size={16} />} Save {questions.length} Questions
         </AdminButton>
       </div>
-
-      {ToastViewport}
     </div>
   );
 }

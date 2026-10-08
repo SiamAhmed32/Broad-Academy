@@ -40,7 +40,7 @@ const emptyPagination: AdminPaginationMeta = {
 };
 
 export default function AdminExamRequestsPage() {
-  const { showToast, ToastViewport } = useAdminToast();
+  const { showToast } = useAdminToast();
   const shouldReduceMotion = useReducedMotion();
   const requestId = useSearchParams().get("id") ?? "";
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -237,8 +237,6 @@ export default function AdminExamRequestsPage() {
         onApprove={() => void handleReview("APPROVE")}
         onReject={() => void handleReview("REJECT")}
       />
-
-      {ToastViewport}
     </div>
   );
 }

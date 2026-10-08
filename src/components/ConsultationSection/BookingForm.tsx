@@ -12,6 +12,7 @@ import {
   EDUCATION_LEVELS,
 } from "@/lib/counselling/validation";
 import { apiFetch } from "@/lib/api/client";
+import { notify } from "@/lib/toast";
 import FormField from "./FormField";
 import FormSelect from "./FormSelect";
 
@@ -100,14 +101,12 @@ export default function BookingForm({
           }
         }
       } else {
-        setError("root", {
-          message: result.message ?? "Something went wrong. Please try again.",
-        });
+        notify.error(result.message ?? "Something went wrong. Please try again.");
       }
       return;
     }
 
-    showSuccessToast();
+    // The success screen says this already, so no toast here.
     setIsSubmitted(true);
     onSuccess?.(result.data?.bookingId);
     window.requestAnimationFrame(() => {
@@ -142,16 +141,6 @@ export default function BookingForm({
           and share the session fee before your appointment is finalised.
         </p>
       </div>
-
-      {errors.root ? (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-          {errors.root.message}
-        </motion.div>
-      ) : null}
 
       <div className={`grid grid-cols-1 gap-4 ${compact ? "" : "sm:grid-cols-2"}`}>
         <FormField
@@ -260,48 +249,7 @@ export default function BookingForm({
   );
 }
 
-const SUCCESS_TOAST_MS = 6000;
-
-function showSuccessToast() {
-  if (typeof document === "undefined") return;
-
-  document.querySelector("[data-booking-success-toast]")?.remove();
-
-  const host = document.createElement("div");
-  host.setAttribute("data-booking-success-toast", "");
-  host.setAttribute("role", "status");
-  host.setAttribute("aria-live", "polite");
-  host.style.cssText = [
-    "position:fixed",
-    "top:24px",
-    "left:50%",
-    "transform:translateX(-50%)",
-    "z-index:400",
-    "display:flex",
-    "align-items:center",
-    "gap:12px",
-    "width:min(92vw,28rem)",
-    "background:#163351",
-    "color:#fff",
-    "border-radius:16px",
-    "padding:14px 20px",
-    "font-size:14px",
-    "font-weight:600",
-    "box-shadow:0 16px 40px rgba(22,51,81,0.28)",
-  ].join(";");
-  host.innerHTML =
-    '<span aria-hidden="true" style="color:#8cf0d0;font-size:18px;line-height:1">✓</span>' +
-    '<span class="font-bangla">আপনার রিকোয়েস্ট সফলভাবে জমা হয়েছে</span>';
-  document.body.appendChild(host);
-
-  window.setTimeout(() => host.remove(), SUCCESS_TOAST_MS);
-}
-
 function SuccessMessage({ dashboard }: { dashboard?: boolean }) {
-  useEffect(() => {
-    showSuccessToast();
-  }, []);
-
   return (
     <motion.div
       id="booking-success"

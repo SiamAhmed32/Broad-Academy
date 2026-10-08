@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cloudinaryCoverImage } from "@/lib/media/images";
+import { notify } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 type ExamAttempt = {
@@ -188,7 +189,6 @@ function PaymentModal({
   const [proof, setProof] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const inputClass =
     "h-11 w-full rounded-xl border border-navy/10 bg-heroBg px-3.5 text-sm text-navy outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-slate-50";
@@ -198,16 +198,15 @@ function PaymentModal({
     if (!file) return;
     const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
-      setError("Payment screenshot must be a JPG, PNG, or WebP image.");
+      notify.error("Payment screenshot must be a JPG, PNG, or WebP image.");
       e.target.value = "";
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setError("Payment screenshot must be 5 MB or smaller.");
+      notify.error("Payment screenshot must be 5 MB or smaller.");
       e.target.value = "";
       return;
     }
-    setError("");
     setProof(file);
     setProofPreview(URL.createObjectURL(file));
   }
@@ -215,11 +214,10 @@ function PaymentModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!proof) {
-      setError("Upload your bKash payment screenshot.");
+      notify.error("Upload your bKash payment screenshot.");
       return;
     }
     setSubmitting(true);
-    setError("");
     setFieldErrors({});
 
     const fd = new FormData();
@@ -236,7 +234,7 @@ function PaymentModal({
     if (json.success) {
       onSuccess();
     } else {
-      setError(json.message ?? "Submission failed.");
+      notify.error(json.message ?? "Submission failed.");
       if (json.fields) setFieldErrors(json.fields);
     }
     setSubmitting(false);
@@ -252,13 +250,6 @@ function PaymentModal({
             <strong className="font-mono text-accent">{bkashNumber}</strong>
           </DialogDescription>
         </DialogHeader>
-
-        {error ? (
-          <div className="flex gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            <AlertCircle size={16} className="mt-0.5 shrink-0" />
-            <span>{error}</span>
-          </div>
-        ) : null}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -395,7 +386,6 @@ function ExamActionPanel({
   canTake,
   hasPendingRequest,
   hasRejectedRequest,
-  submitted,
   onStart,
   onPay,
 }: {
@@ -407,7 +397,6 @@ function ExamActionPanel({
   canTake: boolean;
   hasPendingRequest: boolean;
   hasRejectedRequest: boolean;
-  submitted: boolean;
   onStart: () => void;
   onPay: () => void;
 }) {
@@ -468,13 +457,6 @@ function ExamActionPanel({
             {data.request?.reviewNote ? (
               <p className="mt-1 text-xs">{data.request.reviewNote}</p>
             ) : null}
-          </div>
-        ) : null}
-
-        {submitted && !data.hasAccess && !hasPendingRequest ? (
-          <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700">
-            <Check size={15} className="shrink-0" />
-            Payment submitted! We&apos;ll verify within 24 hours.
           </div>
         ) : null}
 
@@ -543,14 +525,12 @@ export default function ExamLobbyClient({ slug }: { slug: string }) {
   const [data, setData] = useState<ExamLobbyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [paymentModal, setPaymentModal] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
 
   const loadExamLobby = useCallback(async () => {
     const res = await fetch(`/api/exams/${slug}`, { cache: "no-store" });
     const json = await res.json();
     if (json.success) {
       setData(json.data);
-      if (json.data.hasAccess) setSubmitted(false);
     }
     return json;
   }, [slug]);
@@ -641,7 +621,7 @@ export default function ExamLobbyClient({ slug }: { slug: string }) {
 
   function onPaymentSuccess() {
     setPaymentModal(false);
-    setSubmitted(true);
+    notify.success("Payment submitted! We'll verify within 24 hours.");
     void loadExamLobby();
   }
 
@@ -660,7 +640,6 @@ export default function ExamLobbyClient({ slug }: { slug: string }) {
     canTake,
     hasPendingRequest,
     hasRejectedRequest,
-    submitted,
     onStart: handleStartExam,
     onPay: handlePayment,
   };

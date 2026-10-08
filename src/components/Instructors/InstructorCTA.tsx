@@ -23,15 +23,16 @@ const InstructorCTA = () => {
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_55%)]" />
           <div className="relative">
-            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-accent">
+            <h2 className="mx-auto max-w-2xl text-3xl font-semibold uppercase tracking-[-0.02em] sm:text-4xl">
               Join Our Team
-            </p>
-            <h2 className="mx-auto mt-4 max-w-2xl text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
-              Passionate About Teaching? We&apos;d Love to Hear From You.
             </h2>
-            <p className="mx-auto mt-4 max-w-xl leading-7 text-soft/75">
-              Broad Academy is always looking for dedicated educators who inspire
-              confidence, clarity, and lifelong learning.
+            <p
+              lang="bn"
+              className="font-bangla mx-auto mt-4 max-w-2xl leading-8 text-soft/75 sm:text-lg"
+            >
+              আমরা এমন শিক্ষক ও মেন্টর খুঁজছি, যারা শিক্ষার্থীদের আত্মবিশ্বাসের
+              সঙ্গে শিখতে সাহায্য করেন, বিষয়গুলো সহজভাবে বুঝিয়ে দেন এবং শেখার
+              প্রতি আগ্রহ তৈরি করেন।
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
               <Link

@@ -10,7 +10,7 @@ export const footerNavLinks = navLinks;
 
 export const footerContact = {
   email: contactDetails.email,
-  emailHref: `mailto:${contactDetails.email}`,
+  emailHref: contactDetails.emailHref,
   phone: contactDetails.phone,
   phoneHref: contactDetails.phoneHref,
   whatsappHref: contactDetails.whatsappHref,

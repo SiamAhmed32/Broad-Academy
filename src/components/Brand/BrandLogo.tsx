@@ -20,7 +20,7 @@ export default function BrandLogo({
     <Link
       href={href}
       aria-label="Broad Academy home"
-      className={cn("inline-flex items-center gap-2.5", className)}
+      className={cn("inline-flex items-center", className)}
     >
       <span className="relative h-14 w-14 shrink-0 overflow-hidden">
         <Image
@@ -33,18 +33,20 @@ export default function BrandLogo({
         />
       </span>
       {!compact && (
-        <span className="flex flex-col justify-center leading-none">
+        // Both words are sized to the same width so they stack as one
+        // block, about as tall as the visible mark (the PNG has padding).
+        <span className="-ml-px flex flex-col justify-center leading-[0.9]">
           <span
             className={cn(
-              "text-[12px] font-semibold tracking-[0.01em]",
-              inverse ? "text-white/80" : "text-navy/70",
+              "text-[24px] font-bold tracking-[-0.02em]",
+              inverse ? "text-white" : "text-navy",
             )}
           >
             Broad
           </span>
           <span
             className={cn(
-              "mt-0.5 text-[1.15rem] font-extrabold tracking-[-0.03em]",
+              "text-[14.9px] font-bold tracking-[-0.02em]",
               inverse ? "text-white" : "text-navy",
             )}
           >

@@ -47,7 +47,11 @@ export async function GET(request: NextRequest) {
               description: true,
               youtubeVideoId: true,
               durationSeconds: true,
+              content: true,
               isPreview: true,
+              quiz: {
+                select: { id: true, _count: { select: { questions: true } } },
+              },
               resources: {
                 orderBy: { displayOrder: "asc" },
                 select: { id: true, title: true, url: true, displayOrder: true },

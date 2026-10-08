@@ -16,6 +16,7 @@ import {
   AdminPageHeader,
   AdminSelect,
   AdminTextarea,
+  useAdminToast,
 } from "@/components/Admin";
 import { adminFetch, slugifyInput } from "@/lib/admin/client";
 import { cn } from "@/lib/utils";
@@ -102,6 +103,7 @@ export default function AdminInstructorFormPage({ slug }: { slug?: string }) {
   const [error, setError] = useState("");
   const [fields, setFields] = useState<FieldErrors>({});
   const [form, setForm] = useState<InstructorForm>(emptyForm);
+  const { showToast } = useAdminToast();
 
   useEffect(() => {
     if (!slug) return;
@@ -119,7 +121,6 @@ export default function AdminInstructorFormPage({ slug }: { slug?: string }) {
     e.preventDefault();
     if (!form.avatarUrl) {
       const avatarMessage = "Upload a profile photo before saving.";
-      setError(avatarMessage);
       setFields({ avatarUrl: [avatarMessage] });
       return;
     }
@@ -163,11 +164,14 @@ export default function AdminInstructorFormPage({ slug }: { slug?: string }) {
       router.push("/admin/instructors");
     } else {
       const message = res.message ?? "Could not save instructor.";
-      setError(message);
       if (res.fields) {
         setFields(res.fields);
+        showToast(message, true);
       } else if (message.toLowerCase().includes("image")) {
+        // Shown next to the image uploaders, so no toast as well.
         setFields({ avatarUrl: [message], coverUrl: [message] });
+      } else {
+        showToast(message, true);
       }
       requestAnimationFrame(() => {
         document

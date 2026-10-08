@@ -16,6 +16,7 @@ import {
   AdminPageHeader,
   AdminSelect,
   AdminTextarea,
+  useAdminToast,
 } from "@/components/Admin";
 import { adminFetch, slugifyInput } from "@/lib/admin/client";
 import { courseLevelLabels } from "@/lib/courses/constants";
@@ -51,6 +52,7 @@ export default function AdminCourseEditPage({ courseId }: { courseId: string }) 
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [form, setForm] = useState<CourseForm | null>(null);
+  const { showToast } = useAdminToast();
 
   useEffect(() => {
     async function load() {
@@ -84,7 +86,7 @@ export default function AdminCourseEditPage({ courseId }: { courseId: string }) 
       });
 
       if (!res.success) {
-        setError(res.message ?? "Could not save changes.");
+        showToast(res.message ?? "Could not save changes.", true);
         setFieldErrors(res.fields ?? {});
         return;
       }
@@ -102,7 +104,7 @@ export default function AdminCourseEditPage({ courseId }: { courseId: string }) 
     const res = await adminFetch(`/api/admin/courses/${courseId}`, { method: "DELETE" });
     setDeleting(false);
     if (res.success) router.push("/admin/courses");
-    else setError(res.message ?? "Could not delete course.");
+    else showToast(res.message ?? "Could not delete course.", true);
   }
 
   if (loading) return <AdminLoading label="Loading course..." />;

@@ -23,6 +23,7 @@ import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 
 import { logoutAndRedirect } from "@/lib/auth/logout-client";
+import { notify } from "@/lib/toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface UserProfile {
@@ -73,26 +74,12 @@ function formatRelative(iso: string) {
 const inputClass =
   "peer h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-navy outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-btnBg focus:ring-4 focus:ring-btnBg/10 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400";
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
-type ToastType = "success" | "error";
-interface ToastState {
-  message: string;
-  type: ToastType;
-  key: number;
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ProfilePage({ user: initialUser }: { user: UserProfile }) {
   const reduceMotion = useReducedMotion();
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [user, setUser] = useState<UserProfile>(initialUser);
-  const [toast, setToast] = useState<ToastState | null>(null);
   const [logoutPending, setLogoutPending] = useState(false);
-
-  function showToast(message: string, type: ToastType) {
-    setToast({ message, type, key: Date.now() });
-    setTimeout(() => setToast(null), 4000);
-  }
 
   async function handleLogout() {
     setLogoutPending(true);
@@ -103,31 +90,6 @@ export default function ProfilePage({ user: initialUser }: { user: UserProfile }
 
   return (
     <main className="min-h-screen bg-[#f3f7fb] pb-16">
-      {/* ── Toast ─────────────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            key={toast.key}
-            initial={reduceMotion ? false : { opacity: 0, y: -16, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -12, scale: 0.96 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="fixed top-5 right-5 z-50 flex items-center gap-3 rounded-2xl px-5 py-3.5 shadow-2xl text-sm font-semibold"
-            style={{
-              background: toast.type === "success" ? "#163351" : "#ef4444",
-              color: "#fff",
-            }}
-          >
-            {toast.type === "success" ? (
-              <Check className="h-4 w-4 text-[#70ddbd] shrink-0" />
-            ) : (
-              <span className="shrink-0 text-white/80">✕</span>
-            )}
-            {toast.message}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* ── Top Nav ───────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-navy/8 bg-white/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3.5 sm:px-6">
@@ -276,9 +238,9 @@ export default function ProfilePage({ user: initialUser }: { user: UserProfile }
                 user={user}
                 onUpdate={(updated) => {
                   setUser(updated);
-                  showToast("Profile updated successfully.", "success");
+                  notify.success("Profile updated successfully.");
                 }}
-                onError={(msg) => showToast(msg, "error")}
+                onError={notify.error}
                 reduceMotion={Boolean(reduceMotion)}
               />
             </motion.div>
@@ -291,8 +253,8 @@ export default function ProfilePage({ user: initialUser }: { user: UserProfile }
               transition={{ duration: 0.28, ease: "easeOut" }}
             >
               <SecurityTab
-                onSuccess={(msg) => showToast(msg, "success")}
-                onError={(msg) => showToast(msg, "error")}
+                onSuccess={notify.success}
+                onError={notify.error}
                 reduceMotion={Boolean(reduceMotion)}
               />
             </motion.div>
@@ -317,12 +279,10 @@ function ProfileTab({
 }) {
   const [pending, setPending] = useState(false);
   const [fields, setFields] = useState<Record<string, string[] | undefined>>({});
-  const [formError, setFormError] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
-    setFormError("");
     setFields({});
 
     const form = new FormData(event.currentTarget);
@@ -340,7 +300,7 @@ function ProfileTab({
       const result = await res.json();
 
       if (!res.ok) {
-        setFormError(result.message || "Something went wrong.");
+        onError(result.message || "Something went wrong.");
         setFields(result.fields || {});
         return;
       }
@@ -409,16 +369,6 @@ function ProfileTab({
               aria-invalid={Boolean(fields.phone)}
             />
           </FormField>
-
-          {formError && (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
-            >
-              {formError}
-            </motion.p>
-          )}
 
           <motion.button
             whileHover={reduceMotion ? undefined : { y: -1 }}
@@ -537,12 +487,10 @@ function SecurityTab({
 }) {
   const [pending, setPending] = useState(false);
   const [fields, setFields] = useState<Record<string, string[] | undefined>>({});
-  const [formError, setFormError] = useState("");
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [newPassword, setNewPassword] = useState("");
-  const [done, setDone] = useState(false);
 
   const passwordChecks = useMemo(
     () => [
@@ -557,7 +505,6 @@ function SecurityTab({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
-    setFormError("");
     setFields({});
 
     const form = new FormData(event.currentTarget);
@@ -576,12 +523,11 @@ function SecurityTab({
       const result = await res.json();
 
       if (!res.ok) {
-        setFormError(result.message || "Something went wrong.");
+        onError(result.message || "Something went wrong.");
         setFields(result.fields || {});
         return;
       }
 
-      setDone(true);
       onSuccess(result.message);
       (event.target as HTMLFormElement).reset();
       setNewPassword("");
@@ -610,25 +556,6 @@ function SecurityTab({
             <p className="text-xs text-slate-400 mt-0.5">Choose a strong, unique password</p>
           </div>
         </div>
-
-        <AnimatePresence>
-          {done && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              className="mt-5 flex items-center gap-3 rounded-2xl border border-accent/20 bg-accent/5 px-4 py-3.5"
-            >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent">
-                <Check className="h-4 w-4 text-white" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-navy">Password updated</p>
-                <p className="text-xs text-slate-500 mt-0.5">Other devices have been signed out for your security.</p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
           <FormField id="currentPassword" label="Current password" icon={<LockKeyhole />} error={fields.currentPassword?.[0]}>
@@ -703,16 +630,6 @@ function SecurityTab({
               <PasswordToggle visible={showConfirm} onClick={() => setShowConfirm((v) => !v)} />
             </div>
           </FormField>
-
-          {formError && (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
-            >
-              {formError}
-            </motion.p>
-          )}
 
           <motion.button
             whileHover={reduceMotion ? undefined : { y: -1 }}

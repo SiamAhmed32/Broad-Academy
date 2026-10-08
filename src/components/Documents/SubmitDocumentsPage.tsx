@@ -22,6 +22,7 @@ import {
   documentSubmissionSchema,
 } from "@/lib/documents/validation";
 import { apiFetch } from "@/lib/api/client";
+import { notify } from "@/lib/toast";
 
 type DocumentFormInput = z.infer<typeof documentSubmissionSchema>;
 
@@ -125,9 +126,7 @@ export default function SubmitDocumentsPage({ profile }: SubmitDocumentsPageProp
           setFileError(result.fields.document[0]);
         }
       } else {
-        setError("root", {
-          message: result.message ?? "Something went wrong. Please try again.",
-        });
+        notify.error(result.message ?? "Something went wrong. Please try again.");
       }
       return;
     }
@@ -183,16 +182,6 @@ export default function SubmitDocumentsPage({ profile }: SubmitDocumentsPageProp
                     8 MB).
                   </p>
                 </div>
-
-                {errors.root ? (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-                  >
-                    {errors.root.message}
-                  </motion.div>
-                ) : null}
 
                 <input
                   type="text"

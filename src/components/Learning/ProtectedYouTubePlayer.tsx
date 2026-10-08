@@ -43,7 +43,7 @@ type YouTubeNamespace = {
       };
     },
   ) => YouTubePlayer;
-  PlayerState: { PLAYING: number; PAUSED: number; ENDED: number };
+  PlayerState: { PLAYING: number; PAUSED: number; ENDED: number; BUFFERING: number };
 };
 
 declare global {
@@ -147,6 +147,9 @@ export function ProtectedYouTubePlayer({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasWatchLockRef = useRef(false);
+  // Where to start once the student presses play. Seeking an unstarted
+  // YouTube player makes it auto-play, which would skip the watch-lock claim.
+  const pendingSeekRef = useRef<number | null>(null);
   const watchedRef = useRef(lesson.watchedSeconds);
   const lastTickRef = useRef<number | null>(null);
   const completedRef = useRef(lesson.completed);
@@ -170,7 +173,8 @@ export function ProtectedYouTubePlayer({
     if (!hasWatchLockRef.current) return;
     hasWatchLockRef.current = false;
     try {
-      await fetch("/api/learning/watch", { method: "DELETE" });
+      // keepalive lets the release finish even when the tab is closing.
+      await fetch("/api/learning/watch", { method: "DELETE", keepalive: true });
     } catch {
       // Best effort on tab close.
     }
@@ -196,30 +200,8 @@ export function ProtectedYouTubePlayer({
     [releaseWatchLock, stopHeartbeat],
   );
 
-  const sendHeartbeat = useCallback(async () => {
-    try {
-      const response = await fetch("/api/learning/watch", { method: "PATCH" });
-      if (response.status === 409) {
-        const result = await response.json();
-        handleWatchConflict(
-          result.message ??
-            "Another device took over video playback on your account.",
-        );
-      }
-    } catch {
-      // Ignore transient network errors; stale lock expires automatically.
-    }
-  }, [handleWatchConflict]);
-
-  const startHeartbeat = useCallback(() => {
-    stopHeartbeat();
-    void sendHeartbeat();
-    heartbeatRef.current = setInterval(() => {
-      void sendHeartbeat();
-    }, WATCH_HEARTBEAT_INTERVAL_MS);
-  }, [sendHeartbeat, stopHeartbeat]);
-
-  const claimWatchLock = useCallback(async () => {
+  /** Ask the server for permission to play. Returns an error message, or null when granted. */
+  const claimWatchLock = useCallback(async (): Promise<string | null> => {
     try {
       const response = await fetch("/api/learning/watch", {
         method: "POST",
@@ -234,24 +216,53 @@ export function ProtectedYouTubePlayer({
         hasWatchLockRef.current = true;
         setWatchBlocked(false);
         setWatchBlockedMessage("");
-        return true;
+        return null;
       }
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
       if (response.status === 409) {
-        setWatchBlocked(true);
-        setWatchBlockedMessage(
+        return (
           result.message ??
-            "Another device is already playing a lesson video on your account.",
+          "Another device is already playing a lesson video on your account."
         );
-        return false;
       }
-      return false;
+      if (response.status === 401) {
+        return "Your login on this device has ended. Please log in again to keep watching.";
+      }
+      return result.message ?? "Could not verify playback permission. Try again.";
     } catch {
-      setWatchBlocked(true);
-      setWatchBlockedMessage("Could not verify playback permission. Try again.");
-      return false;
+      return "Could not verify playback permission. Check your connection and try again.";
     }
   }, [courseSlug, lesson.id, lessonSlug]);
+
+  const sendHeartbeat = useCallback(async () => {
+    try {
+      const response = await fetch("/api/learning/watch", { method: "PATCH" });
+      if (response.status !== 409) return;
+      const result = await response.json().catch(() => ({}));
+      if (result.code === "NOT_OWNER") {
+        // Our lock vanished (e.g. a quick pause/play raced the release) but no
+        // other device holds it: take it back instead of blocking playback.
+        hasWatchLockRef.current = false;
+        const error = await claimWatchLock();
+        if (error) handleWatchConflict(error);
+        return;
+      }
+      handleWatchConflict(
+        result.message ??
+          "Another device took over video playback on your account.",
+      );
+    } catch {
+      // Ignore transient network errors; stale lock expires automatically.
+    }
+  }, [claimWatchLock, handleWatchConflict]);
+
+  const startHeartbeat = useCallback(() => {
+    stopHeartbeat();
+    void sendHeartbeat();
+    heartbeatRef.current = setInterval(() => {
+      void sendHeartbeat();
+    }, WATCH_HEARTBEAT_INTERVAL_MS);
+  }, [sendHeartbeat, stopHeartbeat]);
 
   const saveProgress = useCallback(
     async (forceComplete = false) => {
@@ -350,14 +361,22 @@ export function ProtectedYouTubePlayer({
             lesson.lastPositionSec > 5 &&
             lesson.lastPositionSec < actualDuration - 10
           ) {
-            target.seekTo(lesson.lastPositionSec, true);
+            pendingSeekRef.current = lesson.lastPositionSec;
           }
         },
         onStateChange: ({ data }) => {
           if (data === youtube.PlayerState.PLAYING) {
             setPlaying(true);
             startTracking();
-            startHeartbeat();
+            if (hasWatchLockRef.current) {
+              startHeartbeat();
+            } else {
+              // Playback started without a claim: claim now, or stop it.
+              void claimWatchLock().then((error) => {
+                if (error) handleWatchConflict(error);
+                else startHeartbeat();
+              });
+            }
           }
           if (data === youtube.PlayerState.PAUSED) {
             setPlaying(false);
@@ -381,6 +400,8 @@ export function ProtectedYouTubePlayer({
     lesson.durationSeconds,
     lesson.lastPositionSec,
     lesson.youtubeVideoId,
+    claimWatchLock,
+    handleWatchConflict,
     releaseWatchLock,
     saveProgress,
     startHeartbeat,
@@ -421,13 +442,26 @@ export function ProtectedYouTubePlayer({
         void saveProgress();
       }
     }, 15_000);
-    const handlePageHide = () => void saveProgress();
+    const handlePageHide = () => {
+      void saveProgress();
+      // Free playback for the student's other device straight away instead
+      // of making it wait for the lock to go stale.
+      stopHeartbeat();
+      void releaseWatchLock();
+    };
+    // Coming back via the back/forward cache: the lock was released on
+    // pagehide, so pause rather than keep playing without it.
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) playerRef.current?.pauseVideo();
+    };
     window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("pageshow", handlePageShow);
 
     return () => {
       clearInterval(interval);
       clearInterval(saveInterval);
       window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("pageshow", handlePageShow);
       stopTracking();
       stopHeartbeat();
       void releaseWatchLock();
@@ -436,6 +470,27 @@ export function ProtectedYouTubePlayer({
       playerRef.current = null;
     };
   }, [releaseWatchLock, saveProgress, stopHeartbeat, stopTracking]);
+
+  // While blocked, keep checking whether the other device has stopped so the
+  // student isn't stuck on the blocked screen until they reload.
+  useEffect(() => {
+    if (!watchBlocked) return;
+    const check = async () => {
+      try {
+        const response = await fetch("/api/learning/watch", { cache: "no-store" });
+        if (!response.ok) return;
+        const status = await response.json();
+        if (!status.blockedByOther) {
+          setWatchBlocked(false);
+          setWatchBlockedMessage("");
+        }
+      } catch {
+        // Try again on the next tick.
+      }
+    };
+    const timer = setInterval(() => void check(), 10_000);
+    return () => clearInterval(timer);
+  }, [watchBlocked]);
 
   async function toggleFullscreen() {
     if (!wrapperRef.current) return;
@@ -450,15 +505,36 @@ export function ProtectedYouTubePlayer({
       player.pauseVideo();
       return;
     }
-    const claimed = await claimWatchLock();
-    if (!claimed) return;
+    const error = await claimWatchLock();
+    if (error) {
+      setWatchBlocked(true);
+      setWatchBlockedMessage(error);
+      return;
+    }
+    if (pendingSeekRef.current !== null) {
+      player.seekTo(pendingSeekRef.current, true);
+      pendingSeekRef.current = null;
+    }
     player.playVideo();
   }
 
   function seekToPosition(nextPosition: number) {
     const safePosition = Math.max(0, Math.min(duration, nextPosition));
-    playerRef.current?.seekTo(safePosition, true);
     setPosition(safePosition);
+    const state = playerRef.current?.getPlayerState();
+    const youtube = window.YT?.PlayerState;
+    // Seeking a paused or playing video is safe. Seeking an unstarted or
+    // ended one makes YouTube auto-play, so wait for the play button instead.
+    if (
+      youtube &&
+      (state === youtube.PLAYING ||
+        state === youtube.PAUSED ||
+        state === youtube.BUFFERING)
+    ) {
+      playerRef.current?.seekTo(safePosition, true);
+    } else {
+      pendingSeekRef.current = safePosition;
+    }
   }
 
   function changePlaybackRate(rate: number) {
@@ -548,12 +624,22 @@ export function ProtectedYouTubePlayer({
                 {watchBlockedMessage ||
                   "Another device is already playing a lesson video on your account."}
               </p>
-              <Link
-                href="/dashboard?tab=security"
-                className="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-[#83e8ca] px-4 text-sm font-bold text-navy transition hover:bg-[#6fe0bb]"
-              >
-                Manage signed-in devices
-              </Link>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void togglePlayback()}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#83e8ca] px-4 text-sm font-bold text-navy transition hover:bg-[#6fe0bb]"
+                >
+                  <Play className="h-4 w-4" />
+                  Try again
+                </button>
+                <Link
+                  href="/dashboard?tab=security"
+                  className="inline-flex h-10 items-center justify-center rounded-xl border border-white/20 px-4 text-sm font-bold text-white transition hover:bg-white/10"
+                >
+                  Manage signed-in devices
+                </Link>
+              </div>
             </div>
           </div>
         ) : null}

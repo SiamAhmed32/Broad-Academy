@@ -1,775 +1,460 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BookOpen, ExternalLink, Link2, Plus, Trash2, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  ExternalLink,
+  FolderPlus,
+  Layers,
+  ListChecks,
+  Paperclip,
+  Plus,
+  Settings2,
+} from "lucide-react";
 
 import {
+  AdminBadge,
   AdminButton,
   AdminCard,
-  AdminCardTitle,
+  AdminConfirmDialog,
   AdminEmpty,
   AdminField,
   AdminInput,
   AdminLoading,
   AdminPageHeader,
   AdminSelect,
-  AdminTextarea,
+  useAdminToast,
 } from "@/components/Admin";
+import {
+  LessonEditorModal,
+  type LessonEditorState,
+} from "@/components/Admin/content/LessonEditorModal";
+import { SectionCard } from "@/components/Admin/content/SectionCard";
+import {
+  formatMinutes,
+  quizHref,
+  type ContentResponse,
+  type CourseOption,
+  type Lesson,
+  type Module,
+} from "@/components/Admin/content/types";
 import { adminFetch } from "@/lib/admin/client";
-import Modal from "@/components/reusables/Modal";
 
-type CourseOption = { id: string; title: string; slug: string; status: string };
-type LessonResource = { id: string; title: string; url: string; displayOrder: number };
-type Lesson = {
-  id: string;
-  title: string;
-  type: "VIDEO" | "READING" | "QUIZ";
-  description: string;
-  youtubeVideoId?: string | null;
-  durationSeconds: number;
-  isPreview: boolean;
-  resources?: LessonResource[];
-};
-type Module = {
-  id: string;
-  title: string;
-  displayOrder: number;
-  lessons: Lesson[];
-};
-type ContentResponse = {
-  courses: CourseOption[];
-  course: { modules: Module[] } | null;
-  selectedCourseId: string | null;
+type PendingDelete =
+  | { kind: "module"; id: string; title: string; lessonCount: number }
+  | { kind: "lesson"; id: string; title: string };
+
+const statusTone: Record<string, "success" | "muted" | "warning"> = {
+  PUBLISHED: "success",
+  DRAFT: "muted",
+  ARCHIVED: "warning",
 };
 
 export default function AdminContentPage() {
   const router = useRouter();
-  const shouldReduceMotion = useReducedMotion();
-  const contentCacheRef = useRef(new Map<string, Module[]>());
-  const lastLoadedCourseIdRef = useRef("");
+  const { showToast } = useAdminToast();
+  const requestIdRef = useRef(0);
+
   const [courses, setCourses] = useState<CourseOption[]>([]);
   const [courseId, setCourseId] = useState("");
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
-  const [contentLoading, setContentLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [switching, setSwitching] = useState(false);
 
-  const [moduleTitle, setModuleTitle] = useState("");
-  const [lessonModuleId, setLessonModuleId] = useState("");
-  const [lessonTitle, setLessonTitle] = useState("");
-  const [lessonDescription, setLessonDescription] = useState("");
-  const [lessonType, setLessonType] = useState<"VIDEO" | "READING" | "QUIZ">("VIDEO");
-  const [youtubeId, setYoutubeId] = useState("");
-  const [lessonDurationMinutes, setLessonDurationMinutes] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [reordering, setReordering] = useState(false);
+  const [newChapter, setNewChapter] = useState("");
+  const [addingChapter, setAddingChapter] = useState(false);
+  const [editor, setEditor] = useState<LessonEditorState | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  // Edit module & lesson state variables
-  const [editingModule, setEditingModule] = useState<Module | null>(null);
-  const [editModuleTitle, setEditModuleTitle] = useState("");
+  const applyContent = useCallback(
+    (res: Awaited<ReturnType<typeof fetchContent>>, requestId: number) => {
+      // Ignore responses for a course the admin has already switched away from.
+      if (requestId !== requestIdRef.current) return;
 
-  const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
-  const [editLessonTitle, setEditLessonTitle] = useState("");
-  const [editLessonDescription, setEditLessonDescription] = useState("");
-  const [editLessonType, setEditLessonType] = useState<"VIDEO" | "READING" | "QUIZ">("VIDEO");
-  const [editLessonYoutubeId, setEditLessonYoutubeId] = useState("");
-  const [editLessonDurationMinutes, setEditLessonDurationMinutes] = useState("");
-
-  const [managingResourcesLesson, setManagingResourcesLesson] = useState<Lesson | null>(null);
-  const [resourceTitle, setResourceTitle] = useState("");
-  const [resourceUrl, setResourceUrl] = useState("");
-  const [resourceError, setResourceError] = useState("");
-
-  const loadContent = useCallback(async (id: string, force = false) => {
-    if (!id) return;
-    if (!force && contentCacheRef.current.has(id)) {
-      setModules(contentCacheRef.current.get(id) ?? []);
-      lastLoadedCourseIdRef.current = id;
-      return;
-    }
-
-    setContentLoading(true);
-    const res = await adminFetch<ContentResponse>(
-      `/api/admin/content?courseId=${id}`,
-    );
-    if (res.success && res.data) {
-      const nextModules = res.data.course?.modules ?? [];
-      if (res.data.courses.length) setCourses(res.data.courses);
-      contentCacheRef.current.set(id, nextModules);
-      lastLoadedCourseIdRef.current = id;
-      setModules(nextModules);
-    }
-    setContentLoading(false);
-  }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    adminFetch<ContentResponse>("/api/admin/content", {
-      signal: controller.signal,
-    }).then((res) => {
       if (res.success && res.data) {
+        const selected = res.data.selectedCourseId ?? "";
         setCourses(res.data.courses);
-        const selectedId = res.data.selectedCourseId ?? "";
-        const nextModules = res.data.course?.modules ?? [];
-        if (selectedId) {
-          contentCacheRef.current.set(selectedId, nextModules);
-          lastLoadedCourseIdRef.current = selectedId;
-          setCourseId(selectedId);
-          setModules(nextModules);
+        setCourseId(selected);
+        setModules(res.data.course?.modules ?? []);
+        if (selected) {
+          window.history.replaceState(null, "", `?courseId=${encodeURIComponent(selected)}`);
         }
+      } else {
+        showToast(res.message ?? "Could not load the course content.", true);
       }
       setLoading(false);
-    });
+      setSwitching(false);
+    },
+    [showToast],
+  );
 
-    return () => controller.abort();
-  }, []);
+  const loadCourse = useCallback(
+    async (id?: string) => {
+      const requestId = ++requestIdRef.current;
+      applyContent(await fetchContent(id), requestId);
+    },
+    [applyContent],
+  );
 
   useEffect(() => {
-    if (courseId && lastLoadedCourseIdRef.current !== courseId) {
-      void Promise.resolve().then(() => loadContent(courseId));
-    }
-  }, [courseId, loadContent]);
+    const fromUrl = new URLSearchParams(window.location.search).get("courseId") ?? undefined;
+    const requestId = ++requestIdRef.current;
+    void fetchContent(fromUrl).then((res) => applyContent(res, requestId));
+  }, [applyContent]);
 
-  async function refreshCurrentContent() {
-    if (!courseId) return;
-    contentCacheRef.current.delete(courseId);
-    await loadContent(courseId, true);
+  const refresh = useCallback(async () => {
+    if (courseId) await loadCourse(courseId);
+  }, [courseId, loadCourse]);
+
+  function selectCourse(id: string) {
+    if (!id || id === courseId) return;
+    setSwitching(true);
+    setCourseId(id);
+    setCollapsed(new Set());
+    void loadCourse(id);
   }
 
-  async function addModule(e: React.FormEvent) {
-    e.preventDefault();
-    if (!moduleTitle.trim() || !courseId) return;
-    setSaving(true);
+  // ---- Chapters ----
+
+  async function addChapter(event: React.FormEvent) {
+    event.preventDefault();
+    const title = newChapter.trim();
+    if (title.length < 2) {
+      showToast("Write a chapter name (at least 2 letters).", true);
+      return;
+    }
+    setAddingChapter(true);
     const res = await adminFetch("/api/admin/modules", {
       method: "POST",
-      body: JSON.stringify({ courseId, title: moduleTitle.trim() }),
+      body: JSON.stringify({ courseId, title }),
     });
-    setSaving(false);
     if (res.success) {
-      setModuleTitle("");
-      void refreshCurrentContent();
+      setNewChapter("");
+      await refresh();
+      showToast("Chapter added. Now add lessons to it.");
+    } else {
+      showToast(res.message ?? "Could not add the chapter.", true);
     }
+    setAddingChapter(false);
   }
 
-  async function addLesson(e: React.FormEvent) {
-    e.preventDefault();
-    if (!lessonModuleId || !lessonTitle.trim()) return;
-    setSaving(true);
-    setError("");
-    const res = await adminFetch<{ id: string }>("/api/admin/lessons", {
-      method: "POST",
-      body: JSON.stringify({
-        moduleId: lessonModuleId,
-        title: lessonTitle.trim(),
-        description: lessonDescription.trim() || "Lesson content",
-        type: lessonType,
-        youtubeVideoId: lessonType === "VIDEO" ? youtubeId || null : null,
-        durationSeconds: lessonDurationMinutes
-          ? Math.max(0, Math.round(Number(lessonDurationMinutes) * 60))
-          : 0,
-      }),
+  async function renameChapter(id: string, title: string) {
+    if (title.length < 2) {
+      showToast("Write a chapter name (at least 2 letters).", true);
+      return false;
+    }
+    const res = await adminFetch("/api/admin/modules", {
+      method: "PATCH",
+      body: JSON.stringify({ id, title }),
     });
-    setSaving(false);
-    if (res.success && res.data?.id) {
-      const createdLessonId = res.data.id;
-      setLessonTitle("");
-      setLessonDescription("");
-      setYoutubeId("");
-      setLessonDurationMinutes("");
-      await refreshCurrentContent();
+    if (!res.success) {
+      showToast(res.message ?? "Could not rename the chapter.", true);
+      return false;
+    }
+    setModules((current) => current.map((m) => (m.id === id ? { ...m, title } : m)));
+    showToast("Chapter renamed.");
+    return true;
+  }
 
-      if (lessonType === "QUIZ") {
-        router.push(
-          `/admin/quizzes?courseId=${encodeURIComponent(courseId)}&lessonId=${encodeURIComponent(createdLessonId)}`,
-        );
+  async function moveChapter(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= modules.length) return;
+    const next = [...modules];
+    [next[index], next[target]] = [next[target], next[index]];
+    setModules(next);
+    setReordering(true);
+    const res = await adminFetch("/api/admin/modules/reorder", {
+      method: "PUT",
+      body: JSON.stringify({ courseId, ids: next.map((m) => m.id) }),
+    });
+    if (!res.success) {
+      showToast(res.message ?? "Could not change the order.", true);
+      await refresh();
+    }
+    setReordering(false);
+  }
+
+  // ---- Lessons ----
+
+  async function moveLesson(moduleId: string, index: number, direction: -1 | 1) {
+    const mod = modules.find((m) => m.id === moduleId);
+    if (!mod) return;
+    const target = index + direction;
+    if (target < 0 || target >= mod.lessons.length) return;
+    const lessons = [...mod.lessons];
+    [lessons[index], lessons[target]] = [lessons[target], lessons[index]];
+    setModules((current) => current.map((m) => (m.id === moduleId ? { ...m, lessons } : m)));
+    setReordering(true);
+    const res = await adminFetch("/api/admin/lessons/reorder", {
+      method: "PUT",
+      body: JSON.stringify({ moduleId, ids: lessons.map((l) => l.id) }),
+    });
+    if (!res.success) {
+      showToast(res.message ?? "Could not change the order.", true);
+      await refresh();
+    }
+    setReordering(false);
+  }
+
+  const handleLessonCreated = useCallback(
+    async ({ id, type }: { id: string; type: Lesson["type"] }) => {
+      if (type === "QUIZ") {
+        showToast("Quiz lesson saved. Now write the questions.");
+        setEditor(null);
+        router.push(quizHref(courseId, id));
         return;
       }
-    } else {
-      setError(res.message ?? "Could not add lesson. Check the fields and try again.");
-    }
-  }
+      await refresh();
+      showToast("Lesson saved.");
+      // Keep the dialog open on the new lesson so files can be attached straight away.
+      setEditor({ mode: "edit", lessonId: id, justCreated: true });
+    },
+    [courseId, refresh, router, showToast],
+  );
 
-  async function deleteModule(id: string) {
-    if (!confirm("Delete this section and all its lessons?")) return;
-    await adminFetch(`/api/admin/modules?id=${id}`, { method: "DELETE" });
-    void refreshCurrentContent();
-  }
+  // ---- Delete ----
 
-  async function deleteLesson(id: string) {
-    if (!confirm("Delete this lesson?")) return;
-    await adminFetch(`/api/admin/lessons?id=${id}`, { method: "DELETE" });
-    void refreshCurrentContent();
-  }
-
-  function startEditModule(mod: Module) {
-    setEditingModule(mod);
-    setEditModuleTitle(mod.title);
-  }
-
-  function startEditLesson(lesson: Lesson) {
-    setEditingLesson(lesson);
-    setEditLessonTitle(lesson.title);
-    setEditLessonDescription(lesson.description || "");
-    setEditLessonType(lesson.type);
-    setEditLessonYoutubeId(lesson.youtubeVideoId || "");
-    setEditLessonDurationMinutes(
-      lesson.durationSeconds > 0
-        ? String(Math.max(1, Math.round(lesson.durationSeconds / 60)))
-        : "",
-    );
-  }
-
-  async function saveModule(e: React.FormEvent) {
-    e.preventDefault();
-    if (!editingModule || !editModuleTitle.trim()) return;
-    setSaving(true);
-    const res = await adminFetch("/api/admin/modules", {
-      method: "PATCH",
-      body: JSON.stringify({ id: editingModule.id, title: editModuleTitle.trim() }),
-    });
-    setSaving(false);
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    const url =
+      pendingDelete.kind === "module"
+        ? `/api/admin/modules?id=${encodeURIComponent(pendingDelete.id)}`
+        : `/api/admin/lessons?id=${encodeURIComponent(pendingDelete.id)}`;
+    const res = await adminFetch(url, { method: "DELETE" });
     if (res.success) {
-      setEditingModule(null);
-      void refreshCurrentContent();
+      await refresh();
+      showToast(pendingDelete.kind === "module" ? "Chapter deleted." : "Lesson deleted.");
+      setPendingDelete(null);
     } else {
-      alert(res.message || "Failed to update section");
+      showToast(res.message ?? "Could not delete. Please try again.", true);
     }
+    setDeleting(false);
   }
 
-  async function saveLesson(e: React.FormEvent) {
-    e.preventDefault();
-    if (!editingLesson || !editLessonTitle.trim()) return;
-    setSaving(true);
-    const res = await adminFetch("/api/admin/lessons", {
-      method: "PATCH",
-      body: JSON.stringify({
-        id: editingLesson.id,
-        title: editLessonTitle.trim(),
-        description: editLessonDescription.trim() || "Lesson content",
-        type: editLessonType,
-        youtubeVideoId: editLessonType === "VIDEO" ? editLessonYoutubeId || null : null,
-        durationSeconds: editLessonDurationMinutes
-          ? Math.max(0, Math.round(Number(editLessonDurationMinutes) * 60))
-          : 0,
-      }),
+  // ---- Derived ----
+
+  const course = courses.find((c) => c.id === courseId);
+  const allLessons = modules.flatMap((m) => m.lessons);
+  const totalDuration = formatMinutes(allLessons.reduce((sum, l) => sum + l.durationSeconds, 0));
+  const videoCount = allLessons.filter((l) => l.type === "VIDEO").length;
+  const quizCount = allLessons.filter((l) => l.type === "QUIZ").length;
+  const fileCount = allLessons.reduce((sum, l) => sum + (l.resources?.length ?? 0), 0);
+
+  function toggleChapter(id: string) {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
-    setSaving(false);
-    if (res.success) {
-      setEditingLesson(null);
-      void refreshCurrentContent();
-    } else {
-      alert(res.message || "Failed to update lesson");
-    }
-  }
-
-  function startManageResources(lesson: Lesson) {
-    setManagingResourcesLesson(lesson);
-    setResourceTitle("");
-    setResourceUrl("");
-    setResourceError("");
-  }
-
-  async function addResource(e: React.FormEvent) {
-    e.preventDefault();
-    if (!managingResourcesLesson) return;
-    setSaving(true);
-    setResourceError("");
-    const res = await adminFetch<LessonResource>("/api/admin/lesson-resources", {
-      method: "POST",
-      body: JSON.stringify({
-        lessonId: managingResourcesLesson.id,
-        title: resourceTitle.trim(),
-        url: resourceUrl.trim(),
-      }),
-    });
-    setSaving(false);
-    if (res.success) {
-      setResourceTitle("");
-      setResourceUrl("");
-      await refreshCurrentContent();
-      setManagingResourcesLesson((current) => {
-        if (!current || !res.data) return current;
-        return {
-          ...current,
-          resources: [...(current.resources ?? []), res.data!],
-        };
-      });
-    } else {
-      setResourceError(res.message ?? "Could not add resource.");
-    }
-  }
-
-  async function deleteResource(resourceId: string) {
-    if (!confirm("Remove this resource link?")) return;
-    const res = await adminFetch(`/api/admin/lesson-resources?id=${resourceId}`, {
-      method: "DELETE",
-    });
-    if (res.success) {
-      await refreshCurrentContent();
-      setManagingResourcesLesson((current) =>
-        current
-          ? {
-              ...current,
-              resources: (current.resources ?? []).filter((resource) => resource.id !== resourceId),
-            }
-          : current,
-      );
-    }
   }
 
   return (
     <div>
       <AdminPageHeader
         title="Course content"
-        description="Organise your course into sections and lessons. Use plain names like “Chapter 1” or “Introduction”."
+        description="Build each course like a book: add chapters, then put video, reading and quiz lessons inside them."
+        actions={
+          course ? (
+            <>
+              <Link
+                href={`/admin/courses/${course.id}`}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-navy transition hover:bg-slate-50"
+              >
+                <Settings2 className="h-4 w-4" />
+                Course details
+              </Link>
+              <a
+                href={`/courses/${course.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-navy transition hover:bg-slate-50"
+              >
+                <ExternalLink className="h-4 w-4" />
+                View on website
+              </a>
+            </>
+          ) : null
+        }
       />
-
-      <AdminCard className="mb-6">
-        <AdminField label="Select a course" hint="Pick which course you want to edit">
-          <AdminSelect value={courseId} onChange={(e) => setCourseId(e.target.value)}>
-            <option value="">Choose a course...</option>
-            {courses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </AdminSelect>
-        </AdminField>
-      </AdminCard>
 
       {loading ? (
         <AdminLoading label="Loading content..." />
-      ) : !courseId ? (
-        <AdminEmpty title="Select a course" description="Choose a course above to manage its content." />
+      ) : courses.length === 0 ? (
+        <AdminEmpty
+          title="No courses yet"
+          description="Create a course first, then come back here to add its chapters and lessons."
+          actionLabel="Go to Courses"
+          onAction={() => router.push("/admin/courses")}
+        />
       ) : (
-        <div className="relative grid gap-6 lg:grid-cols-2">
-          {contentLoading ? (
-            <div className="absolute right-0 top-[-3rem] rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 shadow-sm">
-              Refreshing structure...
-            </div>
-          ) : null}
-          <motion.div
-            initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
-          >
-            <AdminCard>
-              <AdminCardTitle>Add a new section</AdminCardTitle>
-              <p className="mb-4 text-sm text-slate-600">
-                Sections group related lessons together (e.g. “Module 1: Algebra”).
-              </p>
-              <form onSubmit={addModule} className="flex gap-2">
-                <AdminInput
-                  placeholder="Section name"
-                  value={moduleTitle}
-                  onChange={(e) => setModuleTitle(e.target.value)}
-                  className="flex-1"
-                />
-                <AdminButton type="submit" isLoading={saving}>
-                  <Plus className="h-4 w-4" />
-                  Add
-                </AdminButton>
-              </form>
-            </AdminCard>
-
-            <AdminCard>
-              <AdminCardTitle>Add a new lesson</AdminCardTitle>
-              <form onSubmit={addLesson} className="space-y-4">
-                <AdminField label="Which section?" hint="The lesson will appear inside this section">
-                  <AdminSelect
-                    value={lessonModuleId}
-                    onChange={(e) => setLessonModuleId(e.target.value)}
-                  >
-                    <option value="">Choose a section...</option>
-                    {modules.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.title}
-                      </option>
-                    ))}
-                  </AdminSelect>
-                </AdminField>
-                <AdminField label="Lesson name">
-                  <AdminInput
-                    value={lessonTitle}
-                    onChange={(e) => setLessonTitle(e.target.value)}
-                    placeholder="e.g. Introduction to fractions"
-                  />
-                </AdminField>
-                <AdminField label="Brief description">
-                  <AdminTextarea
-                    value={lessonDescription}
-                    onChange={(e) => setLessonDescription(e.target.value)}
-                    className="min-h-[80px]"
-                  />
-                </AdminField>
-                <AdminField label="Lesson type">
-                  <AdminSelect
-                    value={lessonType}
-                    onChange={(e) => setLessonType(e.target.value as typeof lessonType)}
-                  >
-                    <option value="VIDEO">Video lesson</option>
-                    <option value="READING">Reading material</option>
-                    <option value="QUIZ">Quiz or exam</option>
-                  </AdminSelect>
-                </AdminField>
-                {lessonType === "VIDEO" ? (
-                  <>
-                    <AdminField label="YouTube link or video ID" hint="Paste a YouTube watch, Shorts, Live, or youtu.be link">
-                      <AdminInput
-                        value={youtubeId}
-                        onChange={(e) => setYoutubeId(e.target.value)}
-                        placeholder="https://youtu.be/dQw4w9WgXcQ"
-                      />
-                    </AdminField>
-                    <AdminField
-                      label="Video length (minutes)"
-                      hint="Enter the lesson duration manually. Total course hours are calculated from all lessons."
-                    >
-                      <AdminInput
-                        type="number"
-                        min={1}
-                        max={600}
-                        value={lessonDurationMinutes}
-                        onChange={(e) => setLessonDurationMinutes(e.target.value)}
-                        placeholder="e.g. 18"
-                      />
-                    </AdminField>
-                  </>
-                ) : null}
-                {lessonType === "QUIZ" ? (
-                  <div className="rounded-xl border border-accent/20 bg-accent/5 p-4 text-sm text-navy/65">
-                    After you add this quiz lesson, you&apos;ll be taken to{" "}
-                    <span className="font-bold text-accent">Quizzes &amp; Exams</span> to write the
-                    questions.
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-accent/20 bg-accent/5 p-4 text-sm text-navy/65">
-                    After adding the lesson, open{" "}
-                    <Link
-                      href={
-                        courseId
-                          ? `/admin/quizzes?courseId=${encodeURIComponent(courseId)}`
-                          : "/admin/quizzes"
-                      }
-                      className="font-bold text-accent hover:underline"
-                    >
-                      Quizzes &amp; Exams
-                    </Link>{" "}
-                    to attach optional pop-quiz questions.
-                  </div>
-                )}
-                {error ? (
-                  <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {error}
-                  </p>
-                ) : null}
-                <AdminButton type="submit" isLoading={saving}>
-                  Add lesson
-                </AdminButton>
-              </form>
-            </AdminCard>
-          </motion.div>
-
-          <motion.div
-            initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <AdminCard>
-              <AdminCardTitle>Current structure</AdminCardTitle>
-              {modules.length === 0 ? (
-                <p className="mt-4 text-sm text-slate-500">No sections yet. Add one to get started.</p>
-              ) : (
-                <div className="mt-4 space-y-4">
-                  {modules.map((mod) => (
-                    <div key={mod.id} className="rounded-xl border border-slate-200 p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <BookOpen className="h-4 w-4 text-accent" />
-                          <h4 className="font-semibold text-navy">{mod.title}</h4>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => startEditModule(mod)}
-                            className="text-slate-400 hover:text-accent transition cursor-pointer"
-                            aria-label="Edit section"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteModule(mod.id)}
-                            className="text-slate-400 hover:text-red-600 transition cursor-pointer"
-                            aria-label="Delete section"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                      {mod.lessons.length === 0 ? (
-                        <p className="mt-2 text-xs text-slate-500">No lessons in this section</p>
-                      ) : (
-                        <ul className="mt-3 space-y-2">
-                          {mod.lessons.map((lesson) => (
-                            <li
-                              key={lesson.id}
-                              className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"
-                            >
-                              <span className="text-navy">
-                                {lesson.title}{" "}
-                                <span className="text-xs text-slate-500">({lesson.type.toLowerCase()})</span>
-                              </span>
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => startManageResources(lesson as Lesson)}
-                                  className="rounded-lg px-2 py-1 text-xs font-semibold text-navy transition hover:bg-slate-200"
-                                  title={`Manage resources for ${lesson.title}`}
-                                >
-                                  Resources
-                                  {(lesson as Lesson).resources?.length
-                                    ? ` (${(lesson as Lesson).resources!.length})`
-                                    : ""}
-                                </button>
-                                <Link
-                                  href={`/admin/quizzes?courseId=${encodeURIComponent(courseId)}&lessonId=${encodeURIComponent(lesson.id)}`}
-                                  className="rounded-lg px-2 py-1 text-xs font-semibold text-accent transition hover:bg-accent/10"
-                                  title={`Manage quiz for ${lesson.title}`}
-                                >
-                                  Quiz
-                                </Link>
-                                <button
-                                  type="button"
-                                  onClick={() => startEditLesson(lesson as Lesson)}
-                                  className="text-slate-400 hover:text-accent transition cursor-pointer"
-                                  aria-label="Edit lesson"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => deleteLesson(lesson.id)}
-                                  className="text-slate-400 hover:text-red-600 transition cursor-pointer"
-                                  aria-label="Delete lesson"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
+        <>
+          <AdminCard className="mb-6">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+              <AdminField label="Which course are you working on?">
+                <AdminSelect value={courseId} onChange={(e) => selectCourse(e.target.value)}>
+                  {courses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                      {c.status !== "PUBLISHED" ? ` (${c.status.toLowerCase()})` : ""}
+                    </option>
                   ))}
+                </AdminSelect>
+              </AdminField>
+
+              {course ? (
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <AdminBadge variant={statusTone[course.status] ?? "muted"}>
+                    {course.status.charAt(0) + course.status.slice(1).toLowerCase()}
+                  </AdminBadge>
+                  <Stat icon={Layers} label={`${modules.length} chapters`} />
+                  <Stat icon={ListChecks} label={`${allLessons.length} lessons`} />
+                  {videoCount ? <Stat label={`${videoCount} videos`} /> : null}
+                  {quizCount ? <Stat label={`${quizCount} quizzes`} /> : null}
+                  {fileCount ? <Stat icon={Paperclip} label={`${fileCount} files`} /> : null}
+                  {totalDuration ? <Stat label={totalDuration} /> : null}
                 </div>
-              )}
-            </AdminCard>
-          </motion.div>
-        </div>
+              ) : null}
+            </div>
+          </AdminCard>
+
+          <div className={switching ? "pointer-events-none opacity-50 transition" : "transition"}>
+            {modules.length === 0 ? <GettingStarted /> : null}
+
+            <div className="space-y-4">
+              {modules.map((mod, index) => (
+                <SectionCard
+                  key={mod.id}
+                  module={mod}
+                  index={index}
+                  total={modules.length}
+                  courseId={courseId}
+                  collapsed={collapsed.has(mod.id)}
+                  reordering={reordering}
+                  onToggle={() => toggleChapter(mod.id)}
+                  onMove={(direction) => moveChapter(index, direction)}
+                  onRename={(title) => renameChapter(mod.id, title)}
+                  onDelete={() =>
+                    setPendingDelete({
+                      kind: "module",
+                      id: mod.id,
+                      title: mod.title,
+                      lessonCount: mod.lessons.length,
+                    })
+                  }
+                  onAddLesson={() => setEditor({ mode: "create", moduleId: mod.id })}
+                  onEditLesson={(lesson) => setEditor({ mode: "edit", lessonId: lesson.id })}
+                  onDeleteLesson={(lesson) =>
+                    setPendingDelete({ kind: "lesson", id: lesson.id, title: lesson.title })
+                  }
+                  onMoveLesson={(lessonIndex, direction) =>
+                    moveLesson(mod.id, lessonIndex, direction)
+                  }
+                />
+              ))}
+
+              <form
+                onSubmit={addChapter}
+                className="rounded-2xl border-2 border-dashed border-slate-200 bg-white/60 p-4 sm:p-5"
+              >
+                <div className="mb-3 flex items-center gap-2">
+                  <FolderPlus className="h-5 w-5 text-accent" />
+                  <p className="font-semibold text-navy">
+                    {modules.length === 0 ? "Add your first chapter" : "Add another chapter"}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <AdminInput
+                    value={newChapter}
+                    onChange={(e) => setNewChapter(e.target.value)}
+                    placeholder={`e.g. Chapter ${modules.length + 1}: Motion`}
+                    aria-label="New chapter name"
+                    maxLength={120}
+                    className="flex-1"
+                  />
+                  <AdminButton type="submit" isLoading={addingChapter} className="h-11">
+                    <Plus className="h-4 w-4" />
+                    Add chapter
+                  </AdminButton>
+                </div>
+              </form>
+            </div>
+          </div>
+        </>
       )}
 
-      {/* Edit Section Modal */}
-      <Modal
-        isOpen={editingModule !== null}
-        onClose={() => setEditingModule(null)}
-        title="Edit Section"
-      >
-        <form onSubmit={saveModule} className="p-6 space-y-4">
-          <h3 className="text-lg font-bold text-navy">Edit Section</h3>
-          <AdminField label="Section Name">
-            <AdminInput
-              value={editModuleTitle}
-              onChange={(e) => setEditModuleTitle(e.target.value)}
-              placeholder="Section name"
-              required
-            />
-          </AdminField>
-          <div className="flex justify-end gap-2 pt-2">
-            <AdminButton
-              type="button"
-              variant="ghost"
-              onClick={() => setEditingModule(null)}
-            >
-              Cancel
-            </AdminButton>
-            <AdminButton type="submit" isLoading={saving}>
-              Save Changes
-            </AdminButton>
-          </div>
-        </form>
-      </Modal>
+      <LessonEditorModal
+        editor={editor}
+        modules={modules}
+        onClose={() => setEditor(null)}
+        onCreated={handleLessonCreated}
+        onChanged={refresh}
+      />
 
-      {/* Edit Lesson Modal */}
-      <Modal
-        isOpen={editingLesson !== null}
-        onClose={() => setEditingLesson(null)}
-        title="Edit Lesson"
-      >
-        <form onSubmit={saveLesson} className="p-6 space-y-4">
-          <h3 className="text-lg font-bold text-navy">Edit Lesson</h3>
-          <AdminField label="Lesson name">
-            <AdminInput
-              value={editLessonTitle}
-              onChange={(e) => setEditLessonTitle(e.target.value)}
-              placeholder="e.g. Introduction to fractions"
-              required
-            />
-          </AdminField>
-          <AdminField label="Brief description">
-            <AdminTextarea
-              value={editLessonDescription}
-              onChange={(e) => setEditLessonDescription(e.target.value)}
-              className="min-h-[80px]"
-              required
-            />
-          </AdminField>
-          <AdminField label="Lesson type">
-            <AdminSelect
-              value={editLessonType}
-              onChange={(e) => setEditLessonType(e.target.value as typeof editLessonType)}
-            >
-              <option value="VIDEO">Video lesson</option>
-              <option value="READING">Reading material</option>
-              <option value="QUIZ">Quiz or exam</option>
-            </AdminSelect>
-          </AdminField>
-          {editLessonType === "VIDEO" ? (
-            <>
-              <AdminField label="YouTube link or video ID" hint="Paste a YouTube watch, Shorts, Live, or youtu.be link">
-                <AdminInput
-                  value={editLessonYoutubeId}
-                  onChange={(e) => setEditLessonYoutubeId(e.target.value)}
-                  placeholder="https://youtu.be/dQw4w9WgXcQ"
-                  required
-                />
-              </AdminField>
-              <AdminField
-                label="Video length (minutes)"
-                hint="Used to calculate total course duration on the public course page."
-              >
-                <AdminInput
-                  type="number"
-                  min={1}
-                  max={600}
-                  value={editLessonDurationMinutes}
-                  onChange={(e) => setEditLessonDurationMinutes(e.target.value)}
-                  placeholder="e.g. 18"
-                />
-              </AdminField>
-            </>
-          ) : null}
-          <div className="flex justify-end gap-2 pt-2">
-            <AdminButton
-              type="button"
-              variant="ghost"
-              onClick={() => setEditingLesson(null)}
-            >
-              Cancel
-            </AdminButton>
-            <AdminButton type="submit" isLoading={saving}>
-              Save Changes
-            </AdminButton>
-          </div>
-        </form>
-      </Modal>
+      <AdminConfirmDialog
+        open={pendingDelete !== null}
+        variant="danger"
+        title={pendingDelete?.kind === "module" ? "Delete this chapter?" : "Delete this lesson?"}
+        description={
+          pendingDelete?.kind === "module"
+            ? `"${pendingDelete.title}" and its ${pendingDelete.lessonCount} ${
+                pendingDelete.lessonCount === 1 ? "lesson" : "lessons"
+              } will be removed for good, including student progress and quizzes inside it.`
+            : pendingDelete
+              ? `"${pendingDelete.title}" will be removed for good, including its files, quiz and student progress.`
+              : ""
+        }
+        confirmLabel="Delete"
+        isLoading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
+    </div>
+  );
+}
 
-      <Modal
-        isOpen={managingResourcesLesson !== null}
-        onClose={() => setManagingResourcesLesson(null)}
-        title="Lesson resources"
-      >
-        <div className="space-y-5 p-6">
-          <div>
-            <h3 className="text-lg font-bold text-navy">Lesson resources</h3>
-            <p className="mt-1 text-sm text-slate-600">
-              Add links students can open from the Resources tab — Google Drive, Google Docs, PDF
-              links, etc.
-            </p>
-            {managingResourcesLesson ? (
-              <p className="mt-2 text-sm font-medium text-accent">
-                {managingResourcesLesson.title}
-              </p>
-            ) : null}
-          </div>
+function fetchContent(courseId?: string) {
+  return adminFetch<ContentResponse>(
+    courseId ? `/api/admin/content?courseId=${encodeURIComponent(courseId)}` : "/api/admin/content",
+  );
+}
 
-          {(managingResourcesLesson?.resources ?? []).length > 0 ? (
-            <ul className="space-y-2">
-              {managingResourcesLesson!.resources!.map((resource) => (
-                <li
-                  key={resource.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5"
-                >
-                  <a
-                    href={resource.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex min-w-0 items-center gap-2 text-sm font-medium text-navy hover:text-accent"
-                  >
-                    <Link2 className="h-4 w-4 shrink-0 text-accent" />
-                    <span className="truncate">{resource.title}</span>
-                    <ExternalLink className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => deleteResource(resource.id)}
-                    className="shrink-0 text-slate-400 transition hover:text-red-600"
-                    aria-label={`Remove ${resource.title}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
-              No resources yet. Paste a Google Drive share link below.
-            </p>
-          )}
+function Stat({ icon: Icon, label }: { icon?: React.ElementType; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+      {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
+      {label}
+    </span>
+  );
+}
 
-          <form onSubmit={addResource} className="space-y-4 border-t border-slate-100 pt-5">
-            <AdminField label="Resource name" hint="What students will see, e.g. Chapter notes PDF">
-              <AdminInput
-                value={resourceTitle}
-                onChange={(e) => setResourceTitle(e.target.value)}
-                placeholder="Study notes"
-                required
-              />
-            </AdminField>
-            <AdminField
-              label="Link"
-              hint="Paste a Google Drive / Docs link. Set sharing to Anyone with the link."
-            >
-              <AdminInput
-                type="url"
-                value={resourceUrl}
-                onChange={(e) => setResourceUrl(e.target.value)}
-                placeholder="https://drive.google.com/file/d/..."
-                required
-              />
-            </AdminField>
-            {resourceError ? (
-              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {resourceError}
-              </p>
-            ) : null}
-            <div className="flex justify-end gap-2">
-              <AdminButton
-                type="button"
-                variant="ghost"
-                onClick={() => setManagingResourcesLesson(null)}
-              >
-                Done
-              </AdminButton>
-              <AdminButton type="submit" isLoading={saving}>
-                Add link
-              </AdminButton>
-            </div>
-          </form>
-        </div>
-      </Modal>
+function GettingStarted() {
+  const steps = [
+    { title: "Add a chapter", body: "For example “Chapter 1: Motion”. Use the box below." },
+    { title: "Add lessons", body: "Inside each chapter, add videos, reading notes or quizzes." },
+    { title: "Attach files", body: "Add PDF or Google Drive links to any lesson (optional)." },
+  ];
+  return (
+    <div className="mb-4 rounded-2xl border border-accent/15 bg-accent/5 p-5">
+      <p className="font-semibold text-navy">This course is empty. Here&apos;s how to fill it:</p>
+      <ol className="mt-4 grid gap-3 sm:grid-cols-3">
+        {steps.map((step, index) => (
+          <li key={step.title} className="flex gap-3 rounded-xl bg-white p-4 shadow-sm">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">
+              {index + 1}
+            </span>
+            <span>
+              <span className="block text-sm font-semibold text-navy">{step.title}</span>
+              <span className="mt-0.5 block text-xs leading-5 text-slate-500">{step.body}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

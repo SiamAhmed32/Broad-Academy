@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { BrandLogo } from "@/components/Brand";
+import { notify } from "@/lib/toast";
 
 type VerifyState = "idle" | "verifying" | "success" | "error";
 
@@ -29,7 +30,6 @@ export default function VerifyEmailPage() {
     token ? "" : "Open the verification link from your email, or request a new one below.",
   );
   const [resending, setResending] = useState(false);
-  const [resendMessage, setResendMessage] = useState("");
 
   const verifyToken = useCallback(
     async (value: string) => {
@@ -76,14 +76,13 @@ export default function VerifyEmailPage() {
 
   async function resendVerification() {
     setResending(true);
-    setResendMessage("");
 
     try {
       const response = await fetch("/api/auth/verify-email", { method: "PUT" });
       const result = await response.json();
 
       if (!response.ok) {
-        setResendMessage(
+        notify.error(
           result.message ||
             (response.status === 401
               ? "Sign in to request a new verification email."
@@ -92,9 +91,9 @@ export default function VerifyEmailPage() {
         return;
       }
 
-      setResendMessage(result.message || "Verification email sent. Check your inbox.");
+      notify.success(result.message || "Verification email sent. Check your inbox.");
     } catch {
-      setResendMessage("We could not reach the server. Please try again.");
+      notify.error("We could not reach the server. Please try again.");
     } finally {
       setResending(false);
     }
@@ -170,15 +169,6 @@ export default function VerifyEmailPage() {
                       </>
                     )}
                   </button>
-                  {resendMessage ? (
-                    <motion.p
-                      initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="text-center text-sm text-slate-500"
-                    >
-                      {resendMessage}
-                    </motion.p>
-                  ) : null}
                   <p className="text-center text-sm text-slate-500">
                     Need an account?{" "}
                     <Link href="/login" className="font-semibold text-btnBg hover:underline">

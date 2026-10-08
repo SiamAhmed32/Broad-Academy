@@ -37,7 +37,6 @@ type UserAccountModalProps = {
   user: WebsiteUserRecord | null;
   isLoading: boolean;
   loadingAction?: "suspend" | "approve" | null;
-  errorMessage?: string | null;
   fieldErrors?: { message?: string[] };
   onClose: () => void;
   onSuspend: (message: string) => void;
@@ -48,7 +47,6 @@ export function UserAccountModal({
   user,
   isLoading,
   loadingAction = null,
-  errorMessage,
   fieldErrors,
   onClose,
   onSuspend,
@@ -165,12 +163,6 @@ export function UserAccountModal({
                   </div>
                 </div>
               </div>
-
-              {errorMessage ? (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {errorMessage}
-                </div>
-              ) : null}
 
               {isStudent ? (
                 <div className="space-y-3">

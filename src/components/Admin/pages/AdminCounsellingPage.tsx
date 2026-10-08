@@ -124,7 +124,7 @@ const emptyCounts: Counts = {
 
 export default function AdminCounsellingPage() {
   const reduceMotion = useReducedMotion();
-  const { showToast, ToastViewport } = useAdminToast();
+  const { showToast } = useAdminToast();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [selected, setSelected] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
@@ -484,7 +484,6 @@ export default function AdminCounsellingPage() {
         onCancel={() => setDeleteTarget(null)}
         onConfirm={(note) => void deleteBooking(note)}
       />
-      {ToastViewport}
     </div>
   );
 }

@@ -19,6 +19,18 @@ function staleBefore() {
   return new Date(Date.now() - WATCH_LOCK_STALE_SECONDS * 1000);
 }
 
+/**
+ * The holder's session, if it is still signed in. A lock left behind by a
+ * device that was signed out (or whose login expired) must not block anyone.
+ */
+async function findLiveHolder(sessionId: string) {
+  const holder = await db.session.findUnique({
+    where: { id: sessionId },
+    select: { userAgent: true, expiresAt: true },
+  });
+  return holder && holder.expiresAt > new Date() ? holder : null;
+}
+
 export type WatchLockClaimResult =
   | { ok: true }
   | { ok: false; code: "OTHER_DEVICE"; device: string };
@@ -48,15 +60,14 @@ export async function claimLearningWatchLock(
     existing.sessionId !== sessionId &&
     existing.lastHeartbeat > staleBefore()
   ) {
-    const holder = await db.session.findUnique({
-      where: { id: existing.sessionId },
-      select: { userAgent: true },
-    });
-    return {
-      ok: false,
-      code: "OTHER_DEVICE",
-      device: describeDevice(holder?.userAgent ?? null),
-    };
+    const holder = await findLiveHolder(existing.sessionId);
+    if (holder) {
+      return {
+        ok: false,
+        code: "OTHER_DEVICE",
+        device: describeDevice(holder.userAgent),
+      };
+    }
   }
 
   await db.learningWatchLock.upsert({
@@ -166,15 +177,12 @@ export async function getLearningWatchLockStatus(
     };
   }
 
-  const holder = await db.session.findUnique({
-    where: { id: lock.sessionId },
-    select: { userAgent: true },
-  });
+  const holder = await findLiveHolder(lock.sessionId);
 
   return {
     enabled: true,
     ownedByCurrentSession: false,
-    blockedByOther: true,
-    holderDevice: describeDevice(holder?.userAgent ?? null),
+    blockedByOther: Boolean(holder),
+    holderDevice: holder ? describeDevice(holder.userAgent) : null,
   };
 }

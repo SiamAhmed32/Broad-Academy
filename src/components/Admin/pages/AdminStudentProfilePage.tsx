@@ -25,6 +25,7 @@ import {
   AdminCard,
   AdminEmpty,
   AdminLoading,
+  useAdminToast,
 } from "@/components/Admin";
 import {
   UserAccountModal,
@@ -128,8 +129,8 @@ export default function AdminStudentProfilePage({ studentId }: { studentId: stri
   const [accountUser, setAccountUser] = useState<WebsiteUserRecord | null>(null);
   const [accountUpdating, setAccountUpdating] = useState(false);
   const [accountAction, setAccountAction] = useState<"suspend" | "approve" | null>(null);
-  const [accountError, setAccountError] = useState<string | null>(null);
   const [accountFieldErrors, setAccountFieldErrors] = useState<{ message?: string[] }>({});
+  const { showToast } = useAdminToast();
 
   const applyResult = useCallback((result: StudentProfile | null) => {
     setProfile(result);
@@ -160,7 +161,6 @@ export default function AdminStudentProfilePage({ studentId }: { studentId: stri
     if (!profile) return;
     const { student } = profile;
     const { counts } = student;
-    setAccountError(null);
     setAccountFieldErrors({});
     setAccountUser({
       id: student.id,
@@ -189,7 +189,6 @@ export default function AdminStudentProfilePage({ studentId }: { studentId: stri
 
     setAccountUpdating(true);
     setAccountAction(nextStatus === "SUSPENDED" ? "suspend" : "approve");
-    setAccountError(null);
     setAccountFieldErrors({});
 
     const res = await adminFetch("/api/admin/students", {
@@ -205,11 +204,12 @@ export default function AdminStudentProfilePage({ studentId }: { studentId: stri
     setAccountAction(null);
 
     if (!res.success) {
-      setAccountError(
+      showToast(
         res.message ??
           (nextStatus === "SUSPENDED"
             ? "Could not suspend this account."
             : "Could not approve this account."),
+        true,
       );
       setAccountFieldErrors(res.fields ?? {});
       return;
@@ -545,12 +545,10 @@ export default function AdminStudentProfilePage({ studentId }: { studentId: stri
         user={accountUser}
         isLoading={accountUpdating}
         loadingAction={accountAction}
-        errorMessage={accountError}
         fieldErrors={accountFieldErrors}
         onClose={() => {
           if (accountUpdating) return;
           setAccountUser(null);
-          setAccountError(null);
           setAccountFieldErrors({});
         }}
         onSuspend={(message) => void updateAccountStatus("SUSPENDED", message)}

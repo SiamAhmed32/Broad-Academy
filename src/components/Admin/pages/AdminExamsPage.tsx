@@ -95,7 +95,7 @@ const emptyPagination: AdminPaginationMeta = {
 export default function AdminExamsPage() {
   const shouldReduceMotion = useReducedMotion();
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { showToast, ToastViewport } = useAdminToast();
+  const { showToast } = useAdminToast();
 
   const [exams, setExams] = useState<Exam[]>([]);
   const [pagination, setPagination] = useState<AdminPaginationMeta>(emptyPagination);
@@ -110,7 +110,6 @@ export default function AdminExamsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [formError, setFormError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [saving, setSaving] = useState(false);
 
@@ -167,7 +166,6 @@ export default function AdminExamsPage() {
   function openCreate() {
     setEditingExam(null);
     setForm(emptyForm);
-    setFormError("");
     setFieldErrors({});
     setModalOpen(true);
   }
@@ -188,7 +186,6 @@ export default function AdminExamsPage() {
       status: exam.status,
       courseId: exam.courseId ?? "",
     });
-    setFormError("");
     setFieldErrors({});
     setModalOpen(true);
   }
@@ -196,7 +193,6 @@ export default function AdminExamsPage() {
   function resetExamDialogState() {
     setEditingExam(null);
     setForm(emptyForm);
-    setFormError("");
     setFieldErrors({});
   }
 
@@ -233,7 +229,6 @@ export default function AdminExamsPage() {
   async function handleSave() {
     savingRef.current = true;
     setSaving(true);
-    setFormError("");
     setFieldErrors({});
 
     const editingId = editingExam?.id;
@@ -269,7 +264,6 @@ export default function AdminExamsPage() {
       });
 
       if (!result.success) {
-        setFormError(result.message ?? "Failed to save exam.");
         if (result.fields) setFieldErrors(result.fields);
         showToast(result.message ?? "Failed to save exam.", true);
         dialogBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -309,8 +303,6 @@ export default function AdminExamsPage() {
 
   return (
     <div className="space-y-6">
-      {ToastViewport}
-
       <AdminPageHeader
         title="Standalone Exams"
         description="Create and manage public exam competitions"
@@ -501,12 +493,6 @@ export default function AdminExamsPage() {
                 ref={dialogBodyRef}
                 className="flex-1 space-y-6 overflow-y-auto px-6 py-5"
               >
-            {formError ? (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {formError}
-              </div>
-            ) : null}
-
             <section className="space-y-4">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Basic information

@@ -6,7 +6,6 @@ import {
   BarChart3,
   BookOpenCheck,
   CalendarDays,
-  Check,
   CheckCircle2,
   Clock3,
   Eye,
@@ -19,6 +18,7 @@ import {
   LockKeyhole,
   Mail,
   LogOut,
+  Menu,
   MonitorSmartphone,
   Phone,
   ReceiptText,
@@ -27,6 +27,7 @@ import {
   Sparkles,
   Trophy,
   UserRound,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -48,6 +49,7 @@ import type {
   StudentPortalData,
   StudentProfile,
 } from "@/lib/student/types";
+import { notify } from "@/lib/toast";
 
 const tabs = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -76,10 +78,8 @@ export default function StudentPortal({
     ? (initialTab as PortalTab)
     : "overview";
   const [activeTab, setActiveTab] = useState<PortalTab>(validInitial);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [profile, setProfile] = useState(data.profile);
-  const [toast, setToast] = useState<{ message: string; error?: boolean } | null>(
-    null,
-  );
   const hasEnrollment = data.courses.length > 0;
   const portalNavSession: NavSession = {
     fullName: profile.fullName,
@@ -111,50 +111,134 @@ export default function StudentPortal({
     };
   }, [hasOpenEnrollmentRequest, router]);
 
+  useEffect(() => {
+    if (!drawerOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDrawerOpen(false);
+    };
+    // Close if the viewport grows to desktop, where the inline sidebar takes over.
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const onDesktop = () => {
+      if (desktop.matches) setDrawerOpen(false);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+    desktop.addEventListener("change", onDesktop);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+      desktop.removeEventListener("change", onDesktop);
+    };
+  }, [drawerOpen]);
+
   function showToast(message: string, error = false) {
-    setToast({ message, error });
-    window.setTimeout(() => setToast(null), 3500);
+    if (error) notify.error(message);
+    else notify.success(message);
   }
 
   function selectTab(tab: PortalTab) {
     setActiveTab(tab);
+    setDrawerOpen(false);
     const url = tab === "overview" ? "/dashboard" : `/dashboard?tab=${tab}`;
     window.history.replaceState(null, "", url);
   }
 
+
   return (
     <main className="min-h-screen overflow-x-clip bg-[#f3f7fb] text-navy">
       <AnimatePresence>
-        {toast ? (
-          <motion.div
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className={`fixed right-4 top-4 z-[70] flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold text-white shadow-2xl ${
-              toast.error ? "bg-red-600" : "bg-navy"
-            }`}
-          >
-            {toast.error ? null : <Check className="h-4 w-4 text-[#8cf0d0]" />}
-            {toast.message}
-          </motion.div>
+        {drawerOpen ? (
+          <div className="fixed inset-0 z-[65] lg:hidden">
+            <motion.button
+              type="button"
+              aria-label="Close dashboard menu"
+              className="absolute inset-0 bg-navy/40 backdrop-blur-[2px]"
+              onClick={() => setDrawerOpen(false)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reduceMotion ? 0 : 0.2 }}
+            />
+            <motion.aside
+              id="student-portal-drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Dashboard menu"
+              className="absolute inset-y-0 right-0 flex w-[min(20rem,86vw)] flex-col bg-white shadow-[0_24px_60px_rgba(22,51,81,.25)]"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={
+                reduceMotion
+                  ? { duration: 0 }
+                  : { type: "spring", stiffness: 380, damping: 38 }
+              }
+            >
+              <div className="flex h-17 shrink-0 items-center justify-between border-b border-navy/8 px-4">
+                <BrandLogo />
+                <button
+                  type="button"
+                  onClick={() => setDrawerOpen(false)}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-navy/10 text-navy transition hover:bg-navy/5"
+                  aria-label="Close dashboard menu"
+                  autoFocus
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto overscroll-contain p-3 pb-6">
+                <StudentIdentity profile={profile} />
+                <nav className="mt-3 space-y-1 border-t border-navy/8 pt-3">
+                  {tabs.map((tab) => (
+                    <NavButton
+                      key={tab.id}
+                      tab={tab}
+                      active={activeTab === tab.id}
+                      onClick={() => selectTab(tab.id)}
+                      compact
+                    />
+                  ))}
+                </nav>
+                <Link
+                  href="/"
+                  className="mt-3 flex items-center gap-3 border-t border-navy/8 px-3.5 pt-4 pb-3 text-sm font-semibold text-navy/55 transition hover:text-navy"
+                >
+                  <ArrowRight className="h-4.5 w-4.5" />
+                  Visit website
+                </Link>
+              </div>
+            </motion.aside>
+          </div>
         ) : null}
       </AnimatePresence>
 
       <header className="sticky top-0 z-40 border-b border-navy/8 bg-white/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-17 max-w-[96rem] items-center justify-between px-4 sm:px-6">
-          <BrandLogo />
-          <div className="flex items-center gap-1">
+        <div className="mx-auto flex h-15 max-w-[96rem] items-center justify-between px-4 sm:px-6 lg:h-17">
+          <BrandLogo className="origin-left scale-[0.82] lg:scale-100" />
+          <div className="hidden items-center gap-1 lg:flex">
             {hasEnrollment ? (
               <NotificationBell variant="light" enabled initialUnreadCount={0} />
             ) : null}
             <UserNavMenu session={portalNavSession} variant="light" />
             <Link
               href="/"
-              className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-navy/55 transition hover:bg-navy/5 hover:text-navy sm:block"
+              className="rounded-xl px-3 py-2 text-sm font-semibold text-navy/55 transition hover:bg-navy/5 hover:text-navy"
             >
               Visit website
             </Link>
           </div>
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-navy transition hover:bg-navy/5 lg:hidden"
+            aria-label="Open dashboard menu"
+            aria-expanded={drawerOpen}
+            aria-controls="student-portal-drawer"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
         </div>
       </header>
 
@@ -191,20 +275,6 @@ export default function StudentPortal({
           </aside>
 
           <div className="min-w-0 w-full max-w-full overflow-x-clip [contain:inline-size]">
-            <div className="mb-5 w-full min-w-0 overflow-hidden rounded-2xl border border-navy/8 bg-white shadow-sm lg:hidden">
-              <div className="flex gap-1 overflow-x-auto overscroll-x-contain p-1.5 [-webkit-overflow-scrolling:touch]">
-                {tabs.map((tab) => (
-                  <NavButton
-                    key={tab.id}
-                    tab={tab}
-                    active={activeTab === tab.id}
-                    onClick={() => selectTab(tab.id)}
-                    compact
-                  />
-                ))}
-              </div>
-            </div>
-
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}
@@ -268,7 +338,7 @@ function Overview({
 
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[2rem] bg-navy p-7 text-white shadow-2xl shadow-navy/15 sm:p-10">
+      <section className="relative overflow-hidden rounded-[2rem] bg-navy p-5 text-white shadow-2xl shadow-navy/15 sm:p-10">
         <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,.2)_1px,transparent_0)] [background-size:28px_28px]" />
         <div className="absolute -right-16 -top-20 h-72 w-72 rounded-full bg-btnBg/25 blur-2xl" />
         <div className="relative">
@@ -276,10 +346,10 @@ function Overview({
             <Sparkles className="h-4 w-4" />
             Student portal
           </span>
-          <h1 className="mt-5 text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
+          <h1 className="mt-4 text-2xl font-semibold tracking-[-0.04em] sm:mt-5 sm:text-5xl">
             Welcome back, {firstName}.
           </h1>
-          <p className="mt-4 max-w-xl leading-7 text-white/65">
+          <p className="mt-3 max-w-xl text-sm leading-6 text-white/65 sm:mt-4 sm:text-base sm:leading-7">
             Everything you need to learn, measure progress, and manage your account
             is now in one calm workspace.
           </p>
@@ -583,12 +653,10 @@ function ProfileForm({
 }) {
   const [pending, setPending] = useState(false);
   const [avatarPending, setAvatarPending] = useState(false);
-  const [error, setError] = useState("");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
-    setError("");
     const form = new FormData(event.currentTarget);
     try {
       const response = await fetch("/api/profile", {
@@ -598,7 +666,7 @@ function ProfileForm({
       });
       const result = await response.json();
       if (!response.ok) {
-        setError(result.message ?? "Could not update your profile.");
+        notify(result.message ?? "Could not update your profile.", true);
         return;
       }
       onUpdate({
@@ -608,7 +676,7 @@ function ProfileForm({
       });
       notify("Profile updated successfully.");
     } catch {
-      setError("Could not reach the server.");
+      notify("Could not reach the server.", true);
     } finally {
       setPending(false);
     }
@@ -697,7 +765,6 @@ function ProfileForm({
             <Field label="Phone number" icon={Phone}>
               <input name="phone" defaultValue={profile.phone ?? ""} maxLength={20} autoComplete="tel" className={inputClass} />
             </Field>
-            {error ? <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
             <button disabled={pending} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-btnBg px-6 text-sm font-bold text-white disabled:opacity-60">
               {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save changes
             </button>
@@ -740,7 +807,6 @@ function Security({
   const [pending, setPending] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [revokingOthers, setRevokingOthers] = useState(false);
-  const [error, setError] = useState("");
   const [show, setShow] = useState<Record<string, boolean>>({});
 
   async function revokeSession(sessionId: string) {
@@ -786,8 +852,8 @@ function Security({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
-    setError("");
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       const response = await fetch("/api/profile/change-password", {
         method: "POST",
@@ -800,13 +866,13 @@ function Security({
       });
       const result = await response.json();
       if (!response.ok) {
-        setError(result.message ?? "Could not change password.");
+        notify(result.message ?? "Could not change password.", true);
         return;
       }
-      event.currentTarget.reset();
+      formElement.reset();
       notify(result.message);
     } catch {
-      setError("Could not reach the server.");
+      notify("Could not reach the server.", true);
     } finally {
       setPending(false);
     }
@@ -836,7 +902,6 @@ function Security({
                 </div>
               </Field>
             ))}
-            {error ? <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
             <button disabled={pending} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-navy px-6 text-sm font-bold text-white disabled:opacity-60">
               {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />} Update password
             </button>
@@ -937,7 +1002,7 @@ function NavButton({
 }) {
   const Icon = tab.icon;
   return (
-    <button type="button" onClick={onClick} className={`relative flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition ${compact ? "shrink-0 whitespace-nowrap" : "w-full"} ${active ? "bg-btnBg/8 text-btnBg" : "text-navy/55 hover:bg-navy/4 hover:text-navy"}`}>
+    <button type="button" onClick={onClick} className={`relative flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition w-full ${active ? "bg-btnBg/8 text-btnBg" : "text-navy/55 hover:bg-navy/4 hover:text-navy"}`}>
       {active ? <motion.span layoutId={compact ? "mobile-portal-tab" : "portal-tab"} className="absolute inset-0 rounded-xl bg-btnBg/8" /> : null}
       <Icon className="relative h-4.5 w-4.5" />
       <span className="relative">{tab.label}</span>

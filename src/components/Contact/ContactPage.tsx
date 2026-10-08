@@ -2,7 +2,6 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 
-import { contactFaq } from "@/components/data/contactData";
 import { Container } from "@/components/reusables";
 
 import ContactForm from "./ContactForm";
@@ -24,15 +23,15 @@ const ContactPage = () => {
             transition={{ duration: 0.55, ease: "easeOut" }}
             className="mx-auto w-full max-w-3xl px-1 text-center"
           >
-            <span className="inline-flex max-w-full items-center rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8cf0d0] sm:px-4 sm:text-xs sm:tracking-[0.16em]">
+            <h1 className="text-pretty text-3xl font-semibold uppercase tracking-tight sm:text-4xl lg:text-5xl">
               Contact Broad Academy
-            </span>
-            <h1 className="mt-4 text-pretty text-3xl font-semibold tracking-tight sm:mt-5 sm:text-4xl lg:text-5xl">
-              Let&apos;s Talk About Your Learning Goals
             </h1>
-            <p className="mt-3 text-pretty text-sm leading-6 text-white/75 sm:mt-4 sm:text-base sm:leading-7 lg:text-lg">
-              Whether you are a parent exploring courses or a student preparing
-              for exams, our team is ready to help you choose the right path.
+            <p
+              lang="bn"
+              className="font-bangla mt-3 text-pretty text-sm leading-7 text-white/75 sm:mt-4 sm:text-base sm:leading-8 lg:text-lg"
+            >
+              অভিভাবক, শিক্ষার্থী, শিক্ষক ও মেন্টরদের জন্য সঠিক দিকনির্দেশনা,
+              পরিকল্পনা এবং প্রয়োজনীয় সহায়তা দিতে আমাদের টিম সর্বদা প্রস্তুত।
             </p>
           </motion.div>
         </Container>
@@ -51,25 +50,6 @@ const ContactPage = () => {
                 </p>
                 <div className="mt-6 sm:mt-8">
                   <ContactInfo />
-                </div>
-              </div>
-
-              <div className="min-w-0 rounded-2xl border border-white/80 bg-white p-4 shadow-[0_20px_70px_rgba(22,51,81,0.06)] sm:rounded-3xl sm:p-6 lg:p-8">
-                <h3 className="text-base font-semibold text-navy sm:text-lg">
-                  Quick answers
-                </h3>
-                <div className="mt-4 space-y-3 sm:mt-5 sm:space-y-4">
-                  {contactFaq.map((item) => (
-                    <div
-                      key={item.question}
-                      className="rounded-2xl border border-slate-100 bg-slate-50/80 px-4 py-4"
-                    >
-                      <p className="text-sm font-semibold text-navy">{item.question}</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-600">
-                        {item.answer}
-                      </p>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>

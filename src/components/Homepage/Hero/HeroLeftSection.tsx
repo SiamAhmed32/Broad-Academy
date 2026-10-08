@@ -38,15 +38,11 @@ const HeroLeftSection = () => {
     >
       <motion.h1
         variants={itemVariants}
-        className="max-w-2xl text-4xl font-extrabold leading-[1.15] tracking-[-0.025em] text-navy sm:text-5xl lg:text-[3.25rem]"
+        className="text-5xl font-extrabold leading-[1.05] tracking-[-0.035em] text-navy sm:text-6xl lg:text-[4.25rem]"
       >
-        Broad Academy — Learn Today, Lead Tomorrow, Grow to Infinity
+        Broad Academy<span className="sr-only"> — </span>
+        <span className="block text-btnBg">Beyond Infinity</span>
       </motion.h1>
-
-      <motion.div
-        variants={itemVariants}
-        className="mt-5 h-1 w-16 rounded-full bg-gradient-to-r from-navy to-btnBg"
-      />
 
       <motion.p
         variants={itemVariants}

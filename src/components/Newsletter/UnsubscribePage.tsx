@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 import { BrandLogo } from "@/components/Brand";
+import { notify } from "@/lib/toast";
 
 export default function UnsubscribePage() {
   const reduceMotion = useReducedMotion();
@@ -17,12 +18,10 @@ export default function UnsubscribePage() {
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
   const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
-    setError("");
     setMessage("");
 
     const payload: { email: string; token?: string } = { email: email.trim() };
@@ -37,7 +36,7 @@ export default function UnsubscribePage() {
       const result = await response.json();
 
       if (!response.ok) {
-        setError(result.message || "We could not process your request.");
+        notify.error(result.message || "We could not process your request.");
         return;
       }
 
@@ -46,7 +45,7 @@ export default function UnsubscribePage() {
         result.message || "You have been unsubscribed from Broad Academy updates.",
       );
     } catch {
-      setError("We could not reach the server. Please try again.");
+      notify.error("We could not reach the server. Please try again.");
     } finally {
       setPending(false);
     }
@@ -129,17 +128,6 @@ export default function UnsubscribePage() {
                     />
                   </div>
                 </div>
-
-                {error ? (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    role="alert"
-                    className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-                  >
-                    {error}
-                  </motion.div>
-                ) : null}
 
                 <motion.button
                   whileHover={reduceMotion ? undefined : { y: -1 }}

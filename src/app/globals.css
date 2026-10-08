@@ -43,6 +43,25 @@ body {
     -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, Helvetica, sans-serif;
 }
 
+/* Toasts (react-toastify): brand colours for the site-wide AppToaster.
+   Set on .Toastify, not :root, because the library injects its own :root
+   defaults after this stylesheet. */
+.Toastify {
+  --toastify-color-success: #163351;
+  --toastify-color-error: #dc2626;
+  --toastify-color-info: #0068cf;
+  --toastify-color-warning: #d97706;
+  --toastify-font-family: var(--font-inter), var(--font-hind-siliguri), sans-serif;
+  --toastify-toast-bd-radius: 14px;
+  --toastify-toast-width: 380px;
+}
+
+.Toastify__toast {
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 18px 40px -12px rgba(22, 51, 81, 0.35);
+}
+
 .font-bangla {
   font-family: var(--font-hind-siliguri), var(--font-inter), ui-sans-serif, sans-serif;
   letter-spacing: 0;

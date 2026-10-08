@@ -77,7 +77,7 @@ const emptyPagination: AdminPaginationMeta = {
 export default function AdminDocumentsPage() {
   const shouldReduceMotion = useReducedMotion();
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { showToast, ToastViewport } = useAdminToast();
+  const { showToast } = useAdminToast();
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [pagination, setPagination] = useState<AdminPaginationMeta>(emptyPagination);
@@ -294,7 +294,6 @@ export default function AdminDocumentsPage() {
 
       {/* Pagination */}
       <AdminPagination pagination={pagination} onPageChange={setPage} />
-      {ToastViewport}
     </div>
   );
 }

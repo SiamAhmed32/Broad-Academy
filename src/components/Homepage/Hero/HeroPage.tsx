@@ -7,7 +7,7 @@ const HeroPage = () => {
   return (
     <section className="relative overflow-hidden bg-[#f4f7fb]">
       <Container className="pb-10 pt-10 sm:pb-12 sm:pt-14 lg:pb-16 lg:pt-16">
-        <div className="grid items-center gap-10 lg:grid-cols-[1.02fr_0.98fr] lg:items-end lg:gap-4">
+        <div className="grid items-center gap-10 lg:grid-cols-[1.02fr_0.98fr] lg:gap-12">
           {/* Left Section */}
           <HeroLeftSection />
 

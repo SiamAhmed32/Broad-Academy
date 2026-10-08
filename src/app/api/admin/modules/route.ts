@@ -34,8 +34,11 @@ export async function POST(request: NextRequest) {
     return errorResponse("Invalid module.", 422, parsed.error.flatten().fieldErrors);
   }
 
-  const count = await db.courseModule.count({
+  // Use max + 1 rather than count: after a delete, count can collide with an
+  // existing displayOrder and trip the (courseId, displayOrder) unique index.
+  const { _max } = await db.courseModule.aggregate({
     where: { courseId: parsed.data.courseId },
+    _max: { displayOrder: true },
   });
 
   const module = await db.courseModule.create({
@@ -43,7 +46,7 @@ export async function POST(request: NextRequest) {
       courseId: parsed.data.courseId,
       title: parsed.data.title,
       description: parsed.data.description ?? null,
-      displayOrder: parsed.data.displayOrder ?? count,
+      displayOrder: parsed.data.displayOrder ?? (_max.displayOrder ?? -1) + 1,
     },
   });
 

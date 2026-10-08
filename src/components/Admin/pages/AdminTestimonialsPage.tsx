@@ -17,6 +17,7 @@ import {
   AdminPagination,
   AdminSelect,
   AdminTextarea,
+  useAdminToast,
   type AdminPaginationMeta,
 } from "@/components/Admin";
 import { adminFetch, formatAdminDate } from "@/lib/admin/client";
@@ -96,6 +97,7 @@ export default function AdminTestimonialsPage() {
   const [featured, setFeatured] = useState("all");
   const [sort, setSort] = useState("order");
   const [page, setPage] = useState(1);
+  const { showToast } = useAdminToast();
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams({
@@ -174,7 +176,7 @@ export default function AdminTestimonialsPage() {
       resetForm();
       await loadTestimonials();
     } else {
-      alert(res.message || "Could not save testimonial.");
+      showToast(res.message || "Could not save testimonial.", true);
     }
   }
 
@@ -197,7 +199,7 @@ export default function AdminTestimonialsPage() {
             body: JSON.stringify({ status: "DRAFT" }),
           });
 
-    if (!res.success) alert(res.message || "Could not update testimonial.");
+    if (!res.success) showToast(res.message || "Could not update testimonial.", true);
     await loadTestimonials();
   }
 

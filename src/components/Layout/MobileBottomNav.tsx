@@ -85,6 +85,7 @@ const moreLegalLinks: MoreLink[] = [
  */
 const HIDDEN_PREFIXES = [
   "/admin",
+  "/dashboard",
   "/login",
   "/register",
   "/forgot-password",

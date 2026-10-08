@@ -19,7 +19,7 @@ const methods = [
     label: "ইমেইল",
     value: contactDetails.email,
     tag: "২৪/৭ সহায়তা",
-    href: `mailto:${contactDetails.email}`,
+    href: contactDetails.emailHref,
   },
   {
     icon: MapPin,

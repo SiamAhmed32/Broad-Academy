@@ -4,14 +4,16 @@ import { CheckCircle2, LoaderCircle, Send, UserRound } from "lucide-react";
 import { FormEvent, useState } from "react";
 
 import { contactSubjects } from "@/lib/contact/validation";
+import { notify } from "@/lib/toast";
 
 const subjectLabelsBn: Record<(typeof contactSubjects)[number], string> = {
-  enrollment: "কোর্স ভর্তি",
-  "course-inquiry": "কোর্স সম্পর্কিত জিজ্ঞাসা",
+  "course-information": "কোর্স সম্পর্কিত তথ্য",
   admission: "ভর্তি সহায়তা",
-  consultation: "ফ্রি পরামর্শ",
   technical: "কারিগরি সহায়তা",
+  counselling: "কাউন্সেলিং",
   partnership: "পার্টনারশিপ",
+  advertisement: "বিজ্ঞাপন",
+  "teacher-mentor": "শিক্ষক/মেন্টর",
   other: "অন্যান্য",
 };
 
@@ -42,7 +44,10 @@ const ContactFormCard = () => {
     setMessage("");
     setFields({});
 
-    const form = new FormData(event.currentTarget);
+    // React clears event.currentTarget once the handler yields, so keep the
+    // element for the reset after the await.
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const payload = {
       fullName: form.get("fullName"),
       email: form.get("email"),
@@ -62,16 +67,16 @@ const ContactFormCard = () => {
       const result = await response.json();
 
       if (!response.ok) {
-        setMessage(result.message || "কিছু একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+        notify.error(result.message || "কিছু একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।");
         setFields(result.fields || {});
         return;
       }
 
       setSubmitted(true);
       setMessage(result.message);
-      event.currentTarget.reset();
+      formElement.reset();
     } catch {
-      setMessage("সার্ভারে পৌঁছানো যায়নি। আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।");
+      notify.error("সার্ভারে পৌঁছানো যায়নি। আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।");
     } finally {
       setPending(false);
     }
@@ -201,12 +206,6 @@ const ContactFormCard = () => {
           )}
         </div>
       </div>
-
-      {message && !submitted && (
-        <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {message}
-        </p>
-      )}
 
       <button
         type="submit"

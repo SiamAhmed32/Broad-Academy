@@ -1,25 +1,29 @@
 "use client";
 
-import { Loader2, Mail, Send, CheckCircle2 } from "lucide-react";
+import { Loader2, Mail, Send } from "lucide-react";
 import Image from "next/image";
 import { FormEvent, useState } from "react";
 
 import { apiFetch } from "@/lib/api/client";
 import { Container } from "@/components/reusables";
+import { notify } from "@/lib/toast";
 
-type FormState = "idle" | "loading" | "success" | "error";
+const EMAIL_PATTERN = /^[^s@]+@[^s@]+.[^s@]+$/;
 
 const NewsletterPage = () => {
   const [email, setEmail] = useState("");
-  const [state, setState] = useState<FormState>("idle");
-  const [message, setMessage] = useState("");
-  const [fieldError, setFieldError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [invalid, setInvalid] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setState("loading");
-    setMessage("");
-    setFieldError("");
+    if (!EMAIL_PATTERN.test(email.trim())) {
+      setInvalid(true);
+      notify.error("সঠিক ইমেইল ঠিকানা লিখুন।");
+      return;
+    }
+    setInvalid(false);
+    setLoading(true);
 
     const form = event.currentTarget;
     const honeypot = (form.elements.namedItem("website") as HTMLInputElement)
@@ -34,15 +38,20 @@ const NewsletterPage = () => {
       }),
     });
 
+    setLoading(false);
+
     if (!result.success) {
-      setState("error");
-      setFieldError(result.fields?.email?.[0] ?? "");
-      setMessage(result.message ?? "কিছু একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+      // One message only: the field error if there is one, else the general one.
+      setInvalid(Boolean(result.fields?.email?.length));
+      notify.error(
+        result.fields?.email?.[0] ??
+          result.message ??
+          "কিছু একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।",
+      );
       return;
     }
 
-    setState("success");
-    setMessage(result.message ?? "ধন্যবাদ! আপনি সফলভাবে সাবস্ক্রাইব করেছেন।");
+    notify.success(result.message ?? "ধন্যবাদ! আপনি সফলভাবে সাবস্ক্রাইব করেছেন।");
     setEmail("");
   };
 
@@ -82,63 +91,53 @@ const NewsletterPage = () => {
               </p>
 
               <div className="mt-6">
-                {state === "success" ? (
-                  <div className="flex items-start gap-3 rounded-2xl border border-[#0258FA]/20 bg-[#F2F6FE] px-4 py-4 text-[#00132A]">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#0258FA]" />
-                    <p className="text-sm leading-6 sm:text-base">{message}</p>
-                  </div>
-                ) : (
-                  <form onSubmit={handleSubmit} className="space-y-3" noValidate>
-                    <label className="sr-only" htmlFor="homepage-newsletter-email">
-                      ইমেইল ঠিকানা
-                    </label>
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                      <div className="relative flex-1">
-                        <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#42506B]" />
-                        <input
-                          id="homepage-newsletter-email"
-                          type="email"
-                          value={email}
-                          onChange={(event) => setEmail(event.target.value)}
-                          required
-                          autoComplete="email"
-                          placeholder="আপনার ইমেইল"
-                          className="h-14 w-full rounded-2xl border border-[#FCFCFE] bg-white pl-11 pr-4 text-sm text-[#00132A] outline-none transition placeholder:text-[#42506B]/70 focus:border-[#0258FA] focus:ring-2 focus:ring-[#0258FA]/20"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={state === "loading"}
-                        className="inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#0258FA] px-6 text-sm font-bold text-white transition hover:bg-[#0258FA]/90 disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        {state === "loading" ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Send className="h-4 w-4" />
-                            সাবস্ক্রাইব করুন
-                          </>
-                        )}
-                      </button>
+                <form onSubmit={handleSubmit} className="space-y-3" noValidate>
+                  <label className="sr-only" htmlFor="homepage-newsletter-email">
+                    ইমেইল ঠিকানা
+                  </label>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <div className="relative flex-1">
+                      <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#42506B]" />
+                      <input
+                        id="homepage-newsletter-email"
+                        type="email"
+                        value={email}
+                        onChange={(event) => {
+                          setEmail(event.target.value);
+                          setInvalid(false);
+                        }}
+                        aria-invalid={invalid}
+                        required
+                        autoComplete="email"
+                        placeholder="আপনার ইমেইল"
+                        className="h-14 w-full rounded-2xl border border-[#FCFCFE] bg-white pl-11 pr-4 text-sm text-[#00132A] outline-none transition placeholder:text-[#42506B]/70 focus:border-[#0258FA] focus:ring-2 focus:ring-[#0258FA]/20 aria-invalid:border-red-400 aria-invalid:ring-2 aria-invalid:ring-red-400/20"
+                      />
                     </div>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#0258FA] px-6 text-sm font-bold text-white transition hover:bg-[#0258FA]/90 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {loading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          সাবস্ক্রাইব করুন
+                        </>
+                      )}
+                    </button>
+                  </div>
 
-                    <input
-                      type="text"
-                      name="website"
-                      tabIndex={-1}
-                      autoComplete="off"
-                      className="hidden"
-                      aria-hidden
-                    />
-
-                    {fieldError ? (
-                      <p className="text-sm text-red-500">{fieldError}</p>
-                    ) : null}
-                    {state === "error" && message ? (
-                      <p className="text-sm text-red-500">{message}</p>
-                    ) : null}
-                  </form>
-                )}
+                  <input
+                    type="text"
+                    name="website"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    className="hidden"
+                    aria-hidden
+                  />
+                </form>
               </div>
             </div>
 

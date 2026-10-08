@@ -5,6 +5,8 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
+import { useAdminToast } from "./AdminToast";
+
 type UploadPurpose =
   | "course-thumbnail"
   | "instructor-avatar"
@@ -53,6 +55,7 @@ export function AdminImageUpload({
   const [localPreviewUrl, setLocalPreviewUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const { showToast } = useAdminToast();
   const previewUrl = localPreviewUrl || value;
 
   useEffect(() => {
@@ -103,10 +106,11 @@ export function AdminImageUpload({
       setLocalPreviewUrl("");
     } catch (uploadError) {
       setLocalPreviewUrl("");
-      setError(
+      showToast(
         uploadError instanceof Error
           ? uploadError.message
           : "Image upload failed. Please try again.",
+        true,
       );
     } finally {
       URL.revokeObjectURL(objectUrl);

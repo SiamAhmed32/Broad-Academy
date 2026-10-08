@@ -17,6 +17,7 @@ import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 
 import { BrandLogo } from "@/components/Brand";
+import { notify } from "@/lib/toast";
 
 type RecoveryStep = "email" | "reset" | "success";
 type FieldErrors = Record<string, string[] | undefined>;
@@ -49,7 +50,6 @@ export default function ForgotPasswordPage() {
   async function requestOtp(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     setPending(true);
-    setMessage("");
     setFields({});
 
     try {
@@ -61,15 +61,18 @@ export default function ForgotPasswordPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        setMessage(result.message || "We could not send a code.");
+        // Single-input step: one message only, the field error if there is one.
         setFields(result.fields || {});
+        notify.error(
+          result.fields?.email?.[0] || result.message || "We could not send a code.",
+        );
         return;
       }
 
-      setMessage(result.message);
+      notify.success(result.message);
       setStep("reset");
     } catch {
-      setMessage("We could not reach the server. Please try again.");
+      notify.error("We could not reach the server. Please try again.");
     } finally {
       setPending(false);
     }
@@ -77,7 +80,6 @@ export default function ForgotPasswordPage() {
 
   async function resendOtp() {
     setResending(true);
-    setMessage("");
     try {
       const response = await fetch("/api/auth/forgot-password", {
         method: "POST",
@@ -85,9 +87,13 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email }),
       });
       const result = await response.json();
-      setMessage(result.message || "Please wait before requesting another code.");
+      if (response.ok) {
+        notify.success(result.message);
+      } else {
+        notify.error(result.message || "Please wait before requesting another code.");
+      }
     } catch {
-      setMessage("We could not resend the code. Please try again.");
+      notify.error("We could not resend the code. Please try again.");
     } finally {
       setResending(false);
     }
@@ -96,7 +102,6 @@ export default function ForgotPasswordPage() {
   async function resetPassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
-    setMessage("");
     setFields({});
 
     const form = new FormData(event.currentTarget);
@@ -114,7 +119,7 @@ export default function ForgotPasswordPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        setMessage(result.message || "We could not reset your password.");
+        notify.error(result.message || "We could not reset your password.");
         setFields(result.fields || {});
         return;
       }
@@ -122,7 +127,7 @@ export default function ForgotPasswordPage() {
       setStep("success");
       setMessage(result.message);
     } catch {
-      setMessage("We could not reach the server. Please try again.");
+      notify.error("We could not reach the server. Please try again.");
     } finally {
       setPending(false);
     }
@@ -167,7 +172,7 @@ export default function ForgotPasswordPage() {
                   />
 
                   <form onSubmit={requestOtp} noValidate className="mt-8 space-y-5">
-                    <Field label="Email address" error={fields.email?.[0]}>
+                    <Field label="Email address">
                       <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-slate-400" />
                       <input
                         name="email"
@@ -176,11 +181,11 @@ export default function ForgotPasswordPage() {
                         onChange={(event) => setEmail(event.target.value)}
                         autoComplete="email"
                         placeholder="you@example.com"
-                        className={inputClass}
+                        className={`${inputClass} aria-invalid:border-red-400 aria-invalid:ring-4 aria-invalid:ring-red-400/10`}
                         aria-label="Email address"
+                        aria-invalid={Boolean(fields.email)}
                       />
                     </Field>
-                    <StatusMessage message={message} />
                     <SubmitButton pending={pending} label="Send verification code" pendingLabel="Sending code..." />
                   </form>
                 </motion.div>
@@ -260,16 +265,12 @@ export default function ForgotPasswordPage() {
                       />
                     </Field>
 
-                    <StatusMessage message={message} />
                     <SubmitButton pending={pending} label="Reset password" pendingLabel="Resetting password..." />
 
                     <div className="flex items-center justify-between gap-4 text-sm">
                       <button
                         type="button"
-                        onClick={() => {
-                          setStep("email");
-                          setMessage("");
-                        }}
+                        onClick={() => setStep("email")}
                         className="font-semibold text-slate-500 hover:text-navy"
                       >
                         Change email
@@ -380,20 +381,6 @@ function Field({
       <span className="relative block">{children}</span>
       {error && <span className="mt-1.5 block text-xs font-medium text-red-600">{error}</span>}
     </label>
-  );
-}
-
-function StatusMessage({ message }: { message: string }) {
-  if (!message) return null;
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -5 }}
-      animate={{ opacity: 1, y: 0 }}
-      role="status"
-      className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600"
-    >
-      {message}
-    </motion.div>
   );
 }
 

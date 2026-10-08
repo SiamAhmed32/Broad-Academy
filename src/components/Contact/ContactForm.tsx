@@ -16,6 +16,7 @@ import {
   contactRoleLabels,
   contactSubjectLabels,
 } from "@/lib/contact/validation";
+import { notify } from "@/lib/toast";
 
 type ContactFormProps = {
   source: "homepage" | "contact-page";
@@ -68,7 +69,10 @@ const ContactForm = ({ source }: ContactFormProps) => {
     setMessage("");
     setFields({});
 
-    const form = new FormData(event.currentTarget);
+    // React clears event.currentTarget once the handler yields, so keep the
+    // element for the reset after the await.
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const payload = {
       fullName: form.get("fullName"),
       email: form.get("email"),
@@ -89,17 +93,17 @@ const ContactForm = ({ source }: ContactFormProps) => {
       const result = await response.json();
 
       if (!response.ok) {
-        setMessage(result.message || "Something went wrong. Please try again.");
+        notify.error(result.message || "Something went wrong. Please try again.");
         setFields(result.fields || {});
         return;
       }
 
       setSubmitted(true);
       setMessage(result.message);
-      event.currentTarget.reset();
+      formElement.reset();
       setMessageLength(0);
     } catch {
-      setMessage("We could not reach the server. Check your connection and try again.");
+      notify.error("We could not reach the server. Check your connection and try again.");
     } finally {
       setPending(false);
     }
@@ -208,12 +212,13 @@ const ContactForm = ({ source }: ContactFormProps) => {
 
         <div className="sm:col-span-1">
           <label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-navy">
-            Phone <span className="font-normal text-slate-500">(optional)</span>
+            Phone
           </label>
           <input
             id="phone"
             name="phone"
             type="tel"
+            required
             autoComplete="tel"
             placeholder="01XXXXXXXXX"
             className={inputClass}
@@ -297,12 +302,6 @@ const ContactForm = ({ source }: ContactFormProps) => {
           </div>
         </div>
       </div>
-
-      {message && !submitted && (
-        <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {message}
-        </p>
-      )}
 
       <button
         type="submit"

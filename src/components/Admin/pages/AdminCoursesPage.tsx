@@ -29,6 +29,7 @@ import {
   AdminPagination,
   AdminSelect,
   AdminTextarea,
+  useAdminToast,
   type AdminPaginationMeta,
 } from "@/components/Admin";
 import Modal from "@/components/reusables/Modal";
@@ -103,6 +104,7 @@ export default function AdminCoursesPage() {
   const [imageUploading, setImageUploading] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState("");
+  const { showToast } = useAdminToast();
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -172,7 +174,7 @@ export default function AdminCoursesPage() {
       setForm(emptyForm);
       void loadCourses();
     } else {
-      setFormError(res.message ?? "Could not create course.");
+      showToast(res.message ?? "Could not create course.", true);
     }
   }
 

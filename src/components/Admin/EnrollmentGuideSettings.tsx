@@ -9,6 +9,7 @@ import {
   AdminCardTitle,
   AdminField,
   AdminInput,
+  useAdminToast,
 } from "@/components/Admin";
 import { adminFetch } from "@/lib/admin/client";
 
@@ -16,7 +17,7 @@ export default function EnrollmentGuideSettings() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
+  const { showToast } = useAdminToast();
 
   useEffect(() => {
     async function load() {
@@ -34,13 +35,13 @@ export default function EnrollmentGuideSettings() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    setMessage("");
     const res = await adminFetch("/api/admin/site-config", {
       method: "PATCH",
       body: JSON.stringify({ enrollmentGuideYoutubeUrl: url.trim() || null }),
     });
     setSaving(false);
-    setMessage(res.success ? "Enrollment guide video saved." : res.message ?? "Could not save.");
+    if (res.success) showToast("Enrollment guide video saved.");
+    else showToast(res.message ?? "Could not save.", true);
   }
 
   return (
@@ -66,7 +67,6 @@ export default function EnrollmentGuideSettings() {
           <AdminButton type="submit" isLoading={saving} disabled={loading}>
             Save guide video
           </AdminButton>
-          {message ? <p className="text-sm text-navy/60">{message}</p> : null}
         </div>
       </form>
     </AdminCard>

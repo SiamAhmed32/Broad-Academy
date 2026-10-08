@@ -20,6 +20,7 @@ import {
   AdminLoading,
   AdminPageHeader,
   AdminSelect,
+  useAdminToast,
 } from "@/components/Admin";
 import {
   ADMIN_ROLE_LABELS,
@@ -62,9 +63,7 @@ export default function AdminTeamPage() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<Record<string, AdminStaffRole>>({});
-  const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(
-    null,
-  );
+  const { showToast } = useAdminToast();
 
   const loadTeam = useCallback(async (query = "") => {
     const url = query
@@ -81,9 +80,9 @@ export default function AdminTeamPage() {
         return next;
       });
     } else {
-      setMessage({ text: response.message ?? "Could not load team.", error: true });
+      showToast(response.message ?? "Could not load team.", true);
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -96,7 +95,7 @@ export default function AdminTeamPage() {
     event.preventDefault();
     const query = search.trim();
     if (query.length < 2) {
-      setMessage({ text: "Enter at least 2 characters.", error: true });
+      showToast("Enter at least 2 characters.", true);
       return;
     }
     setSearching(true);
@@ -113,10 +112,10 @@ export default function AdminTeamPage() {
       body: JSON.stringify({ userId: candidate.id, adminRole: role }),
     });
     setUpdating(null);
-    setMessage({
-      text: response.message ?? (response.success ? "Access granted." : "Could not grant access."),
-      error: !response.success,
-    });
+    showToast(
+      response.message ?? (response.success ? "Access granted." : "Could not grant access."),
+      !response.success,
+    );
     if (response.success) {
       setSearch("");
       await loadTeam();
@@ -130,10 +129,10 @@ export default function AdminTeamPage() {
       body: JSON.stringify({ userId: member.id, adminRole }),
     });
     setUpdating(null);
-    setMessage({
-      text: response.message ?? (response.success ? "Role updated." : "Could not update role."),
-      error: !response.success,
-    });
+    showToast(
+      response.message ?? (response.success ? "Role updated." : "Could not update role."),
+      !response.success,
+    );
     if (response.success) await loadTeam();
   }
 
@@ -151,10 +150,10 @@ export default function AdminTeamPage() {
       body: JSON.stringify({ userId: member.id }),
     });
     setUpdating(null);
-    setMessage({
-      text: response.message ?? (response.success ? "Access removed." : "Could not remove access."),
-      error: !response.success,
-    });
+    showToast(
+      response.message ?? (response.success ? "Access removed." : "Could not remove access."),
+      !response.success,
+    );
     if (response.success) await loadTeam();
   }
 
@@ -167,18 +166,6 @@ export default function AdminTeamPage() {
         title="Team & access"
         description="Promote verified student accounts to staff and assign a controlled operational role."
       />
-
-      {message ? (
-        <div
-          className={`mb-5 rounded-xl border px-4 py-3 text-sm ${
-            message.error
-              ? "border-red-200 bg-red-50 text-red-700"
-              : "border-emerald-200 bg-emerald-50 text-emerald-700"
-          }`}
-        >
-          {message.text}
-        </div>
-      ) : null}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {data.actor.assignableRoles.map((role) => (

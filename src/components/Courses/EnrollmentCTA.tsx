@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ import {
   isEnrollmentRequestOpen,
   type EnrollmentRequestStatus,
 } from "@/lib/enrollments/status";
+import { notify } from "@/lib/toast";
 
 type EnrollmentState = {
   course: { id: string; slug: string; title: string; price: number };
@@ -38,6 +39,8 @@ type EnrollmentState = {
 
 type Fields = Record<string, string[] | undefined>;
 
+const subscribeNoop = () => () => {};
+
 export default function EnrollmentCTA({
   courseId,
   courseSlug,
@@ -56,14 +59,14 @@ export default function EnrollmentCTA({
   const [authenticated, setAuthenticated] = useState(true);
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState("");
   const [fields, setFields] = useState<Fields>({});
   const [fileName, setFileName] = useState("");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // true on the client, false during SSR: the portal needs document.body.
+  const mounted = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -114,14 +117,12 @@ export default function EnrollmentCTA({
   }, [courseId]);
 
   function openModal() {
-    setMessage("");
     setFields({});
     setFileName("");
     setOpen(true);
   }
 
   function closeModal() {
-    setMessage("");
     setFields({});
     setFileName("");
     setOpen(false);
@@ -130,11 +131,13 @@ export default function EnrollmentCTA({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
-    setMessage("");
     setFields({});
+    // React clears event.currentTarget once the handler yields, so keep the
+    // element for the reset after the await.
+    const formElement = event.currentTarget;
 
     try {
-      const formData = new FormData(event.currentTarget);
+      const formData = new FormData(formElement);
       formData.set("courseId", courseId);
       const response = await fetch("/api/enrollment-requests", {
         method: "POST",
@@ -142,7 +145,7 @@ export default function EnrollmentCTA({
       });
       const payload = await response.json();
       if (!response.ok) {
-        setMessage(payload.message ?? "Could not submit your enrollment request.");
+        notify.error(payload.message ?? "Could not submit your enrollment request.");
         setFields(payload.fields ?? {});
         return;
       }
@@ -160,12 +163,12 @@ export default function EnrollmentCTA({
             }
           : current,
       );
-      setMessage(payload.message);
+      notify.success(payload.message);
       closeModal();
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (error) {
       console.error("Enrollment request submission failed:", error);
-      setMessage(
+      notify.error(
         error instanceof Error && error.message
           ? error.message
           : "Could not reach the server. Please try again.",
@@ -419,22 +422,6 @@ export default function EnrollmentCTA({
                         </EnrollmentField>
                       </div>
 
-                      {message ? (
-                        <div
-                          role="status"
-                          className={`sm:col-span-2 rounded-xl px-4 py-3 text-sm ${
-                            state.request?.status === "PENDING"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-red-50 text-red-700"
-                          }`}
-                        >
-                          {state.request?.status === "PENDING" ? (
-                            <CheckCircle2 className="mr-2 inline h-4 w-4" />
-                          ) : null}
-                          {message}
-                        </div>
-                      ) : null}
-
                       <button
                         type="submit"
                         disabled={pending || state.request?.status === "PENDING"}
@@ -480,7 +467,12 @@ function PaymentInfo({
         {copy ? (
           <button
             type="button"
-            onClick={() => navigator.clipboard.writeText(value)}
+            onClick={() =>
+              navigator.clipboard.writeText(value).then(
+                () => notify.success("bKash number copied."),
+                () => notify.error("Could not copy the number. Please copy it manually."),
+              )
+            }
             className="rounded-lg p-1.5 text-[#e2136e] hover:bg-[#e2136e]/8"
             aria-label="Copy bKash number"
           >
