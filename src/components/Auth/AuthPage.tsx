@@ -114,7 +114,7 @@ export default function AuthPage({
         initial={reduceMotion ? false : { opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.55, ease: "easeOut" }}
-        className="relative mx-auto grid min-h-[calc(100vh-1.5rem)] max-w-[90rem] overflow-hidden rounded-[1.75rem] border border-white/80 bg-white shadow-[0_30px_100px_rgba(22,51,81,0.14)] sm:min-h-[calc(100vh-2.5rem)] lg:grid-cols-[0.9fr_1.1fr]"
+        className="relative mx-auto grid min-h-[calc(100vh-1.5rem)] max-w-[90rem] overflow-hidden rounded-[1.75rem] border border-white/80 bg-white shadow-[0_30px_100px_rgba(22,51,81,0.14)] sm:min-h-[calc(100vh-2.5rem)] lg:min-h-[calc(100vh-3rem)] lg:grid-cols-[0.9fr_1.1fr]"
       >
         <section className="flex items-center justify-center px-5 py-8 sm:px-10 lg:px-14 xl:px-20">
           <div className="w-full max-w-md">
@@ -140,7 +140,7 @@ export default function AuthPage({
                 Secure student access
               </div>
               <h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-navy sm:text-4xl">
-                {isSignup ? "Start your learning journey" : "Welcome back"}
+                {isSignup ? "Start your learning journey" : "Welcome Back"}
               </h1>
               <p className="mt-3 leading-7 text-slate-500">
                 {isSignup
@@ -488,7 +488,10 @@ function AuthVisual({
   reduceMotion: boolean;
 }) {
   return (
-    <section className="relative hidden min-h-full overflow-hidden bg-navy p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-14">
+    // Content sits as one block centred in the panel (like the form beside it),
+    // so spare height is shared above and below instead of opening a hole
+    // between the text and the cards.
+    <section className="relative hidden min-h-full overflow-hidden bg-navy p-10 text-white lg:flex lg:flex-col lg:justify-center xl:p-14">
       <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,.18)_1px,transparent_0)] [background-size:28px_28px]" />
       <motion.div
         animate={reduceMotion ? undefined : { y: [0, -18, 0], rotate: [0, 4, 0] }}
@@ -498,54 +501,63 @@ function AuthVisual({
       <motion.div
         animate={reduceMotion ? undefined : { y: [0, 16, 0], x: [0, -8, 0] }}
         transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute -bottom-28 left-16 h-72 w-72 rounded-full bg-accent/25"
+        className="absolute -bottom-36 -left-12 h-96 w-96 rounded-full bg-accent/30 blur-3xl"
       />
 
-      <div className="relative">
-        <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/80 backdrop-blur">
+      <div className="relative mx-auto w-full max-w-2xl">
+        <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold tracking-[0.01em] text-white/85 backdrop-blur">
           <Sparkles className="h-3.5 w-3.5 text-[#70ddbd]" />
-          Learn today. Lead tomorrow.
+          Broad Academy – Beyond Infinity
         </span>
-        <h2 className="mt-8 max-w-xl text-4xl font-semibold leading-[1.12] tracking-[-0.04em] xl:text-5xl">
-          {mode === "signup"
-            ? "One account for every step of your academic growth."
-            : "Your learning space is ready when you are."}
+        <h2 className="mt-8 text-balance text-4xl font-semibold leading-[1.12] tracking-[-0.04em] xl:text-5xl">
+          {mode === "signup" ? (
+            "One account for every step of your academic growth."
+          ) : (
+            <>
+              <span className="block">Your learning world is ready.</span>
+              <span className="mt-1 block text-[#70ddbd]">Are you ready?</span>
+            </>
+          )}
         </h2>
-        <p className="mt-5 max-w-lg text-base leading-8 text-white/65">
-          Access focused lessons, track meaningful progress, practice with quizzes,
-          and receive guidance from teachers who care about your success.
+        <p
+          lang="bn"
+          className="font-bangla mt-6 max-w-lg text-pretty border-l-2 border-[#70ddbd]/70 pl-5 text-[1.05rem] font-medium leading-[1.9] text-white/75"
+        >
+          {mode === "signup"
+            ? "সময় দ্রুত ফুরিয়ে যাচ্ছে। কাল নয়, শুরু করো আজই। হাতে যদি মাত্র ৫ মিনিটও থাকে, তবুও শুরু করো, কারণ ছোট্ট একটি শুরুই একদিন বড় সাফল্যের পথে নিয়ে যেতে পারে।"
+            : "হাল ছেড়ে দিও না। প্রতিদিন একটু একটু করে শেখো, লেগে থাকো। খুব শিগগিরই দেখবে, সফলতা তোমার দরজায় কড়া নাড়ছে।"}
         </p>
-      </div>
 
-      <div className="relative grid gap-4 xl:grid-cols-2">
-        <motion.article
-          initial={reduceMotion ? false : { opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="rounded-3xl border border-white/12 bg-white/9 p-5 backdrop-blur-md"
-        >
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#70ddbd] text-navy">
-            <BookOpenCheck className="h-5 w-5" />
-          </div>
-          <p className="mt-5 text-lg font-semibold">Learn with direction</p>
-          <p className="mt-2 text-sm leading-6 text-white/60">
-            Structured courses, guided practice, and visible progress.
-          </p>
-        </motion.article>
-        <motion.article
-          initial={reduceMotion ? false : { opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45 }}
-          className="rounded-3xl border border-white/12 bg-white/9 p-5 backdrop-blur-md"
-        >
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-btnBg text-white">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <p className="mt-5 text-lg font-semibold">Built for trust</p>
-          <p className="mt-2 text-sm leading-6 text-white/60">
-            Protected credentials and revocable, server-managed sessions.
-          </p>
-        </motion.article>
+        <div className="mt-12 grid gap-4 xl:grid-cols-2">
+          <motion.article
+            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="rounded-3xl border border-white/12 bg-white/9 p-5 backdrop-blur-md"
+          >
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#70ddbd] text-navy">
+              <BookOpenCheck className="h-5 w-5" />
+            </div>
+            <p className="mt-5 text-lg font-semibold">Learn with direction</p>
+            <p lang="bn" className="font-bangla mt-2 text-pretty text-sm leading-[1.8] text-white/65">
+              কোর্স প্ল্যানিং, মডিউল ডিজাইন, সঠিক প্রস্তুতি ও সাফল্যে।
+            </p>
+          </motion.article>
+          <motion.article
+            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.45 }}
+            className="rounded-3xl border border-white/12 bg-white/9 p-5 backdrop-blur-md"
+          >
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-btnBg text-white">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <p className="mt-5 text-lg font-semibold">Built for trust</p>
+            <p lang="bn" className="font-bangla mt-2 text-pretty text-sm leading-[1.8] text-white/65">
+              তোমার ব্যক্তিগত তথ্য সম্পূর্ণ গোপন ও নিরাপদ রাখা হবে।
+            </p>
+          </motion.article>
+        </div>
       </div>
     </section>
   );
