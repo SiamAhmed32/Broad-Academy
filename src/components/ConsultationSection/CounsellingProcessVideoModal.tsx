@@ -19,12 +19,12 @@ const processSteps = [
   {
     icon: ClipboardList,
     title: "Submit your request",
-    description: "Share parent contact details, your child’s class, subject need, and preferred date.",
+    description: "Share parent contact details, your child’s class and school, and where they need help.",
   },
   {
     icon: UserRoundCheck,
     title: "Our team reviews it",
-    description: "We confirm availability, explain the Study Plan / Counselling fee, and help finalize the session.",
+    description: "We call you, explain the Study Plan / Counselling fee, and schedule the session time.",
   },
   {
     icon: CalendarCheck,

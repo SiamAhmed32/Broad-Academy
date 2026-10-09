@@ -778,6 +778,9 @@ function ProfileForm({
             {profile.classLevel ? (
               <Info label="Class" value={`Class ${profile.classLevel}`} icon={BookOpenCheck} />
             ) : null}
+            {profile.sscBatch ? (
+              <Info label="SSC batch" value={`SSC ${profile.sscBatch}`} icon={CalendarDays} />
+            ) : null}
             <Info label="Account role" value="Student" icon={GraduationCap} />
             <Info label="Account status" value={profile.status === "ACTIVE" ? "Active" : "Suspended"} icon={ShieldCheck} />
             <Info label="Member since" value={formatDate(profile.createdAt)} icon={CalendarDays} />
@@ -976,6 +979,9 @@ function StudentIdentity({ profile }: { profile: StudentProfile }) {
       {profile.studentId ? (
         <p className="mt-2 text-[11px] font-bold tracking-wide text-[#8cf0d0]">
           ID {profile.studentId}
+          {profile.sscBatch ? (
+            <span className="font-semibold text-white/55"> · SSC {profile.sscBatch}</span>
+          ) : null}
         </p>
       ) : null}
       <span className="mt-3 inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8cf0d0]">

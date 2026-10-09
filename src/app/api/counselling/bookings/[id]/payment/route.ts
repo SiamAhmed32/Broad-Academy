@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 
 import { errorResponse } from "@/lib/auth/response";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -130,14 +130,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
     link: "/admin/counselling",
   }).catch(console.error);
 
-  sendCounsellingPaymentSubmittedEmails({
-    fullName: booking.fullName,
-    email: booking.email,
-    sessionFee: booking.sessionFee,
-    preferredDate: booking.preferredDate,
-    preferredTime: booking.preferredTime,
-    bkashTransactionId: parsed.data.bkashTransactionId,
-  }).catch(console.error);
+  // after(): Vercel may freeze the function once the response is sent.
+  after(() =>
+    sendCounsellingPaymentSubmittedEmails({
+      fullName: booking.fullName,
+      email: booking.email,
+      sessionFee: booking.sessionFee,
+      scheduledAt: booking.scheduledAt,
+      bkashTransactionId: parsed.data.bkashTransactionId,
+    }).catch(console.error),
+  );
 
   return NextResponse.json({
     success: true,

@@ -460,11 +460,15 @@ export default function AdminQuizzesPage() {
                 />
               </AdminField>
               <div className="sm:col-span-2">
-                <AdminField label="Instructions (optional)">
+                <AdminField
+                  label="Instructions (optional)"
+                  hint="One instruction per line. For timed quizzes these replace the default “Important instructions” students see before starting."
+                >
                   <AdminTextarea
                     value={quiz.description}
                     onChange={(e) => setQuiz({ ...quiz, description: e.target.value })}
                     className="min-h-[80px]"
+                    placeholder={"The timer starts when you click Start exam.\nAnswers are submitted automatically when time runs out."}
                   />
                 </AdminField>
               </div>

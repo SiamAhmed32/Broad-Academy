@@ -34,6 +34,7 @@ export type StudentProgressRow = {
   phone: string | null;
   studentId: string | null;
   classLevel: number | null;
+  sscBatch: number | null;
   avatarUrl: string | null;
   accountStatus: "ACTIVE" | "SUSPENDED";
   createdAt: Date;
@@ -56,6 +57,7 @@ export type StudentProgressFilters = {
   search?: string;
   courseId?: string;
   classLevel?: number;
+  sscBatch?: number;
   /** Limits results to these courses (a teacher's assigned courses). */
   courseIds?: string[];
 };
@@ -90,6 +92,7 @@ export async function loadStudentProgress(
   const studentWhere = {
     role: "STUDENT" as const,
     ...(filters.classLevel ? { classLevel: filters.classLevel } : {}),
+    ...(filters.sscBatch ? { sscBatch: filters.sscBatch } : {}),
     ...(courseIdFilter
       ? { enrollments: { some: { courseId: courseIdFilter } } }
       : {}),
@@ -114,6 +117,7 @@ export async function loadStudentProgress(
       phone: true,
       studentId: true,
       classLevel: true,
+      sscBatch: true,
       avatarUrl: true,
       status: true,
       createdAt: true,
@@ -257,6 +261,7 @@ export async function loadStudentProgress(
       phone: student.phone,
       studentId: student.studentId,
       classLevel: student.classLevel,
+      sscBatch: student.sscBatch,
       avatarUrl: student.avatarUrl,
       accountStatus: student.status,
       createdAt: student.createdAt,
@@ -302,6 +307,7 @@ export async function loadStudentProgressDetail(
       phone: true,
       studentId: true,
       classLevel: true,
+      sscBatch: true,
       avatarUrl: true,
       status: true,
       createdAt: true,
@@ -483,6 +489,7 @@ export async function loadStudentProgressDetail(
       phone: student.phone,
       studentId: student.studentId,
       classLevel: student.classLevel,
+      sscBatch: student.sscBatch,
       avatarUrl: student.avatarUrl,
       accountStatus: student.status,
       createdAt: student.createdAt,

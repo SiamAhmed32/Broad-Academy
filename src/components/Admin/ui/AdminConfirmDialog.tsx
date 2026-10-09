@@ -3,6 +3,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AlertTriangle, CheckCircle2, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { AdminButton } from "@/components/Admin";
 import { AdminField, AdminTextarea } from "@/components/Admin/ui/AdminField";
@@ -53,13 +54,17 @@ export function AdminConfirmDialog({
   const shouldReduceMotion = useReducedMotion();
   const [noteValue, setNoteValue] = useState("");
   const [noteError, setNoteError] = useState("");
+  const [wasOpen, setWasOpen] = useState(open);
 
-  useEffect(() => {
+  // Start each opening with an empty note (React's "adjust state when a prop
+  // changes" pattern, instead of an effect).
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setNoteValue("");
       setNoteError("");
     }
-  }, [open]);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -80,7 +85,11 @@ export function AdminConfirmDialog({
     onConfirm(noteValue.trim());
   }
 
-  return (
+  // Render at the end of <body> so the dialog stays full-screen even when it is
+  // opened from inside an animated (transformed) modal.
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <AnimatePresence>
       {open ? (
         <motion.div
@@ -179,6 +188,7 @@ export function AdminConfirmDialog({
           </motion.div>
         </motion.div>
       ) : null}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

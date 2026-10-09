@@ -319,6 +319,10 @@ export const adminStudentProgressQuerySchema = z.object({
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
     z.coerce.number().int().min(1).max(20).optional(),
   ),
+  sscBatch: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.coerce.number().int().min(2000).max(2100).optional(),
+  ),
   status: z.enum([...STUDENT_PROGRESS_STATUSES, "all"]).default("all"),
   sort: z.enum(STUDENT_PROGRESS_SORTS).default("progress_asc"),
   page: z.coerce.number().int().min(1).max(10_000).default(1),

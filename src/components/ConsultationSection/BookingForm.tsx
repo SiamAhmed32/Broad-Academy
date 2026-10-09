@@ -139,7 +139,7 @@ export default function BookingForm({
   const grid = `grid grid-cols-1 gap-4 ${compact ? "" : "sm:grid-cols-2"}`;
 
   if (isSubmitted) {
-    return <SuccessMessage />;
+    return <SuccessMessage showDashboardLink={!isDashboard} />;
   }
 
   if (authState === "checking") {
@@ -317,11 +317,9 @@ export default function BookingForm({
 }
 
 function LoginRequired() {
-  const next =
-    typeof window === "undefined"
-      ? "/counselling"
-      : `${window.location.pathname}${window.location.search}`;
-  const query = `?next=${encodeURIComponent(next)}`;
+  // After signing in, land straight on the booking form instead of having to
+  // find the button again.
+  const query = `?next=${encodeURIComponent("/counselling")}`;
 
   return (
     <div className="font-bangla flex flex-col items-center px-2 py-10 text-center">
@@ -354,7 +352,7 @@ function LoginRequired() {
   );
 }
 
-function SuccessMessage() {
+function SuccessMessage({ showDashboardLink }: { showDashboardLink: boolean }) {
   return (
     <motion.div
       id="booking-success"
@@ -378,6 +376,14 @@ function SuccessMessage() {
         আমাদের টিম শীঘ্রই আপনার সাথে যোগাযোগ করে সেশনের সময়সূচি ও সম্মানীর বিস্তারিত
         জানাবে। আপনার ড্যাশবোর্ডের Counselling অংশে অনুরোধের অবস্থা দেখতে পারবেন।
       </p>
+      {showDashboardLink ? (
+        <Link
+          href="/dashboard?tab=counselling"
+          className="mt-6 inline-flex items-center justify-center rounded-xl bg-btnBg px-5 py-3 text-sm font-semibold text-white transition hover:bg-btnBgDark"
+        >
+          ড্যাশবোর্ডে অবস্থা দেখুন
+        </Link>
+      ) : null}
     </motion.div>
   );
 }

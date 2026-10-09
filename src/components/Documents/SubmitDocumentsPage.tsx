@@ -20,12 +20,16 @@ import { z } from "zod";
 import FormField from "@/components/ConsultationSection/FormField";
 import FormSelect from "@/components/ConsultationSection/FormSelect";
 import { Container } from "@/components/reusables";
+import { DOCUMENT_ACCEPT, documentFileProblem } from "@/lib/documents/files";
 import type { StudentSubmission } from "@/lib/documents/student";
 import {
   DOCUMENT_TYPES,
   documentSubmissionSchema,
 } from "@/lib/documents/validation";
 import { apiFetch } from "@/lib/api/client";
+import type { DirectUploadResult } from "@/lib/media/direct-upload";
+import { formatFileSize } from "@/lib/media/file-size";
+import { uploadOneDirect } from "@/lib/media/upload-one-client";
 import { notify } from "@/lib/toast";
 
 import MySubmissions from "./MySubmissions";
@@ -47,14 +51,6 @@ type SubmitDocumentsPageProps = {
 const inputShell =
   "rounded-xl border border-navy/10 bg-[#f7f9fc] px-4 py-3 text-sm text-navy placeholder:text-navy/35 outline-none transition focus:border-btnBg focus:bg-white focus:ring-2 focus:ring-btnBg/10";
 
-const MAX_FILE_BYTES = 8 * 1024 * 1024;
-const ALLOWED_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-]);
-
 export default function SubmitDocumentsPage({
   profile,
   isEnrolled,
@@ -63,9 +59,14 @@ export default function SubmitDocumentsPage({
   const reduceMotion = useReducedMotion();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Kept so a retry after a failed save does not upload the same file again.
+  const [uploaded, setUploaded] = useState<{ file: File; upload: DirectUploadResult } | null>(
+    null,
+  );
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
 
   const {
     register,
@@ -93,13 +94,9 @@ export default function SubmitDocumentsPage({
       setSelectedFile(null);
       return;
     }
-    if (file.size > MAX_FILE_BYTES) {
-      setFileError("File must be 8 MB or smaller.");
-      setSelectedFile(null);
-      return;
-    }
-    if (!ALLOWED_TYPES.has(file.type)) {
-      setFileError("Upload a JPG, PNG, WebP, or PDF file.");
+    const problem = documentFileProblem(file);
+    if (problem) {
+      setFileError(problem);
       setSelectedFile(null);
       return;
     }
@@ -112,22 +109,33 @@ export default function SubmitDocumentsPage({
       return;
     }
 
-    const formData = new FormData();
-    formData.append("fullName", data.fullName);
-    formData.append("email", data.email);
-    formData.append("phone", data.phone ?? "");
-    formData.append("documentType", data.documentType);
-    formData.append("message", data.message ?? "");
-    formData.append("website", data.website ?? "");
-    formData.append("document", selectedFile);
+    // The file goes straight to storage (large files cannot pass through our
+    // server), then the form is saved with a reference to it.
+    let upload = uploaded?.file === selectedFile ? uploaded.upload : null;
+    if (!upload) {
+      setUploadPercent(0);
+      try {
+        upload = await uploadOneDirect("/api/documents/sign", selectedFile, setUploadPercent);
+        setUploaded({ file: selectedFile, upload });
+      } catch (error) {
+        notify.error(
+          error instanceof Error ? error.message : "Upload failed. Please try again.",
+        );
+        return;
+      } finally {
+        setUploadPercent(null);
+      }
+    }
 
     const result = await apiFetch<{ id: string }>("/api/documents/submit", {
       method: "POST",
-      body: formData,
-      timeoutMs: 90_000,
+      body: JSON.stringify({ ...data, fileName: selectedFile.name, upload }),
     });
 
     if (!result.success) {
+      // The server deletes the file of a rejected submission, so a retry
+      // must upload it again.
+      if (result.status === 422) setUploaded(null);
       if (result.fields) {
         for (const [field, messages] of Object.entries(result.fields)) {
           if (Array.isArray(messages) && messages.length > 0) {
@@ -145,6 +153,7 @@ export default function SubmitDocumentsPage({
       return;
     }
 
+    setUploaded(null);
     setIsSubmitted(true);
     router.refresh();
   };
@@ -153,6 +162,7 @@ export default function SubmitDocumentsPage({
     reset();
     setSelectedFile(null);
     setFileError(null);
+    setUploaded(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     setIsSubmitted(false);
   };
@@ -291,7 +301,8 @@ export default function SubmitDocumentsPage({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className={`flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-6 py-8 text-center transition ${
+                    disabled={isSubmitting}
+                    className={`flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-6 py-8 text-center transition disabled:cursor-not-allowed ${
                       fileError
                         ? "border-red-300 bg-red-50/50"
                         : selectedFile
@@ -306,8 +317,7 @@ export default function SubmitDocumentsPage({
                           {selectedFile.name}
                         </span>
                         <span className="text-xs text-navy/50">
-                          {(selectedFile.size / 1024 / 1024).toFixed(2)} MB — tap to
-                          change
+                          {formatFileSize(selectedFile.size)} — tap to change
                         </span>
                       </>
                     ) : (
@@ -325,10 +335,25 @@ export default function SubmitDocumentsPage({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp,application/pdf"
+                    accept={DOCUMENT_ACCEPT}
                     className="sr-only"
                     onChange={onFileChange}
                   />
+                  {uploadPercent !== null ? (
+                    <div
+                      className="mt-2 h-1.5 overflow-hidden rounded-full bg-navy/10"
+                      role="progressbar"
+                      aria-label="Uploading document"
+                      aria-valuenow={uploadPercent}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    >
+                      <div
+                        className="h-full rounded-full bg-btnBg transition-[width] duration-200"
+                        style={{ width: `${uploadPercent}%` }}
+                      />
+                    </div>
+                  ) : null}
                   {fileError ? (
                     <p className="mt-1 text-xs text-red-500">{fileError}</p>
                   ) : null}
@@ -341,10 +366,15 @@ export default function SubmitDocumentsPage({
                   whileTap={reduceMotion ? undefined : { scale: 0.98 }}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-btnBg px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-btnBg/20 transition-all hover:bg-btnBg/90 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {isSubmitting ? (
+                  {uploadPercent !== null ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Uploading document...
+                      Uploading {uploadPercent}%
+                    </>
+                  ) : isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Submitting...
                     </>
                   ) : (
                     <>

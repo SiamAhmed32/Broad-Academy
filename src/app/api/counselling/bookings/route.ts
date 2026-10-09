@@ -40,7 +40,8 @@ export async function GET(request: NextRequest) {
         ? [
             {
               OR: [
-                { subjectInterest: { contains: search, mode: "insensitive" as const } },
+                { fullName: { contains: search, mode: "insensitive" as const } },
+                { schoolName: { contains: search, mode: "insensitive" as const } },
                 { educationLevel: { contains: search, mode: "insensitive" as const } },
                 { message: { contains: search, mode: "insensitive" as const } },
               ],
@@ -61,8 +62,8 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             fileName: true,
-            fileUrl: true,
             uploadedByRole: true,
+            uploadedById: true,
             uploadedByName: true,
             createdAt: true,
           },
@@ -101,6 +102,8 @@ export async function GET(request: NextRequest) {
         subjectInterest: booking.subjectInterest,
         preferredDate: booking.preferredDate.toISOString(),
         preferredTime: booking.preferredTime,
+        scheduledAt: booking.scheduledAt?.toISOString() ?? null,
+        archived: Boolean(booking.archivedAt),
         message: booking.message,
         status: booking.status,
         meetingLink: booking.meetingLink,
@@ -112,11 +115,11 @@ export async function GET(request: NextRequest) {
         bkashTransactionId: booking.bkashTransactionId,
         paymentSubmittedAt: booking.paymentSubmittedAt?.toISOString() ?? null,
         paidAt: booking.paidAt?.toISOString() ?? null,
-        paymentNote: booking.paymentNote,
         hasPaymentProof: Boolean(booking.paymentProofPublicId),
         createdAt: booking.createdAt.toISOString(),
-        files: booking.files.map((file) => ({
+        files: booking.files.map(({ uploadedById, ...file }) => ({
           ...file,
+          uploadedByMe: uploadedById === user.id,
           createdAt: file.createdAt.toISOString(),
         })),
       })),

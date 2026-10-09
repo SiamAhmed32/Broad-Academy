@@ -7,6 +7,7 @@ import { errorResponse } from "@/lib/auth/response";
 import { isTrustedOrigin } from "@/lib/auth/security";
 import { db } from "@/lib/db";
 import { createUserNotification } from "@/lib/notifications/service";
+import { sscBatchFromClass } from "@/lib/students/ssc-batch";
 
 export const runtime = "nodejs";
 
@@ -29,7 +30,7 @@ export async function PATCH(
     return errorResponse("Invalid request body.");
   }
 
-  const parsed = examReviewSchema.safeParse({ id, ...(body as any) });
+  const parsed = examReviewSchema.safeParse({ id, ...(body as Record<string, unknown>) });
   if (!parsed.success) {
     return errorResponse(
       "Please review the review decision details.",
@@ -84,9 +85,19 @@ export async function PATCH(
 
       // Update student class level if present in request
       if (requestRecord.classLevel) {
+        const student = await tx.user.findUnique({
+          where: { id: requestRecord.userId },
+          select: { sscBatch: true },
+        });
         await tx.user.update({
           where: { id: requestRecord.userId },
-          data: { classLevel: requestRecord.classLevel },
+          data: {
+            classLevel: requestRecord.classLevel,
+            // Keep a batch an admin already set; otherwise derive it from the class.
+            ...(student?.sscBatch
+              ? {}
+              : { sscBatch: sscBatchFromClass(requestRecord.classLevel, decisionTime) }),
+          },
         });
       }
 

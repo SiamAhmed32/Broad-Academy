@@ -38,6 +38,7 @@ type StudentProgressRecord = {
   phone: string | null;
   studentId: string | null;
   classLevel: number | null;
+  sscBatch: number | null;
   avatarUrl: string | null;
   accountStatus: "ACTIVE" | "SUSPENDED";
   createdAt: string;
@@ -59,6 +60,7 @@ type ProgressResponse = {
   students: StudentProgressRecord[];
   summary: ProgressSummary;
   classLevels: number[];
+  sscBatches: number[];
   truncated: boolean;
   pagination: AdminPaginationMeta;
 };
@@ -99,12 +101,14 @@ export function StudentProgressSection({ onTotalChange }: StudentProgressSection
   const [students, setStudents] = useState<StudentProgressRecord[]>([]);
   const [summary, setSummary] = useState<ProgressSummary>(emptySummary);
   const [classLevels, setClassLevels] = useState<number[]>([]);
+  const [sscBatches, setSscBatches] = useState<number[]>([]);
   const [courses, setCourses] = useState<CourseOption[]>([]);
   const [pagination, setPagination] = useState<AdminPaginationMeta>(emptyPagination);
   const [truncated, setTruncated] = useState(false);
 
   const [search, setSearch] = useState("");
   const [classLevel, setClassLevel] = useState("");
+  const [sscBatch, setSscBatch] = useState("");
   const [courseId, setCourseId] = useState("");
   const [status, setStatus] = useState<StudentProgressStatus | "all">("all");
   const [sort, setSort] = useState("progress_asc");
@@ -123,6 +127,7 @@ export function StudentProgressSection({ onTotalChange }: StudentProgressSection
     });
     if (search.trim()) params.set("search", search.trim());
     if (classLevel) params.set("classLevel", classLevel);
+    if (sscBatch) params.set("sscBatch", sscBatch);
     if (courseId) params.set("courseId", courseId);
 
     const res = await adminFetch<ProgressResponse>(
@@ -133,6 +138,7 @@ export function StudentProgressSection({ onTotalChange }: StudentProgressSection
       setStudents(res.data.students);
       setSummary(res.data.summary);
       setClassLevels(res.data.classLevels);
+      setSscBatches(res.data.sscBatches ?? []);
       setPagination(res.data.pagination);
       setTruncated(res.data.truncated);
       setErrorMessage(null);
@@ -141,7 +147,7 @@ export function StudentProgressSection({ onTotalChange }: StudentProgressSection
       setErrorMessage(res.message ?? "Could not load student progress.");
     }
     setLoading(false);
-  }, [classLevel, courseId, onTotalChange, page, search, sort, status]);
+  }, [classLevel, courseId, onTotalChange, page, search, sort, sscBatch, status]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadStudents(), 280);
@@ -215,7 +221,7 @@ export function StudentProgressSection({ onTotalChange }: StudentProgressSection
             Select a course to measure progress in that course only.
           </p>
 
-          <div className="mt-4 grid gap-3 lg:grid-cols-[1.6fr_repeat(4,minmax(0,1fr))]">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[1.6fr_repeat(5,minmax(0,1fr))]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <AdminInput
@@ -241,6 +247,22 @@ export function StudentProgressSection({ onTotalChange }: StudentProgressSection
               {classLevels.map((level) => (
                 <option key={level} value={String(level)}>
                   Class {level}
+                </option>
+              ))}
+            </AdminSelect>
+
+            <AdminSelect
+              aria-label="Filter by SSC batch"
+              value={sscBatch}
+              onChange={(event) => {
+                setSscBatch(event.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All SSC batches</option>
+              {sscBatches.map((batch) => (
+                <option key={batch} value={String(batch)}>
+                  SSC {batch}
                 </option>
               ))}
             </AdminSelect>
@@ -388,6 +410,9 @@ export function StudentProgressSection({ onTotalChange }: StudentProgressSection
 
                         <td className="px-5 py-4 text-slate-700">
                           {student.classLevel ? `Class ${student.classLevel}` : "—"}
+                          {student.sscBatch ? (
+                            <span className="block text-xs text-slate-400">SSC {student.sscBatch}</span>
+                          ) : null}
                         </td>
 
                         <td className="px-5 py-4">

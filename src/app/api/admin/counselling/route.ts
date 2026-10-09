@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -8,7 +8,13 @@ import { paginate, paginationMeta } from "@/lib/admin/utils";
 import { errorResponse } from "@/lib/auth/response";
 import { isTrustedOrigin } from "@/lib/auth/security";
 import { db } from "@/lib/db";
-import { sendBookingStatusUpdateEmail, sendCounsellingFeeQuotedEmail, sendCounsellingPaymentVerifiedEmail } from "@/lib/counselling/email";
+import {
+  sendBookingStatusUpdateEmail,
+  sendCounsellingFeeQuotedEmail,
+  sendCounsellingPaymentVerifiedEmail,
+  sendCounsellingScheduleEmail,
+} from "@/lib/counselling/email";
+import { formatSessionDateTime } from "@/lib/counselling/schedule";
 import { counsellingAdminPatchSchema, canConfirmCounsellingSession } from "@/lib/counselling/payment";
 import { deletePaymentProof } from "@/lib/enrollments/cloudinary";
 import { deleteCounsellingFile } from "@/lib/counselling/cloudinary";
@@ -87,6 +93,7 @@ function serializeBooking(booking: BookingWithFiles) {
     subjectInterest: booking.subjectInterest,
     preferredDate: booking.preferredDate.toISOString(),
     preferredTime: booking.preferredTime,
+    scheduledAt: booking.scheduledAt?.toISOString() ?? null,
     message: booking.message,
     status: booking.status,
     meetingLink: booking.meetingLink,
@@ -152,7 +159,7 @@ export async function GET(request: NextRequest) {
     ...(educationLevel ? { educationLevel } : {}),
     ...(dateFrom || dateTo
       ? {
-          preferredDate: {
+          scheduledAt: {
             ...(dateFrom ? { gte: dateFrom } : {}),
             ...(dateTo ? { lte: dateTo } : {}),
           },
@@ -167,20 +174,22 @@ export async function GET(request: NextRequest) {
       { phone: { contains: search, mode: "insensitive" } },
       { subjectInterest: { contains: search, mode: "insensitive" } },
       { educationLevel: { contains: search, mode: "insensitive" } },
+      { schoolName: { contains: search, mode: "insensitive" } },
+      { classRoll: { contains: search, mode: "insensitive" } },
       { bkashTransactionId: { contains: search, mode: "insensitive" } },
     ];
   }
 
-  const orderBy =
+  const orderBy: Prisma.CounsellingBookingOrderByWithRelationInput =
     sort === "oldest"
-      ? { createdAt: "asc" as const }
+      ? { createdAt: "asc" }
       : sort === "session-soonest"
-        ? { preferredDate: "asc" as const }
+        ? { scheduledAt: { sort: "asc", nulls: "last" } }
         : sort === "session-latest"
-          ? { preferredDate: "desc" as const }
+          ? { scheduledAt: { sort: "desc", nulls: "last" } }
           : sort === "name-asc"
-            ? { fullName: "asc" as const }
-            : { createdAt: "desc" as const };
+            ? { fullName: "asc" }
+            : { createdAt: "desc" };
 
   const { skip, take } = paginate(page, limit);
   const [bookings, total, countsArray, archivedCount, subjects, educationLevels] =
@@ -399,6 +408,14 @@ export async function PATCH(request: NextRequest) {
     parsed.data.counsellorNotes !== undefined
       ? parsed.data.counsellorNotes
       : existingBooking.counsellorNotes;
+  const newScheduledAt =
+    parsed.data.scheduledAt !== undefined
+      ? parsed.data.scheduledAt
+        ? new Date(parsed.data.scheduledAt)
+        : null
+      : existingBooking.scheduledAt;
+  const scheduleChanged =
+    (newScheduledAt?.getTime() ?? null) !== (existingBooking.scheduledAt?.getTime() ?? null);
 
   const booking = await db.counsellingBooking.update({
     where: { id: parsed.data.id },
@@ -406,6 +423,7 @@ export async function PATCH(request: NextRequest) {
       status: newStatus,
       meetingLink: newMeetingLink,
       counsellorNotes: newCounsellorNotes,
+      scheduledAt: newScheduledAt,
       sessionFee,
       feeQuotedAt,
       paymentStatus,
@@ -424,50 +442,56 @@ export async function PATCH(request: NextRequest) {
   });
 
   const statusChanged = existingBooking.status !== newStatus;
+  const confirmedNow = statusChanged && newStatus === "CONFIRMED";
 
+  // Emails go through after() so Vercel finishes sending them after the
+  // response; a bare promise can be cut off when the function freezes.
   if (feeChanged && sessionFee && sessionFee > 0 && booking.userId) {
     await createUserNotification({
       userId: booking.userId,
       title: "Session fee quoted",
-      content: `Your counselling session fee is ৳${sessionFee.toLocaleString("en-US")}. Submit bKash payment proof in your portal.`,
+      content: `Your Study Plan / Counselling session fee is ৳${sessionFee.toLocaleString("en-US")}. Pay with bKash and submit the payment proof in your dashboard.`,
       type: "COUNSELLING_FEE_QUOTED",
       category: "ALERT",
       link: "/dashboard?tab=counselling",
     }).catch(console.error);
 
-    sendCounsellingFeeQuotedEmail({
-      email: booking.email,
-      fullName: booking.fullName,
-      sessionFee,
-      preferredDate: booking.preferredDate,
-      preferredTime: booking.preferredTime,
-    }).catch(console.error);
+    after(() =>
+      sendCounsellingFeeQuotedEmail({
+        email: booking.email,
+        fullName: booking.fullName,
+        sessionFee,
+      }).catch(console.error),
+    );
   }
 
   if (parsed.data.paymentAction === "mark_paid" && booking.userId) {
     await createUserNotification({
       userId: booking.userId,
       title: "Payment verified",
-      content: "Your counselling session payment has been verified. We can now confirm your session.",
+      content: confirmedNow
+        ? "Your Study Plan / Counselling payment has been verified."
+        : "Your Study Plan / Counselling payment has been verified. We will confirm your session shortly.",
       type: "COUNSELLING_PAYMENT_VERIFIED",
       category: "UPDATE",
       link: "/dashboard?tab=counselling",
     }).catch(console.error);
 
-    sendCounsellingPaymentVerifiedEmail({
-      email: booking.email,
-      fullName: booking.fullName,
-      sessionFee: booking.sessionFee,
-      preferredDate: booking.preferredDate,
-      preferredTime: booking.preferredTime,
-    }).catch(console.error);
+    after(() =>
+      sendCounsellingPaymentVerifiedEmail({
+        email: booking.email,
+        fullName: booking.fullName,
+        sessionFee: booking.sessionFee,
+        sessionConfirmed: confirmedNow,
+      }).catch(console.error),
+    );
   }
 
   if (parsed.data.paymentAction === "waive" && booking.userId) {
     await createUserNotification({
       userId: booking.userId,
       title: "Session fee waived",
-      content: "Your counselling session fee has been waived.",
+      content: "Your Study Plan / Counselling session fee has been waived.",
       type: "COUNSELLING_FEE_WAIVED",
       category: "UPDATE",
       link: "/dashboard?tab=counselling",
@@ -480,15 +504,20 @@ export async function PATCH(request: NextRequest) {
       let title = "";
       let content = "";
       
+      const sessionTime = formatSessionDateTime(newScheduledAt);
       if (newStatus === "CONFIRMED") {
-        title = "Session Confirmed";
-        content = `Your session scheduled for ${booking.preferredDate.toLocaleDateString()} at ${booking.preferredTime} has been confirmed.`;
+        title = "Session confirmed";
+        content = sessionTime
+          ? `Your Study Plan / Counselling session is confirmed for ${sessionTime}. You can now share documents for your counsellor.`
+          : "Your Study Plan / Counselling session is confirmed. We will share the time soon. You can now share documents for your counsellor.";
       } else if (newStatus === "COMPLETED") {
-        title = "Session Notes Added";
-        content = "Your advisor uploaded solved files and post-session guidance. Check your portal.";
+        title = "Session completed";
+        content = "Your Study Plan / Counselling session is complete. Notes and files from your counsellor are in your dashboard.";
       } else if (newStatus === "CANCELLED") {
-        title = "Session Cancelled";
-        content = `Your session scheduled for ${booking.preferredDate.toLocaleDateString()} has been cancelled.`;
+        title = "Session cancelled";
+        content = sessionTime
+          ? `Your Study Plan / Counselling session scheduled for ${sessionTime} has been cancelled.`
+          : "Your Study Plan / Counselling request has been cancelled.";
       }
 
       await createUserNotification({
@@ -503,16 +532,48 @@ export async function PATCH(request: NextRequest) {
     }
 
     // 2. Email notification
-    sendBookingStatusUpdateEmail({
-      email: booking.email,
-      fullName: booking.fullName,
-      status: newStatus,
-      preferredDate: booking.preferredDate,
-      preferredTime: booking.preferredTime,
-      meetingLink: newMeetingLink,
-    }).catch((err) => {
-      console.error("Failed to send status update email:", err);
-    });
+    after(() =>
+      sendBookingStatusUpdateEmail({
+        email: booking.email,
+        fullName: booking.fullName,
+        status: newStatus,
+        scheduledAt: newScheduledAt,
+        meetingLink: newMeetingLink,
+      }).catch((err) => {
+        console.error("Failed to send status update email:", err);
+      }),
+    );
+  }
+
+  // A new or changed session time is announced on its own, unless the
+  // confirmation message above already carried it.
+  if (
+    scheduleChanged &&
+    newScheduledAt &&
+    !confirmedNow &&
+    (newStatus === "PENDING" || newStatus === "CONFIRMED")
+  ) {
+    const rescheduled = Boolean(existingBooking.scheduledAt);
+    const sessionTime = formatSessionDateTime(newScheduledAt);
+    if (booking.userId) {
+      await createUserNotification({
+        userId: booking.userId,
+        title: rescheduled ? "Session time changed" : "Session scheduled",
+        content: `Your Study Plan / Counselling session is ${rescheduled ? "now " : ""}scheduled for ${sessionTime}.`,
+        type: "COUNSELLING_SCHEDULED",
+        category: "ALERT",
+        link: "/dashboard?tab=counselling",
+      }).catch(console.error);
+    }
+    after(() =>
+      sendCounsellingScheduleEmail({
+        email: booking.email,
+        fullName: booking.fullName,
+        scheduledAt: newScheduledAt,
+        meetingLink: newMeetingLink,
+        rescheduled,
+      }).catch(console.error),
+    );
   }
 
   return NextResponse.json({

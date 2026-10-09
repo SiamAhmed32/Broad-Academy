@@ -1,7 +1,15 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Eye, MessageSquareReply, Paperclip, Upload, X } from "lucide-react";
+import {
+  Download,
+  Eye,
+  MessageSquareReply,
+  Paperclip,
+  Undo2,
+  Upload,
+  X,
+} from "lucide-react";
 import { useRef, useState } from "react";
 
 import {
@@ -10,6 +18,12 @@ import {
   AdminSelect,
   AdminTextarea,
 } from "@/components/Admin";
+import { apiFetch } from "@/lib/api/client";
+import { DOCUMENT_ACCEPT, documentFileProblem } from "@/lib/documents/files";
+import type { DirectUploadResult } from "@/lib/media/direct-upload";
+import { formatFileSize } from "@/lib/media/file-size";
+import { previewLocalFile } from "@/lib/media/preview-local-file";
+import { uploadOneDirect } from "@/lib/media/upload-one-client";
 
 type DocumentStatus = "PENDING" | "REVIEWED" | "APPROVED" | "REJECTED";
 
@@ -22,14 +36,6 @@ type ReplyTarget = {
   replyFileUrl: string | null;
   replyFileName: string | null;
 };
-
-const MAX_FILE_BYTES = 8 * 1024 * 1024;
-const ALLOWED_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-]);
 
 const statusOptions: Array<{ value: DocumentStatus; label: string }> = [
   { value: "PENDING", label: "Pending" },
@@ -100,66 +106,89 @@ function ReplyForm({
   onSaved: () => Promise<void>;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Kept so a retry after a failed save does not upload the same file again.
+  const [uploaded, setUploaded] = useState<{ file: File; upload: DirectUploadResult } | null>(
+    null,
+  );
   const [status, setStatus] = useState<DocumentStatus>(
     document.status === "PENDING" ? "REVIEWED" : document.status,
   );
   const [note, setNote] = useState(document.reviewNote ?? "");
   const [file, setFile] = useState<File | null>(null);
   const [removeExisting, setRemoveExisting] = useState(false);
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
   const [error, setError] = useState("");
+
+  const existingName = document.replyFileName ?? "Current attachment";
+  const fileUrl = `/api/admin/documents/${document.id}/file?which=reply`;
 
   const onFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selected = event.target.files?.[0] ?? null;
+    // Lets the same file be chosen again after removing it.
+    event.target.value = "";
     setError("");
     if (!selected) return;
-    if (selected.size > MAX_FILE_BYTES) {
-      setError("Attachment must be 8 MB or smaller.");
-      return;
-    }
-    if (!ALLOWED_TYPES.has(selected.type)) {
-      setError("Attach a JPG, PNG, WebP, or PDF file.");
+    const problem = documentFileProblem(selected);
+    if (problem) {
+      setError(problem);
       return;
     }
     setFile(selected);
   };
 
   const save = async () => {
-    if (!note.trim() && !file && (!document.replyFileUrl || removeExisting)) {
+    const keepsExisting = Boolean(document.replyFileUrl) && !removeExisting;
+    if (!note.trim() && !file && !keepsExisting) {
       setError("Write a reply or attach a file for the student.");
       return;
     }
 
-    const formData = new FormData();
-    formData.append("status", status);
-    formData.append("reviewNote", note.trim());
-    formData.append("removeFile", removeExisting ? "1" : "0");
-    if (file) formData.append("file", file);
-
     setSaving(true);
     setError("");
     try {
-      const response = await fetch(`/api/admin/documents/${document.id}/reply`, {
+      let attachment: { fileName: string; upload: DirectUploadResult } | null = null;
+      if (file) {
+        let upload = uploaded?.file === file ? uploaded.upload : null;
+        if (!upload) {
+          setUploadPercent(0);
+          upload = await uploadOneDirect(
+            `/api/admin/documents/${document.id}/reply/sign`,
+            file,
+            setUploadPercent,
+          );
+          setUploaded({ file, upload });
+          setUploadPercent(null);
+        }
+        attachment = { fileName: file.name, upload };
+      }
+
+      const result = await apiFetch(`/api/admin/documents/${document.id}/reply`, {
         method: "POST",
-        body: formData,
-        credentials: "same-origin",
+        body: JSON.stringify({
+          status,
+          reviewNote: note.trim(),
+          removeFile: removeExisting,
+          attachment,
+        }),
       });
-      const payload = (await response.json().catch(() => null)) as {
-        success?: boolean;
-        message?: string;
-      } | null;
-      if (!response.ok || !payload?.success) {
-        setError(payload?.message ?? "Could not save the reply.");
+      if (!result.success) {
+        // A rejected attachment is deleted on the server, so upload it afresh.
+        if (result.status === 422 || result.status === 404) setUploaded(null);
+        setError(result.message ?? "Could not save the reply.");
         return;
       }
       await onSaved();
-    } catch {
-      setError("Could not connect to the server. Please try again.");
+    } catch (uploadError) {
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "The attachment could not be uploaded. Please try again.",
+      );
     } finally {
+      setUploadPercent(null);
       setSaving(false);
     }
   };
-
-  const showExisting = document.replyFileUrl && !removeExisting && !file;
 
   return (
     <>
@@ -217,58 +246,136 @@ function ReplyForm({
           <span className="mb-1.5 block text-sm font-medium text-navy">
             Attachment (optional)
           </span>
-          {showExisting ? (
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm">
-              <Paperclip className="h-4 w-4 shrink-0 text-slate-400" />
-              <span className="min-w-0 flex-1 truncate text-navy">
-                {document.replyFileName ?? "Current attachment"}
+
+          {document.replyFileUrl && !file ? (
+            removeExisting ? (
+              <div className="flex items-center gap-2 rounded-xl border border-dashed border-red-200 bg-red-50/60 px-3.5 py-2.5 text-sm">
+                <span className="min-w-0 flex-1 truncate text-red-700">
+                  &ldquo;{existingName}&rdquo; will be removed when you send.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setRemoveExisting(false)}
+                  disabled={saving}
+                  className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-navy hover:underline"
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                  Undo
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm">
+                <Paperclip className="h-4 w-4 shrink-0 text-slate-400" />
+                <span className="min-w-0 flex-1 truncate text-navy" title={existingName}>
+                  {existingName}
+                </span>
+                <a
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-md p-1 text-slate-500 hover:text-accent"
+                  aria-label="Open attachment"
+                  title="Open"
+                >
+                  <Eye className="h-4 w-4" />
+                </a>
+                <a
+                  href={`${fileUrl}&download=1`}
+                  className="rounded-md p-1 text-slate-500 hover:text-accent"
+                  aria-label="Download attachment"
+                  title="Download"
+                >
+                  <Download className="h-4 w-4" />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setRemoveExisting(true)}
+                  disabled={saving}
+                  className="text-xs font-semibold text-red-600 hover:underline"
+                >
+                  Remove
+                </button>
+              </div>
+            )
+          ) : null}
+
+          {file ? (
+            <div className="flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/5 px-3.5 py-2.5 text-sm">
+              <Paperclip className="h-4 w-4 shrink-0 text-accent" />
+              <span className="min-w-0 flex-1 truncate text-navy" title={file.name}>
+                {file.name}
               </span>
-              <a
-                href={`/api/admin/documents/${document.id}/file?which=reply`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-slate-500 hover:text-accent"
-                aria-label="Open attachment"
-              >
-                <Eye className="h-4 w-4" />
-              </a>
+              <span className="shrink-0 text-xs text-slate-500">{formatFileSize(file.size)}</span>
               <button
                 type="button"
-                onClick={() => setRemoveExisting(true)}
+                onClick={() => previewLocalFile(file)}
+                className="rounded-md p-1 text-slate-500 hover:text-accent"
+                aria-label="Preview the new attachment"
+                title="Preview"
+              >
+                <Eye className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setFile(null)}
+                disabled={saving}
                 className="text-xs font-semibold text-red-600 hover:underline"
               >
                 Remove
               </button>
             </div>
           ) : null}
+
+          {file && document.replyFileUrl && !removeExisting ? (
+            <p className="mt-1.5 text-xs text-slate-500">
+              This replaces &ldquo;{existingName}&rdquo; when you send.
+            </p>
+          ) : null}
+
+          {uploadPercent !== null ? (
+            <div
+              className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"
+              role="progressbar"
+              aria-label="Uploading attachment"
+              aria-valuenow={uploadPercent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div
+                className="h-full rounded-full bg-accent transition-[width] duration-200"
+                style={{ width: `${uploadPercent}%` }}
+              />
+            </div>
+          ) : null}
+
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-4 py-4 text-sm font-medium text-navy transition hover:border-accent/40 hover:bg-slate-50"
+            disabled={saving}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-4 py-4 text-sm font-medium text-navy transition hover:border-accent/40 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {file ? (
-              <>
-                <Paperclip className="h-4 w-4 text-accent" />
-                <span className="truncate">{file.name}</span>
-              </>
-            ) : (
-              <>
-                <Upload className="h-4 w-4 text-slate-400" />
-                {document.replyFileUrl ? "Replace with a new file" : "Attach a PDF or image"}
-              </>
-            )}
+            <Upload className="h-4 w-4 text-slate-400" />
+            {file
+              ? "Choose a different file"
+              : document.replyFileUrl && !removeExisting
+                ? "Replace with a new file"
+                : "Attach a PDF or image"}
           </button>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+            accept={DOCUMENT_ACCEPT}
             className="sr-only"
             onChange={onFileChange}
           />
           <p className="mt-1 text-xs text-slate-500">PDF, JPG, PNG or WebP up to 8 MB.</p>
         </div>
 
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? (
+          <p role="alert" className="text-sm text-red-600">
+            {error}
+          </p>
+        ) : null}
       </div>
 
       <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -276,7 +383,11 @@ function ReplyForm({
           Cancel
         </AdminButton>
         <AdminButton onClick={() => void save()} isLoading={saving}>
-          Send reply
+          {uploadPercent !== null
+            ? `Uploading ${uploadPercent}%`
+            : saving
+              ? "Sending..."
+              : "Send reply"}
         </AdminButton>
       </div>
     </>

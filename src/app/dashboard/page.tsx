@@ -32,6 +32,7 @@ export default async function DashboardPage({
         phone: auth.user.phone,
         studentId: auth.user.studentId,
         classLevel: null,
+        sscBatch: null,
         avatarUrl: auth.user.avatarUrl,
         status: auth.user.status,
         emailVerifiedAt: null,
