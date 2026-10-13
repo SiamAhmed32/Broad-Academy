@@ -81,7 +81,7 @@ export default function AdminShell({
         ) : null}
       </div>
 
-      <nav className="flex-1 space-y-6 overflow-y-auto px-3 pb-4">
+      <nav className="admin-sidebar-scroll flex-1 space-y-6 overflow-y-auto px-3 pb-4">
         {adminNavGroups.map((group) => {
           const items = visibleNav.filter((item) => item.group === group.id);
           if (items.length === 0) return null;

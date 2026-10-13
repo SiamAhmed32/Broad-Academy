@@ -7,7 +7,6 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock,
-  Download,
   ExternalLink,
   Eye,
   FileText,
@@ -17,7 +16,6 @@ import {
   Save,
   Search,
   Trash2,
-  Upload,
   UserRound,
   XCircle,
 } from "lucide-react";
@@ -39,9 +37,16 @@ import {
   type AdminPaginationMeta,
   useAdminToast,
 } from "@/components/Admin";
+import AdminSessionFiles from "@/components/Admin/counselling/AdminSessionFiles";
 import Modal from "@/components/reusables/Modal";
 import { adminFetch, formatAdminDate } from "@/lib/admin/client";
 import { PAYMENT_STATUS_LABELS } from "@/lib/counselling/payment";
+import {
+  formatSessionDateTime,
+  fromDhakaDateTimeInput,
+  toDhakaDateTimeInput,
+} from "@/lib/counselling/schedule";
+import { useStagedFiles } from "@/lib/counselling/use-staged-files";
 
 type BookingStatus = "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
 type PaymentStatus =
@@ -73,6 +78,7 @@ type Booking = {
   subjectInterest: string;
   preferredDate: string;
   preferredTime: string;
+  scheduledAt: string | null;
   message: string | null;
   status: BookingStatus;
   meetingLink: string | null;
@@ -150,8 +156,8 @@ export default function AdminCounsellingPage() {
   const [deleteTarget, setDeleteTarget] = useState<Booking | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const loadBookings = useCallback(async () => {
-    setLoading(true);
+  const loadBookings = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     const params = new URLSearchParams({
       page: String(page),
       limit: String(emptyPagination.limit),
@@ -184,7 +190,7 @@ export default function AdminCounsellingPage() {
         if (!current) return null;
         return response.data?.bookings.find((item) => item.id === current.id) ?? current;
       });
-    } else {
+    } else if (!silent) {
       showToast(response.message || "Could not load counselling sessions.", true);
     }
     setLoading(false);
@@ -210,14 +216,14 @@ export default function AdminCounsellingPage() {
   useEffect(() => {
     const handleFocus = () => {
       if (document.visibilityState === "visible") {
-        void loadBookings();
+        void loadBookings(true);
       }
     };
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleFocus);
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") {
-        void loadBookings();
+        void loadBookings(true);
       }
     }, 15_000);
 
@@ -319,7 +325,7 @@ export default function AdminCounsellingPage() {
                 setSearch(event.target.value);
                 setPage(1);
               }}
-              placeholder="Search name, email, phone, subject or transaction ID..."
+              placeholder="Search name, phone, email, school or transaction ID..."
             />
           </div>
           <AdminSelect value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
@@ -335,16 +341,12 @@ export default function AdminCounsellingPage() {
               <option key={value} value={value}>{label}</option>
             ))}
           </AdminSelect>
-          <AdminSelect value={subject} onChange={(event) => { setSubject(event.target.value); setPage(1); }}>
-            <option value="">All subjects</option>
-            {filters.subjects.map((item) => <option key={item} value={item}>{item}</option>)}
-          </AdminSelect>
           <AdminSelect value={educationLevel} onChange={(event) => { setEducationLevel(event.target.value); setPage(1); }}>
-            <option value="">All education levels</option>
+            <option value="">All classes</option>
             {filters.educationLevels.map((item) => <option key={item} value={item}>{item}</option>)}
           </AdminSelect>
-          <AdminInput type="date" value={dateFrom} onChange={(event) => { setDateFrom(event.target.value); setPage(1); }} aria-label="Session date from" />
-          <AdminInput type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => { setDateTo(event.target.value); setPage(1); }} aria-label="Session date to" />
+          <AdminInput type="date" value={dateFrom} onChange={(event) => { setDateFrom(event.target.value); setPage(1); }} aria-label="Session date from" title="Session date from" />
+          <AdminInput type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => { setDateTo(event.target.value); setPage(1); }} aria-label="Session date to" title="Session date to" />
           <AdminSelect value={sort} onChange={(event) => { setSort(event.target.value); setPage(1); }}>
             <option value="newest">Newest requests</option>
             <option value="oldest">Oldest requests</option>
@@ -400,10 +402,14 @@ export default function AdminCounsellingPage() {
                         <p className="text-xs text-slate-400">{booking.phone}</p>
                       </td>
                       <td className="px-5 py-4">
-                        <p className="max-w-[220px] truncate font-medium text-navy">{booking.subjectInterest}</p>
-                        <p className="mt-0.5 text-xs text-slate-500">{booking.educationLevel}</p>
-                        <p className="text-xs text-slate-400">
-                          {formatAdminDate(booking.preferredDate)} · {booking.preferredTime}
+                        <p className="font-medium text-navy">
+                          {formatSessionDateTime(booking.scheduledAt) ?? (
+                            <span className="text-slate-400">Not scheduled yet</span>
+                          )}
+                        </p>
+                        <p className="mt-0.5 max-w-[240px] truncate text-xs text-slate-500">
+                          {booking.educationLevel}
+                          {booking.schoolName ? ` · ${booking.schoolName}` : ""}
                         </p>
                       </td>
                       <td className="px-5 py-4">
@@ -462,8 +468,9 @@ export default function AdminCounsellingPage() {
             canPermanentlyDelete={canPermanentlyDelete}
             onChanged={async (updated) => {
               setSelected(updated);
-              await loadBookings();
+              await loadBookings(true);
             }}
+            onRefresh={() => loadBookings(true)}
             onClosed={() => setSelected(null)}
             onDelete={() => setDeleteTarget(selected)}
             showToast={showToast}
@@ -494,6 +501,7 @@ function SessionWorkspace({
   booking,
   canPermanentlyDelete,
   onChanged,
+  onRefresh,
   onClosed,
   onDelete,
   showToast,
@@ -501,60 +509,48 @@ function SessionWorkspace({
   booking: Booking;
   canPermanentlyDelete: boolean;
   onChanged: (booking: Booking) => Promise<void>;
+  onRefresh: () => Promise<void>;
   onClosed: () => void;
   onDelete: () => void;
   showToast: (message: string, error?: boolean) => void;
 }) {
   const [status, setStatus] = useState(booking.status);
+  const [scheduledAt, setScheduledAt] = useState(toDhakaDateTimeInput(booking.scheduledAt));
   const [meetingLink, setMeetingLink] = useState(booking.meetingLink || "");
   const [counsellorNotes, setCounsellorNotes] = useState(booking.counsellorNotes || "");
   const [sessionFee, setSessionFee] = useState(booking.sessionFee == null ? "" : String(booking.sessionFee));
   const [paymentNote, setPaymentNote] = useState(booking.paymentNote || "");
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
-  // Files chosen here are only uploaded when "Save changes" is clicked.
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  // Files picked here are only shared when "Save changes" is clicked.
+  const files = useStagedFiles(booking.id);
+  const archived = Boolean(booking.archivedAt);
 
-  async function patch(body: Record<string, unknown>, successMessage: string) {
+  /** Saves changes; returns the updated session or null (after showing the error). */
+  async function patch(body: Record<string, unknown>) {
     const response = await adminFetch<Booking>("/api/admin/counselling", {
       method: "PATCH",
       body: JSON.stringify({ id: booking.id, ...body }),
     });
     if (!response.success || !response.data) {
       showToast(response.message || "Could not update the session.", true);
-      return false;
+      return null;
     }
-    showToast(response.message || successMessage);
-    // Payment actions can change the status on the server; keep the select in sync
-    // without touching other fields the admin may still be editing.
+    // Payment actions can change the status on the server; keep the select in
+    // sync without touching other fields the admin may still be editing.
     setStatus(response.data.status);
     await onChanged(response.data);
-    return true;
+    return response.data;
   }
 
-  async function uploadPendingFiles() {
-    const queue = [...pendingFiles];
-    while (queue.length > 0) {
-      const [file] = queue;
-      const body = new FormData();
-      body.append("file", file);
-      const response = await fetch(`/api/counselling/bookings/${booking.id}/files`, {
-        method: "POST",
-        body,
-        credentials: "same-origin",
-      });
-      const payload = (await response.json().catch(() => null)) as {
-        success?: boolean;
-        message?: string;
-      } | null;
-      if (!response.ok || !payload?.success) {
-        showToast(`${file.name}: ${payload?.message || "upload failed."}`, true);
-        return false;
-      }
-      queue.shift();
-      setPendingFiles([...queue]);
-    }
-    return true;
+  function formFields() {
+    return {
+      status,
+      scheduledAt: fromDhakaDateTimeInput(scheduledAt),
+      meetingLink: meetingLink.trim() || null,
+      counsellorNotes: counsellorNotes.trim() || null,
+      paymentNote: paymentNote.trim() || null,
+    };
   }
 
   async function save() {
@@ -564,58 +560,65 @@ function SessionWorkspace({
       return;
     }
     setSaving(true);
-    if (!(await uploadPendingFiles())) {
-      setSaving(false);
-      return;
+
+    let sharedNote = "";
+    if (files.staged.length) {
+      const result = await files.share();
+      if (result && result.shared === 0) {
+        showToast(result.message, true);
+        setSaving(false);
+        return;
+      }
+      if (result && !result.ok) showToast(result.message, true);
+      if (result) sharedNote = ` ${result.shared} file${result.shared === 1 ? "" : "s"} shared.`;
     }
-    await patch(
-      {
-        status,
-        meetingLink: meetingLink.trim() || null,
-        counsellorNotes: counsellorNotes.trim() || null,
-        sessionFee: fee,
-        paymentNote: paymentNote.trim() || null,
-      },
-      "Session updated.",
-    );
+
+    const updated = await patch({ ...formFields(), sessionFee: fee });
     setSaving(false);
+    if (updated) showToast(`Session saved.${sharedNote}`);
+    else if (sharedNote) await onRefresh();
   }
 
   async function paymentAction(action: "mark_paid" | "waive" | "reopen_payment") {
     setActionLoading(action);
-    await patch(
-      { paymentAction: action, paymentNote: paymentNote.trim() || null },
-      "Payment status updated.",
-    );
+    const updated = await patch({ paymentAction: action, paymentNote: paymentNote.trim() || null });
     setActionLoading("");
+    if (updated) {
+      showToast(
+        action === "mark_paid"
+          ? "Payment marked as verified."
+          : action === "waive"
+            ? "Session fee waived."
+            : "Payment reopened. The student can submit proof again.",
+      );
+    }
+  }
+
+  async function markPaidAndConfirm() {
+    setActionLoading("mark_paid_and_confirm");
+    const updated = await patch({ ...formFields(), paymentAction: "mark_paid", status: "CONFIRMED" });
+    setActionLoading("");
+    if (updated) {
+      setStatus("CONFIRMED");
+      showToast("Payment verified and session confirmed. The student can now share documents.");
+    }
   }
 
   async function archiveAction(action: "archive" | "restore") {
     setActionLoading(action);
-    const success = await patch(
-      { archiveAction: action },
-      action === "archive" ? "Session archived." : "Session restored.",
-    );
+    const updated = await patch({ archiveAction: action });
     setActionLoading("");
-    if (success) onClosed();
-  }
-
-  function addPendingFiles(event: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = "";
-    const tooLarge = files.filter((file) => file.size > 10 * 1024 * 1024);
-    if (tooLarge.length) {
-      showToast(`${tooLarge.map((file) => file.name).join(", ")}: must be under 10 MB.`, true);
+    if (updated) {
+      showToast(action === "archive" ? "Session archived." : "Session restored.");
+      onClosed();
     }
-    const accepted = files.filter((file) => file.size > 0 && file.size <= 10 * 1024 * 1024);
-    if (accepted.length) setPendingFiles((current) => [...current, ...accepted]);
   }
 
-  function previewPendingFile(file: File) {
-    const url = URL.createObjectURL(file);
-    window.open(url, "_blank", "noopener");
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  function addFiles(list: FileList | null) {
+    for (const problem of files.add(list)) showToast(problem, true);
   }
+
+  const confirmedWithoutTime = status === "CONFIRMED" && !scheduledAt;
 
   return (
     <div className="p-5 pt-14 sm:p-7 sm:pt-14">
@@ -626,13 +629,21 @@ function SessionWorkspace({
             <AdminBadge variant={paymentVariant[booking.paymentStatus]}>
               {PAYMENT_STATUS_LABELS[booking.paymentStatus]}
             </AdminBadge>
-            {booking.archivedAt ? <AdminBadge variant="warning">Archived</AdminBadge> : null}
+            {archived ? <AdminBadge variant="warning">Archived</AdminBadge> : null}
           </div>
           <h2 className="mt-3 text-2xl font-semibold text-navy">{booking.fullName}</h2>
-          <p className="mt-1 text-sm text-slate-500">{booking.email} · {booking.phone}</p>
+          <p className="mt-1 text-sm text-slate-500">
+            <a href={`tel:${booking.phone}`} className="font-medium text-navy hover:text-accent">
+              {booking.phone}
+            </a>{" "}
+            ·{" "}
+            <a href={`mailto:${booking.email}`} className="hover:text-accent">
+              {booking.email}
+            </a>
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {booking.archivedAt ? (
+          {archived ? (
             <AdminButton
               variant="ghost"
               isLoading={actionLoading === "restore"}
@@ -649,7 +660,7 @@ function SessionWorkspace({
               <Archive className="h-4 w-4" /> Archive
             </AdminButton>
           ) : null}
-          {booking.archivedAt && canPermanentlyDelete ? (
+          {archived && canPermanentlyDelete ? (
             <AdminButton variant="danger" onClick={onDelete}>
               <Trash2 className="h-4 w-4" /> Delete
             </AdminButton>
@@ -665,12 +676,15 @@ function SessionWorkspace({
             <Detail label="School" value={booking.schoolName || "—"} />
             <Detail label="Group" value={booking.studentGroup || "—"} />
             <Detail icon={CalendarClock} label="Submission date" value={formatAdminDate(booking.createdAt)} />
-            <Detail label="Session time" value={booking.preferredTime} />
+            <Detail
+              label="Session time"
+              value={formatSessionDateTime(booking.scheduledAt) ?? "Not scheduled yet"}
+            />
           </div>
 
           {booking.message ? (
             <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Student message</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Student&apos;s problems</p>
               <p className="mt-2 whitespace-pre-wrap rounded-2xl border border-slate-200 p-4 text-sm leading-6 text-slate-700">
                 {booking.message}
               </p>
@@ -691,7 +705,9 @@ function SessionWorkspace({
               <div className="flex flex-col gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs text-emerald-900 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-bold">Payment is verified!</p>
-                  <p className="mt-0.5 text-emerald-800/80">You can now confirm this session and add the Google Meet link.</p>
+                  <p className="mt-0.5 text-emerald-800/80">
+                    Confirm the session, set its time and add the meeting link.
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -703,7 +719,14 @@ function SessionWorkspace({
               </div>
             ) : null}
 
-            <AdminField label="Session status">
+            <AdminField
+              label="Session status"
+              hint={
+                status === "CONFIRMED"
+                  ? "Confirmed sessions let the student share documents."
+                  : "The student can share documents once you confirm the session."
+              }
+            >
               <AdminSelect value={status} onChange={(event) => setStatus(event.target.value as BookingStatus)}>
                 <option value="PENDING">Pending</option>
                 <option value="CONFIRMED">Confirmed</option>
@@ -711,6 +734,29 @@ function SessionWorkspace({
                 <option value="CANCELLED">Cancelled</option>
               </AdminSelect>
             </AdminField>
+            <AdminField
+              label="Session date & time"
+              hint="Bangladesh time. The student gets a notification and an email when you set or change it."
+            >
+              <div className="flex gap-2">
+                <AdminInput
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(event) => setScheduledAt(event.target.value)}
+                  invalid={confirmedWithoutTime}
+                />
+                {scheduledAt ? (
+                  <AdminButton type="button" variant="ghost" onClick={() => setScheduledAt("")}>
+                    Clear
+                  </AdminButton>
+                ) : null}
+              </div>
+            </AdminField>
+            {confirmedWithoutTime ? (
+              <p className="-mt-2 text-xs text-amber-700">
+                Add the session time so the family knows when to join.
+              </p>
+            ) : null}
             <AdminField label="Meeting link">
               <div className="relative">
                 <LinkIcon className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
@@ -730,7 +776,7 @@ function SessionWorkspace({
               <h3 className="font-semibold text-navy">Payment</h3>
             </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <AdminField label="Session fee (৳)">
+              <AdminField label="Session fee (৳)" hint="Setting a fee asks the student to pay with bKash.">
                 <AdminInput type="number" min={0} step={1} value={sessionFee} onChange={(event) => setSessionFee(event.target.value)} />
               </AdminField>
               <div className="rounded-xl bg-slate-50 p-3 text-sm">
@@ -754,10 +800,10 @@ function SessionWorkspace({
                 <ExternalLink className="h-4 w-4" /> View payment proof
               </a>
             ) : null}
-            <AdminField label="Internal payment note" className="mt-4">
+            <AdminField label="Internal payment note" hint="Only staff can see this." className="mt-4">
               <AdminTextarea rows={2} value={paymentNote} onChange={(event) => setPaymentNote(event.target.value)} />
             </AdminField>
-            {!booking.archivedAt ? <div className="mt-4 flex flex-wrap gap-2">
+            {!archived ? <div className="mt-4 flex flex-wrap gap-2">
               {booking.paymentStatus === "PROOF_SUBMITTED" ? (
                 <>
                   <AdminButton size="sm" isLoading={actionLoading === "mark_paid"} onClick={() => void paymentAction("mark_paid")}>
@@ -767,20 +813,7 @@ function SessionWorkspace({
                     size="sm"
                     variant="primary"
                     isLoading={actionLoading === "mark_paid_and_confirm"}
-                    onClick={async () => {
-                      setActionLoading("mark_paid_and_confirm");
-                      setStatus("CONFIRMED");
-                      await patch(
-                        {
-                          paymentAction: "mark_paid",
-                          status: "CONFIRMED",
-                          meetingLink: meetingLink.trim() || null,
-                          paymentNote: paymentNote.trim() || null,
-                        },
-                        "Payment verified and session confirmed!",
-                      );
-                      setActionLoading("");
-                    }}
+                    onClick={() => void markPaidAndConfirm()}
                   >
                     <CheckCircle2 className="h-4 w-4" /> Mark paid & confirm
                   </AdminButton>
@@ -799,76 +832,28 @@ function SessionWorkspace({
             </div> : null}
           </div>
 
-          <div className="rounded-2xl border border-slate-200 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="font-semibold text-navy">Shared files</h3>
-              {!booking.archivedAt ? <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-navy hover:bg-slate-50">
-                <Upload className="h-3.5 w-3.5" />
-                Add file
-                <input type="file" multiple className="sr-only" disabled={saving} onChange={addPendingFiles} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.txt,.zip" />
-              </label> : null}
-            </div>
-            {pendingFiles.length ? (
-              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
-                <p className="text-xs font-semibold text-amber-800">
-                  Not shared yet — click Save changes to upload.
-                </p>
-                <ul className="mt-2 space-y-2">
-                  {pendingFiles.map((file, index) => (
-                    <li key={`${file.name}-${index}`} className="flex items-center justify-between gap-2 rounded-lg bg-white p-2.5">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-navy">{file.name}</p>
-                        <p className="text-xs text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => previewPendingFile(file)}
-                          className="rounded-lg p-2 text-slate-500 hover:bg-slate-50 hover:text-navy"
-                          aria-label={`Open ${file.name}`}
-                        >
-                          <Download className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={saving}
-                          onClick={() => setPendingFiles((current) => current.filter((_, i) => i !== index))}
-                          className="rounded-lg px-2 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {booking.files.length ? (
-              <ul className="mt-3 space-y-2">
-                {booking.files.map((file) => (
-                  <li key={file.id} className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-navy">{file.fileName}</p>
-                      <p className="text-xs text-slate-400">{file.uploadedByName} · {formatAdminDate(file.createdAt)}</p>
-                    </div>
-                    <a href={file.fileUrl} target="_blank" rel="noreferrer" className="ml-3 rounded-lg p-2 text-slate-500 hover:bg-white hover:text-navy">
-                      <Download className="h-4 w-4" />
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            ) : pendingFiles.length ? null : (
-              <p className="mt-3 rounded-xl border border-dashed border-slate-200 py-6 text-center text-sm text-slate-400">No files shared.</p>
-            )}
-          </div>
+          <AdminSessionFiles
+            bookingId={booking.id}
+            status={booking.status}
+            archived={archived}
+            files={booking.files}
+            staged={files.staged}
+            sharing={files.sharing}
+            onAdd={addFiles}
+            onRemoveStaged={files.remove}
+            onDeleted={onRefresh}
+            showToast={showToast}
+          />
         </div>
       </div>
 
-      {!booking.archivedAt ? (
-        <div className="mt-6 flex justify-end border-t border-slate-200 pt-5">
+      {!archived ? (
+        <div className="sticky bottom-0 -mx-5 mt-6 flex justify-end border-t border-slate-200 bg-white/95 px-5 py-4 backdrop-blur sm:-mx-7 sm:px-7">
           <AdminButton isLoading={saving} onClick={() => void save()}>
             <Save className="h-4 w-4" />
-            {pendingFiles.length ? `Save changes & share ${pendingFiles.length} file${pendingFiles.length > 1 ? "s" : ""}` : "Save changes"}
+            {files.staged.length
+              ? `Save changes & share ${files.staged.length} file${files.staged.length > 1 ? "s" : ""}`
+              : "Save changes"}
           </AdminButton>
         </div>
       ) : null}

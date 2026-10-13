@@ -11,7 +11,8 @@ import { enrollmentReviewSchema } from "@/lib/enrollments/validation";
 import { ensureEnrollmentAccessCode } from "@/lib/enrollments/access-code";
 import { sendEnrollmentDecisionEmail } from "@/lib/enrollments/email";
 import { ensureStudentId } from "@/lib/students/id";
-import { createUserNotification, notifyActiveAdmins } from "@/lib/notifications/service";
+import { sscBatchFromClass } from "@/lib/students/ssc-batch";
+import { createUserNotification } from "@/lib/notifications/service";
 
 const enrollmentRequestDetailInclude = {
   user: {
@@ -182,10 +183,18 @@ export async function PATCH(request: NextRequest) {
 
       const studentId = await ensureStudentId(tx, requestRecord.userId, enrolledAt);
 
+      const student = await tx.user.findUnique({
+        where: { id: requestRecord.userId },
+        select: { sscBatch: true },
+      });
       await tx.user.update({
         where: { id: requestRecord.userId },
         data: {
           classLevel: requestRecord.classLevel,
+          // Keep a batch an admin already set; otherwise derive it from the class.
+          ...(student?.sscBatch
+            ? {}
+            : { sscBatch: sscBatchFromClass(requestRecord.classLevel, enrolledAt) }),
         },
       });
 

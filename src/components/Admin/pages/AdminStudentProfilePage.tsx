@@ -28,6 +28,7 @@ import {
   useAdminToast,
 } from "@/components/Admin";
 import { useAdminCan } from "@/components/Admin/AdminPermissionsContext";
+import SscBatchField from "@/components/Admin/students/SscBatchField";
 import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
 import {
   UserAccountModal,
@@ -50,6 +51,7 @@ type StudentProfile = {
     phone: string | null;
     studentId: string | null;
     classLevel: number | null;
+    sscBatch: number | null;
     avatarUrl: string | null;
     accountStatus: "ACTIVE" | "SUSPENDED";
     createdAt: string;
@@ -328,6 +330,12 @@ export default function AdminStudentProfilePage({ studentId }: { studentId: stri
                         icon={ShieldCheck}
                         label="Student ID"
                         value={profile.student.studentId ?? "Not assigned"}
+                      />
+                      <SscBatchField
+                        studentId={profile.student.id}
+                        value={profile.student.sscBatch}
+                        canEdit={canManageStudents}
+                        onSaved={refresh}
                       />
                       <InfoRow
                         icon={CalendarDays}

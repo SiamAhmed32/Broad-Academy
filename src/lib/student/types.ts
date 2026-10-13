@@ -8,6 +8,7 @@ export type StudentProfile = {
   phone: string | null;
   studentId: string | null;
   classLevel: number | null;
+  sscBatch: number | null;
   avatarUrl: string | null;
   status: "ACTIVE" | "SUSPENDED";
   emailVerifiedAt: string | null;
@@ -25,6 +26,9 @@ export type CounsellingBookingSummary = {
   subjectInterest: string;
   preferredDate: string;
   preferredTime: string;
+  /** Actual session date/time set by the team, or null while not scheduled. */
+  scheduledAt: string | null;
+  archived: boolean;
   message: string | null;
   status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
   meetingLink: string | null;
@@ -41,15 +45,15 @@ export type CounsellingBookingSummary = {
   bkashTransactionId: string | null;
   paymentSubmittedAt: string | null;
   paidAt: string | null;
-  paymentNote: string | null;
   hasPaymentProof: boolean;
   createdAt: string;
   files: Array<{
     id: string;
     fileName: string;
-    fileUrl: string;
     uploadedByRole: string;
     uploadedByName: string;
+    /** True when the signed-in student shared this file (and may remove it). */
+    uploadedByMe: boolean;
     createdAt: string;
   }>;
 };

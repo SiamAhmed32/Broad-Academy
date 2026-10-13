@@ -8,7 +8,7 @@ import { apiFetch } from "@/lib/api/client";
 import { Container } from "@/components/reusables";
 import { notify } from "@/lib/toast";
 
-const EMAIL_PATTERN = /^[^s@]+@[^s@]+.[^s@]+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const NewsletterPage = () => {
   const [email, setEmail] = useState("");

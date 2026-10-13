@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
+import { z } from "zod";
 
 import { errorResponse } from "@/lib/auth/response";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -10,30 +11,25 @@ import {
   recordFailedAttempt,
 } from "@/lib/auth/security";
 import { db } from "@/lib/db";
-import { uploadDocumentSubmission } from "@/lib/documents/cloudinary";
+import {
+  documentFileProblem,
+  isDocumentAsset,
+  studentDocumentFolder,
+} from "@/lib/documents/files";
 import { hasActiveEnrollment } from "@/lib/documents/student";
 import { documentSubmissionSchema } from "@/lib/documents/validation";
+import { discardDirectUpload, isVerifiedDirectUpload } from "@/lib/media/direct-upload";
+import { directUploadResultSchema } from "@/lib/media/direct-upload-schema";
 import { notifyActiveAdmins } from "@/lib/notifications/service";
 
 export const runtime = "nodejs";
 
-const MAX_FILE_BYTES = 8 * 1024 * 1024;
-const ALLOWED_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-]);
+const submitSchema = documentSubmissionSchema.extend({
+  fileName: z.string().trim().min(1).max(200),
+  upload: directUploadResultSchema,
+});
 
-function cloudinaryErrorMessage(error: unknown) {
-  const detail =
-    error instanceof Error ? error.message : "Cloudinary upload failed.";
-  if (detail.includes("missing permissions")) {
-    return "Your Cloudinary API key cannot upload files. In Cloudinary → Settings → API Keys, enable Upload (create) permission, then restart the dev server.";
-  }
-  return `Document upload failed: ${detail}`;
-}
-
+/** Saves a document the browser already uploaded to Cloudinary (see ../sign). */
 export async function POST(request: NextRequest) {
   try {
     if (!isTrustedOrigin(request)) {
@@ -59,82 +55,86 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let formData: FormData;
+    let body: unknown;
     try {
-      formData = await request.formData();
+      body = await request.json();
     } catch {
       return errorResponse("Invalid form submission.", 400);
     }
 
-    const parsed = documentSubmissionSchema.safeParse({
-      fullName: formData.get("fullName"),
-      email: formData.get("email"),
-      phone: formData.get("phone"),
-      documentType: formData.get("documentType"),
-      message: formData.get("message"),
-      website: formData.get("website"),
-    });
+    const folder = studentDocumentFolder(user.id);
+    // A rejected submission must not leave its file behind in storage.
+    // discardDirectUpload only deletes uploads that verify for this folder.
+    const discardUpload = () => {
+      const upload = directUploadResultSchema.safeParse(
+        (body as { upload?: unknown } | null)?.upload,
+      );
+      if (upload.success) after(() => discardDirectUpload(upload.data, folder));
+    };
 
+    const parsed = submitSchema.safeParse(body);
     if (!parsed.success) {
-      if (formData.get("website")) {
+      discardUpload();
+      if ((body as { website?: string } | null)?.website) {
         return NextResponse.json({ success: true, message: "Thank you." });
       }
-      return errorResponse("Please review the highlighted fields.", 422, parsed.error.flatten().fieldErrors);
+      return errorResponse(
+        "Please review the highlighted fields.",
+        422,
+        parsed.error.flatten().fieldErrors,
+      );
     }
 
-    if (parsed.data.email.toLowerCase() !== user.email.toLowerCase()) {
+    const { upload, fileName, ...fields } = parsed.data;
+
+    if (!isVerifiedDirectUpload(upload, folder)) {
+      return errorResponse("The upload could not be verified. Please try again.", 422, {
+        document: ["Please choose the file again."],
+      });
+    }
+
+    if (fields.email.toLowerCase() !== user.email.toLowerCase()) {
+      discardUpload();
       return errorResponse("Use your account email for document submissions.", 422, {
         email: ["Must match your signed-in account email."],
       });
     }
 
-    const file = formData.get("document");
-    if (!(file instanceof File) || file.size === 0) {
-      return errorResponse("A document file is required.", 422, {
-        document: ["Upload a PDF or image file."],
-      });
-    }
-    if (file.size > MAX_FILE_BYTES) {
-      return errorResponse("File must be 8 MB or smaller.", 422);
-    }
-    if (!ALLOWED_TYPES.has(file.type)) {
-      return errorResponse("Upload a JPG, PNG, WebP, or PDF file.", 422);
-    }
-
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    let upload: Awaited<ReturnType<typeof uploadDocumentSubmission>>;
-    try {
-      upload = await uploadDocumentSubmission(bytes, file.type, file.name);
-    } catch (error) {
-      console.error("Cloudinary document upload failed:", error);
-      return errorResponse(cloudinaryErrorMessage(error), 502);
+    const problem =
+      documentFileProblem({ name: fileName, size: upload.bytes }) ??
+      (isDocumentAsset(upload) ? null : "This file is not a readable PDF or image.");
+    if (problem) {
+      discardUpload();
+      return errorResponse(problem, 422, { document: [problem] });
     }
 
     const submission = await db.documentSubmission.create({
       data: {
-        fullName: parsed.data.fullName,
-        email: parsed.data.email,
-        phone: parsed.data.phone || null,
-        documentType: parsed.data.documentType,
-        fileUrl: upload.secure_url,
-        filePublicId: upload.public_id,
-        fileFormat: upload.format,
-        fileName: file.name,
-        fileResourceType: upload.resource_type,
-        message: parsed.data.message || null,
+        fullName: fields.fullName,
+        email: fields.email,
+        phone: fields.phone || null,
+        documentType: fields.documentType,
+        fileUrl: upload.secureUrl,
+        filePublicId: upload.publicId,
+        fileFormat: upload.format ?? null,
+        fileName,
+        fileResourceType: upload.resourceType,
+        message: fields.message || null,
         userId: user.id,
         ipHash,
       },
     });
 
     await recordFailedAttempt(rateKey);
-    void notifyActiveAdmins({
-      title: "New document submitted",
-      content: `${parsed.data.fullName} submitted a ${parsed.data.documentType}.`,
-      type: "DOCUMENT_SUBMITTED",
-      category: "ALERT",
-      link: "/admin/documents",
-    }).catch(() => undefined);
+    after(() =>
+      notifyActiveAdmins({
+        title: "New document submitted",
+        content: `${fields.fullName} submitted a ${fields.documentType}.`,
+        type: "DOCUMENT_SUBMITTED",
+        category: "ALERT",
+        link: "/admin/documents",
+      }).catch(console.error),
+    );
 
     return NextResponse.json(
       {

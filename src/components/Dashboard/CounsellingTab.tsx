@@ -11,7 +11,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
-  Download,
   FileText,
   ImageUp,
   Loader2,
@@ -19,7 +18,6 @@ import {
   Plus,
   RotateCw,
   Search,
-  Upload,
   Video,
   XCircle,
 } from "lucide-react";
@@ -27,8 +25,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import BookingForm from "@/components/ConsultationSection/BookingForm";
-import { cn } from "@/lib/utils";
 import { PAYMENT_STATUS_LABELS } from "@/lib/counselling/payment";
+import { formatSessionDateTime } from "@/lib/counselling/schedule";
+
+import SessionFiles from "./counselling/SessionFiles";
+import SessionProgress from "./counselling/SessionProgress";
 import type { CounsellingBookingSummary, StudentProfile } from "@/lib/student/types";
 
 type View = "sessions" | "book";
@@ -88,8 +89,8 @@ export function CounsellingTab({
   });
   const detailRef = useRef<HTMLElement>(null);
 
-  const loadBookings = useCallback(async () => {
-    setLoading(true);
+  const loadBookings = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams({
         page: String(pagination.page),
@@ -121,7 +122,9 @@ export function CounsellingTab({
         return nextBookings[0]?.id ?? null;
       });
     } catch (error) {
-      notify(error instanceof Error ? error.message : "Could not load sessions.", true);
+      if (!silent) {
+        notify(error instanceof Error ? error.message : "Could not load sessions.", true);
+      }
     } finally {
       setLoading(false);
     }
@@ -137,14 +140,14 @@ export function CounsellingTab({
   useEffect(() => {
     const handleFocus = () => {
       if (document.visibilityState === "visible") {
-        void loadBookings();
+        void loadBookings(true);
       }
     };
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleFocus);
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") {
-        void loadBookings();
+        void loadBookings(true);
       }
     }, 15_000);
 
@@ -284,7 +287,7 @@ export function CounsellingTab({
                       setSearch(event.target.value);
                       setPagination((current) => ({ ...current, page: 1 }));
                     }}
-                    placeholder="Search subject or notes..."
+                    placeholder="Search by name, class or school..."
                     className="h-11 w-full rounded-xl border border-navy/10 bg-[#f7f9fc] pl-10 pr-4 text-sm text-navy outline-none transition focus:border-btnBg focus:bg-white focus:ring-2 focus:ring-btnBg/10"
                   />
                 </div>
@@ -395,7 +398,7 @@ export function CounsellingTab({
                 <BookingDetails
                   booking={activeBooking}
                   notify={notify}
-                  onRefresh={loadBookings}
+                  onRefresh={() => loadBookings(true)}
                   paymentConfig={paymentConfig}
                 />
               ) : (
@@ -482,47 +485,8 @@ function BookingDetails({
   onRefresh: () => Promise<void>;
   paymentConfig: { bkashNumber: string | null; paymentConfigured: boolean };
 }) {
-  const [uploading, setUploading] = useState(false);
   const [submittingPayment, setSubmittingPayment] = useState(false);
   const [proofFileName, setProofFileName] = useState("");
-
-  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      notify("File size must be under 10 MB.", true);
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await fetch(`/api/counselling/bookings/${booking.id}/files`, {
-        method: "POST",
-        body: formData,
-        credentials: "same-origin",
-      });
-      const payload = (await response.json().catch(() => null)) as {
-        success?: boolean;
-        message?: string;
-      } | null;
-
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.message ?? "Upload failed.");
-      }
-
-      notify("File uploaded successfully.");
-      await onRefresh();
-    } catch (error) {
-      notify(error instanceof Error ? error.message : "Upload failed.", true);
-    } finally {
-      setUploading(false);
-    }
-  }
 
   async function handlePaymentSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -558,8 +522,6 @@ function BookingDetails({
 
   const showPaymentSection =
     booking.paymentStatus !== "UNQUOTED" || booking.sessionFee != null;
-  // Students may share files only once staff have confirmed the session.
-  const canShareFiles = booking.status === "CONFIRMED";
 
   return (
     <div className="space-y-5 pb-4 sm:space-y-8 sm:pb-0">
@@ -593,7 +555,11 @@ function BookingDetails({
 
         <div className="mt-4 grid gap-3 rounded-2xl bg-[#f7f9fc] p-3.5 sm:mt-5 sm:gap-4 sm:p-4 sm:grid-cols-2">
           <InfoCell icon={CalendarDays} label="Submission date" value={formatDate(booking.createdAt)} />
-          <InfoCell icon={Clock3} label="Session time" value={booking.preferredTime} />
+          <InfoCell
+            icon={Clock3}
+            label="Session time"
+            value={formatSessionDateTime(booking.scheduledAt) ?? "To be scheduled"}
+          />
           <InfoCell icon={FileText} label="Class" value={booking.educationLevel} />
           {booking.classRoll ? (
             <InfoCell icon={FileText} label="Class roll" value={booking.classRoll} />
@@ -605,6 +571,8 @@ function BookingDetails({
             <InfoCell icon={FileText} label="Group" value={booking.studentGroup} />
           ) : null}
         </div>
+
+        <SessionProgress booking={booking} />
 
         {booking.status === "PENDING" ? (
           <p
@@ -698,71 +666,7 @@ function BookingDetails({
         </div>
       ) : null}
 
-      <div className="border-t border-navy/8 pt-5 pb-4 sm:pt-6 sm:pb-2">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold text-navy">Shared files</p>
-          {canShareFiles ? (
-            <label className="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-navy/10 bg-white px-3 py-2.5 text-xs font-bold text-navy transition hover:bg-navy/5 sm:w-auto sm:py-1.5">
-              {uploading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Upload className="h-3.5 w-3.5" />
-              )}
-              {uploading ? "Uploading..." : "Upload file"}
-              <input
-                type="file"
-                className="hidden"
-                onChange={handleFileUpload}
-                disabled={uploading}
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.txt,.zip"
-              />
-            </label>
-          ) : null}
-        </div>
-
-        {!canShareFiles && booking.status === "PENDING" ? (
-          <p className="mb-4 rounded-xl border border-navy/8 bg-[#f7f9fc] px-4 py-3 text-xs leading-5 text-navy/60">
-            You can upload documents after our team reviews your request, talks with
-            you and confirms the session.
-          </p>
-        ) : null}
-
-        {booking.files.length > 0 ? (
-          <ul className="space-y-2">
-            {booking.files.map((file) => (
-              <li
-                key={file.id}
-                className="flex items-center justify-between rounded-xl border border-navy/8 p-3 transition hover:bg-[#f7f9fc]"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-heroBg text-accent">
-                    <FileText className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-navy">{file.fileName}</p>
-                    <p className="text-[10px] text-navy/45">
-                      {file.uploadedByName} • {formatDate(file.createdAt)}
-                    </p>
-                  </div>
-                </div>
-                <a
-                  href={file.fileUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-navy/45 transition hover:bg-navy/10 hover:text-navy"
-                  title="Open file"
-                >
-                  <Download className="h-4 w-4" />
-                </a>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="rounded-xl border border-dashed border-navy/12 py-8 text-center text-sm text-navy/45">
-            Upload syllabus, past papers, or other documents for your counsellor.
-          </div>
-        )}
-      </div>
+      <SessionFiles key={booking.id} booking={booking} onChanged={onRefresh} />
     </div>
   );
 }

@@ -35,6 +35,8 @@ export const counsellingAdminPatchSchema = z.object({
     .optional()
     .or(z.literal("")),
   counsellorNotes: z.string().trim().nullable().optional(),
+  // ISO date-time of the actual session (null clears it).
+  scheduledAt: z.iso.datetime({ offset: true }).nullable().optional(),
   sessionFee: z.coerce.number().int().min(0).max(500_000).optional().nullable(),
   paymentAction: z.enum(["mark_paid", "waive", "reopen_payment"]).optional(),
   paymentNote: z.string().trim().max(500).optional().nullable(),

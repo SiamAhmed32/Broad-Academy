@@ -104,6 +104,8 @@ model User {
   emailVerifiedAt            DateTime?
   studentId                  String?             @unique
   classLevel                 Int?
+  /// Year the student sits (or sat) the SSC exam, e.g. 2027 for the "SSC 2027 batch".
+  sscBatch                   Int?
   avatarUrl                  String?
   avatarPublicId             String?
   lastLoginAt                DateTime?
@@ -133,6 +135,7 @@ model User {
   @@index([adminRole])
   @@index([status])
   @@index([studentId])
+  @@index([sscBatch])
 }
 
 model PasswordResetOtp {
@@ -329,6 +332,8 @@ model CounsellingBooking {
   subjectInterest String
   preferredDate   DateTime
   preferredTime   String
+  /// Actual session date and time, set by staff when scheduling.
+  scheduledAt     DateTime?
   message         String?
   schoolName      String?
   classRoll       String?
@@ -361,6 +366,7 @@ model CounsellingBooking {
   @@index([status, createdAt])
   @@index([createdAt])
   @@index([preferredDate])
+  @@index([scheduledAt])
   @@index([userId])
   @@index([paymentStatus])
   @@index([archivedAt, createdAt])

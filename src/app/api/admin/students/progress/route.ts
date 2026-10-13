@@ -22,12 +22,15 @@ export async function GET(request: NextRequest) {
   );
   if (!parsed.success) return errorResponse("Invalid query.", 422);
 
-  const { search, courseId, classLevel, status, sort, page, limit } = parsed.data;
+  const { search, courseId, classLevel, sscBatch, status, sort, page, limit } = parsed.data;
 
   const now = new Date();
   const [{ rows, truncated }, classGroups] = await Promise.all([
     getCourseScope(user).then((courseIds) =>
-      loadStudentProgress({ search, courseId, classLevel, courseIds: courseIds ?? undefined }, now),
+      loadStudentProgress(
+        { search, courseId, classLevel, sscBatch, courseIds: courseIds ?? undefined },
+        now,
+      ),
     ),
     // Class filter options, from the whole student roster rather than the
     // current page so the dropdown does not change as filters are applied.
@@ -37,6 +40,11 @@ export async function GET(request: NextRequest) {
       orderBy: { classLevel: "asc" },
     }),
   ]);
+  const batchGroups = await db.user.groupBy({
+    by: ["sscBatch"],
+    where: { role: "STUDENT", sscBatch: { not: null } },
+    orderBy: { sscBatch: "asc" },
+  });
 
   // Summary cards describe the search/class/course-filtered population, not the
   // status-filtered slice, so the counts stay stable while switching statuses.
@@ -95,6 +103,7 @@ export async function GET(request: NextRequest) {
           phone: row.phone,
           studentId: row.studentId,
           classLevel: row.classLevel,
+          sscBatch: row.sscBatch,
           avatarUrl: row.avatarUrl,
           accountStatus: row.accountStatus,
           createdAt: row.createdAt,
@@ -115,6 +124,9 @@ export async function GET(request: NextRequest) {
         },
         classLevels: classGroups
           .map((group) => group.classLevel)
+          .filter((value): value is number => typeof value === "number"),
+        sscBatches: batchGroups
+          .map((group) => group.sscBatch)
           .filter((value): value is number => typeof value === "number"),
         truncated,
         pagination: paginationMeta(sorted.length, page, limit),

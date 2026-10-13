@@ -1,182 +1,201 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
+import { z } from "zod";
 
 import { errorResponse } from "@/lib/auth/response";
-import { getCurrentUser } from "@/lib/auth/session";
 import { isTrustedOrigin } from "@/lib/auth/security";
+import { getCurrentUser } from "@/lib/auth/session";
+import { deleteCounsellingFile } from "@/lib/counselling/cloudinary";
+import { STUDENT_FILE_LIMIT, authorizeCounsellingFiles } from "@/lib/counselling/file-access";
+import {
+  COUNSELLING_FILES_PER_BATCH,
+  counsellingFileProblem,
+  counsellingFolder,
+} from "@/lib/counselling/files";
 import { db } from "@/lib/db";
-import { uploadCounsellingFile } from "@/lib/counselling/cloudinary";
+import { discardDirectUpload, isVerifiedDirectUpload } from "@/lib/media/direct-upload";
+import { directUploadResultSchema } from "@/lib/media/direct-upload-schema";
 import { createUserNotification, notifyActiveAdmins } from "@/lib/notifications/service";
-import { ADMIN_PERMISSIONS, hasAdminPermission } from "@/lib/admin/permissions";
-import { getStaffUserFromRequest } from "@/lib/admin/session";
+
+export const runtime = "nodejs";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-async function canManageCounselling() {
-  const staff = await getStaffUserFromRequest();
-  return Boolean(staff && hasAdminPermission(staff, ADMIN_PERMISSIONS.COUNSELLING));
-}
+const registerSchema = z.object({
+  files: z
+    .array(
+      z.object({
+        fileName: z.string().trim().min(1).max(200),
+        upload: directUploadResultSchema,
+      }),
+    )
+    .min(1)
+    .max(COUNSELLING_FILES_PER_BATCH),
+});
 
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+const fileSelect = {
+  id: true,
+  fileName: true,
+  fileUrl: true,
+  uploadedByRole: true,
+  uploadedById: true,
+  uploadedByName: true,
+  createdAt: true,
+} as const;
 
-const ALLOWED_MIME_TYPES = new Set([
-  // Images
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  // Documents
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "text/plain",
-  // Archives
-  "application/zip",
-  "application/x-zip-compressed",
-  "application/x-rar-compressed",
-]);
-
-export async function GET(request: NextRequest, context: RouteContext) {
+export async function GET(_request: NextRequest, context: RouteContext) {
   const user = await getCurrentUser();
-  if (!user) {
-    return errorResponse("Authentication required.", 401);
-  }
+  if (!user) return errorResponse("Please sign in again.", 401);
 
   const { id } = await context.params;
-
-  // Find booking
-  const booking = await db.counsellingBooking.findUnique({
-    where: { id },
-  });
-
-  if (!booking) {
-    return errorResponse("Booking not found.", 404);
-  }
-  // Authorization check
-  if (user.role === "STUDENT") {
-    const isOwner = booking.userId === user.id || booking.email === user.email;
-    if (!isOwner) {
-      return errorResponse("You are not authorized to view files for this booking.", 403);
-    }
-  } else if (!(await canManageCounselling())) {
-    return errorResponse("You do not have permission for this action.", 403);
-  }
+  const access = await authorizeCounsellingFiles(user, id, "view");
+  if (!access.ok) return access.response;
 
   const files = await db.counsellingFile.findMany({
     where: { bookingId: id },
     orderBy: { createdAt: "desc" },
+    select: fileSelect,
   });
-
   return NextResponse.json({ success: true, data: files });
 }
 
+/** Saves files the browser already uploaded to Cloudinary (see ./sign). */
 export async function POST(request: NextRequest, context: RouteContext) {
   if (!isTrustedOrigin(request)) {
     return errorResponse("Request origin could not be verified.", 403);
   }
 
   const user = await getCurrentUser();
-  if (!user) {
-    return errorResponse("Authentication required.", 401);
-  }
+  if (!user) return errorResponse("Please sign in again.", 401);
 
   const { id } = await context.params;
+  const access = await authorizeCounsellingFiles(user, id, "upload");
+  if (!access.ok) return access.response;
 
-  // Find booking
-  const booking = await db.counsellingBooking.findUnique({
-    where: { id },
-  });
-
-  if (!booking) {
-    return errorResponse("Booking not found.", 404);
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return errorResponse("Invalid request.", 400);
   }
-  if (booking.archivedAt) {
-    return errorResponse(
-      "Archived sessions are read-only. Restore the session before uploading files.",
-      409,
-    );
-  }
+  const parsed = registerSchema.safeParse(body);
+  if (!parsed.success) return errorResponse("Invalid file details.", 422);
 
-  // Authorization check
-  if (user.role === "STUDENT") {
-    const isOwner = booking.userId === user.id || booking.email === user.email;
-    if (!isOwner) {
-      return errorResponse("You are not authorized to upload files for this booking.", 403);
+  const folder = counsellingFolder(id);
+  const accepted: typeof parsed.data.files = [];
+  const problems: string[] = [];
+
+  for (const item of parsed.data.files) {
+    // Never delete an unverified upload: its public_id came from the browser.
+    if (!isVerifiedDirectUpload(item.upload, folder)) {
+      problems.push(`${item.fileName}: the upload could not be verified.`);
+      continue;
     }
-    // Students may share files only after staff confirm the session.
-    if (booking.status !== "CONFIRMED") {
+    const problem = counsellingFileProblem({ name: item.fileName, size: item.upload.bytes });
+    if (problem) {
+      problems.push(problem);
+      after(() => discardDirectUpload(item.upload, folder));
+      continue;
+    }
+    accepted.push(item);
+  }
+
+  if (accepted.length === 0) {
+    return errorResponse(problems[0] ?? "No files could be shared.", 422);
+  }
+
+  if (!access.isStaff) {
+    const existing = await db.counsellingFile.count({
+      where: { bookingId: id, uploadedById: user.id },
+    });
+    if (existing + accepted.length > STUDENT_FILE_LIMIT) {
+      for (const file of accepted) after(() => discardDirectUpload(file.upload, folder));
       return errorResponse(
-        "You can upload documents after our team confirms your session.",
-        403,
+        `You can share up to ${STUDENT_FILE_LIMIT} files on one session. Remove an old file first.`,
+        409,
       );
     }
-  } else if (!(await canManageCounselling())) {
-    return errorResponse("You do not have permission for this action.", 403);
   }
 
-  let formData: FormData;
-  try {
-    formData = await request.formData();
-  } catch {
-    return errorResponse("Invalid upload request.", 400);
-  }
+  const files = await db.$transaction(
+    accepted.map((file) =>
+      db.counsellingFile.create({
+        data: {
+          bookingId: id,
+          fileName: file.fileName,
+          fileUrl: file.upload.secureUrl,
+          fileKey: file.upload.publicId,
+          uploadedByRole: user.role === "STUDENT" ? "STUDENT" : "ADMIN",
+          uploadedById: user.id,
+          uploadedByName: user.fullName,
+        },
+        select: fileSelect,
+      }),
+    ),
+  );
 
-  const file = formData.get("file");
-  if (!(file instanceof File)) {
-    return errorResponse("Choose a file to upload.", 422);
-  }
-
-  if (file.size === 0 || file.size > MAX_FILE_SIZE_BYTES) {
-    return errorResponse("File must be 10 MB or smaller.", 422);
-  }
-
-  if (!ALLOWED_MIME_TYPES.has(file.type)) {
-    return errorResponse("File type not supported. Allowed: PDF, Word, TXT, ZIP, JPEG, PNG, WebP.", 422);
-  }
-
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  
-  try {
-    const uploadResult = await uploadCounsellingFile(bytes, file.name, file.type);
-    
-    // Save to DB
-    const counsellingFile = await db.counsellingFile.create({
-      data: {
-        bookingId: id,
-        fileName: file.name,
-        fileUrl: uploadResult.secure_url,
-        fileKey: uploadResult.public_id,
-        uploadedByRole: user.role,
-        uploadedById: user.id,
-        uploadedByName: user.fullName,
-      },
-    });
-
-    // Handle notifications
-    if (user.role === "STUDENT") {
-      void notifyActiveAdmins({
-        title: "New student file uploaded",
-        content: `${user.fullName} uploaded a file for their counselling session on ${booking.preferredDate.toLocaleDateString()}.`,
-        type: "FILE_UPLOADED",
-        category: "ALERT",
-        link: "/admin/counselling",
-      }).catch(() => undefined);
-    } else if (booking.userId) {
-      void createUserNotification({
+  // One notification for the whole batch, not one per file.
+  const count = files.length;
+  const label = count === 1 ? `"${files[0].fileName}"` : `${count} files`;
+  const booking = access.booking;
+  after(async () => {
+    if (access.isStaff) {
+      if (!booking.userId) return;
+      await createUserNotification({
         userId: booking.userId,
-        title: "New counselling document shared",
-        content: `Your academic advisor shared a file: "${file.name}" for your session.`,
+        title: "New file from your counsellor",
+        content: `Your counsellor shared ${label} for your Study Plan / Counselling session.`,
         type: "FILE_UPLOADED",
         category: "UPDATE",
         link: "/dashboard?tab=counselling",
-      }).catch(() => undefined);
+      }).catch(console.error);
+    } else {
+      await notifyActiveAdmins({
+        title: "Student shared documents",
+        content: `${booking.fullName} shared ${label} for their Study Plan / Counselling session.`,
+        type: "FILE_UPLOADED",
+        category: "ALERT",
+        link: "/admin/counselling",
+      }).catch(console.error);
     }
+  });
 
-    return NextResponse.json({
-      success: true,
-      message: "File uploaded successfully!",
-      data: counsellingFile,
-    });
-  } catch (error) {
-    console.error("Counselling file upload error:", error);
-    return errorResponse("Failed to upload file. Please try again.", 502);
+  return NextResponse.json({
+    success: true,
+    message:
+      problems.length > 0
+        ? `${count} shared. ${problems.join(" ")}`
+        : `${count === 1 ? "File" : `${count} files`} shared.`,
+    data: { files, problems },
+  });
+}
+
+/** Removes a shared file (staff: any file; student: only files they shared). */
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  if (!isTrustedOrigin(request)) {
+    return errorResponse("Request origin could not be verified.", 403);
   }
+
+  const user = await getCurrentUser();
+  if (!user) return errorResponse("Please sign in again.", 401);
+
+  const { id } = await context.params;
+  const fileId = request.nextUrl.searchParams.get("fileId");
+  if (!fileId) return errorResponse("File id is required.", 400);
+
+  const access = await authorizeCounsellingFiles(user, id, "delete");
+  if (!access.ok) return access.response;
+
+  const file = await db.counsellingFile.findFirst({
+    where: { id: fileId, bookingId: id },
+    select: { id: true, fileKey: true, uploadedById: true },
+  });
+  if (!file) return errorResponse("File not found.", 404);
+  if (!access.isStaff && file.uploadedById !== user.id) {
+    return errorResponse("You can only remove files you shared.", 403);
+  }
+
+  await db.counsellingFile.delete({ where: { id: file.id } });
+  after(() => deleteCounsellingFile(file.fileKey).catch(console.error));
+
+  return NextResponse.json({ success: true, message: "File removed." });
 }

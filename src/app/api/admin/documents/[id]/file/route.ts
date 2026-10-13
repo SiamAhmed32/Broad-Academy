@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import {
   documentFileSelect,
   pickDocumentFile,
-  streamDocumentFile,
+  documentFileResponse,
 } from "@/lib/documents/stream";
 
 export const runtime = "nodejs";
@@ -32,5 +32,5 @@ export async function GET(
   const file = document ? pickDocumentFile(document, which) : null;
   if (!file) return errorResponse("Document file not found.", 404);
 
-  return streamDocumentFile(file, download);
+  return documentFileResponse(file, download);
 }

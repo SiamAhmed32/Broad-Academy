@@ -24,6 +24,7 @@ import {
   type AdminPaginationMeta,
   AdminSelect,
 } from "@/components/Admin";
+import AccessCodeVerifier from "@/components/Admin/students/AccessCodeVerifier";
 import { adminFetch, formatAdminDate } from "@/lib/admin/client";
 import {
   enrollmentRequestStatusLabel,
@@ -552,6 +553,8 @@ export default function AdminEnrollmentsPage({
           )}
         </AdminCard>
       ) : (
+        <>
+        <AccessCodeVerifier />
         <AdminCard className="overflow-hidden p-0">
           <div className="border-b border-slate-200 px-5 py-4">
             <div className="flex items-center justify-between">
@@ -681,6 +684,7 @@ export default function AdminEnrollmentsPage({
             </>
           )}
         </AdminCard>
+        </>
       )}
 
       <EnrollmentRequestDetailModal
