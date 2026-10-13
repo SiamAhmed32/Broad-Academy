@@ -77,6 +77,8 @@ declare global {
 type WatchBlock = {
   kind: "busy" | "taken-over" | "signed-out";
   message: string;
+  /** When the block was shown (ms). */
+  since?: number;
 };
 
 type ClaimOutcome =
@@ -97,8 +99,15 @@ type PlayerHandlers = {
 
 // Backoff between claim attempts when the server can't be reached.
 const CLAIM_RETRY_DELAYS_MS = [1_000, 2_000, 4_000];
-// How often a blocked player checks whether the other device has stopped.
+// How often a blocked player checks whether the other device has stopped:
+// often at first, then slowly, so a forgotten tab doesn't poll forever.
 const BLOCK_RECHECK_INTERVAL_MS = 5_000;
+const BLOCK_RECHECK_SLOW_MS = 30_000;
+const BLOCK_RECHECK_FAST_FOR_MS = 120_000;
+// A "busy" device starts by itself only this soon after the student tapped
+// play. Later it shows a Resume button instead, so a tab left open on a
+// laptop can't start playing and take the lock from the phone in use.
+const BUSY_AUTO_START_MS = 60_000;
 // A play tap still counts as "wants to play" while YouTube starts up.
 const PLAY_INTENT_MS = 15_000;
 // "Play here" keeps taking over for this long, in case the first start is refused.
@@ -162,6 +171,8 @@ function loadYouTubeIframeApi() {
       script.src = "https://www.youtube.com/iframe_api";
       script.async = true;
       script.onerror = () => {
+        // A failed tag would be reused by the next attempt; let it add a fresh one.
+        script.remove();
         if (settled) return;
         settled = true;
         cleanup();
@@ -266,6 +277,9 @@ export function ProtectedYouTubePlayer({
   const durationRef = useRef(lesson.durationSeconds);
   const [ready, setReady] = useState(false);
   const [playerError, setPlayerError] = useState("");
+  // Bumped by "Try again" to load the YouTube player once more.
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [canFullscreen, setCanFullscreen] = useState(true);
   const [playing, setPlaying] = useState(false);
   const [watchBlock, setWatchBlock] = useState<WatchBlock | null>(null);
   const [resumePrompt, setResumePrompt] = useState(false);
@@ -421,6 +435,7 @@ export function ProtectedYouTubePlayer({
           break;
         }
         await wait(delay);
+        if (unmountedRef.current) break;
         outcome = await claimOnce(takeover);
       }
       if (outcome.status === "granted") hasWatchLockRef.current = true;
@@ -437,7 +452,7 @@ export function ProtectedYouTubePlayer({
 
   const handleWatchConflict = useCallback(
     (block: WatchBlock) => {
-      showBlock(block);
+      showBlock({ ...block, since: Date.now() });
       setPlaying(false);
       setResumePrompt(false);
       clearResumeCheck();
@@ -454,7 +469,12 @@ export function ProtectedYouTubePlayer({
   /** Act on a claim result. Only a real conflict or sign-out stops playback. */
   const settleClaim = useCallback(
     (outcome: ClaimOutcome, userInitiated: boolean) => {
-      if (unmountedRef.current) return;
+      if (unmountedRef.current) {
+        // Granted after the student left: nothing would renew it, and the
+        // other device would wait for it to go stale.
+        if (outcome.status === "granted") void releaseWatchLock();
+        return;
+      }
       if (outcome.status === "granted") {
         if (blockRef.current) showBlock(null);
         if (!wantsWatchLock()) {
@@ -532,7 +552,8 @@ export function ProtectedYouTubePlayer({
   const saveProgress = useCallback(
     async (forceComplete = false) => {
       const player = playerRef.current;
-      if (!player) return;
+      // The API methods appear only once the player is ready.
+      if (!player || typeof player.getCurrentTime !== "function") return;
 
       const currentPosition = Math.max(0, Math.floor(player.getCurrentTime() || 0));
       const playerDuration = Math.max(
@@ -576,6 +597,8 @@ export function ProtectedYouTubePlayer({
   const startPlayback = useCallback(() => {
     const player = playerRef.current;
     if (!player) return;
+    // A quick pause→play: keep the lock instead of releasing it mid-start.
+    cancelScheduledRelease();
     setResumePrompt(false);
     clearResumeCheck();
     playIntentUntilRef.current = Date.now() + PLAY_INTENT_MS;
@@ -591,7 +614,7 @@ export function ProtectedYouTubePlayer({
     // Playing right away keeps the tap valid; the PLAYING handler then
     // claims the watch lock in the background.
     player.playVideo();
-  }, [clearResumeCheck]);
+  }, [cancelScheduledRelease, clearResumeCheck]);
 
   const scheduleResumeCheck = useCallback(() => {
     clearResumeCheck();
@@ -631,8 +654,12 @@ export function ProtectedYouTubePlayer({
     showBlock(null);
     const player = playerRef.current;
     if (!player) return;
-    if (block.kind === "busy" && document.visibilityState === "visible") {
-      // The student was trying to watch here, so start. The PLAYING handler
+    if (
+      block.kind === "busy" &&
+      document.visibilityState === "visible" &&
+      Date.now() - (block.since ?? 0) < BUSY_AUTO_START_MS
+    ) {
+      // The student just tried to watch here, so start. The PLAYING handler
       // claims the lock; if the browser wants a tap, a Resume button shows.
       playIntentUntilRef.current = Date.now() + PLAY_INTENT_MS;
       if (!userMutedRef.current) player.unMute();
@@ -658,6 +685,11 @@ export function ProtectedYouTubePlayer({
       const playerVolume = Math.round(player.getVolume());
       if (Number.isFinite(playerVolume)) setVolumeLevel(playerVolume);
       setCanSetVolume(!isAppleMobileDevice());
+      // iPhone Safari can't make a page element fullscreen.
+      setCanFullscreen(
+        Boolean(document.fullscreenEnabled) &&
+          typeof wrapperRef.current?.requestFullscreen === "function",
+      );
     },
     [lesson.lastPositionSec, updateDuration],
   );
@@ -690,7 +722,10 @@ export function ProtectedYouTubePlayer({
         playIntentUntilRef.current = 0;
         stopTracking();
         stopHeartbeat();
-        scheduleRelease();
+        // In the background (e.g. a locked iPhone) the page may be suspended
+        // before a delayed release runs, so free the lock now.
+        if (document.visibilityState === "hidden") void releaseWatchLock();
+        else scheduleRelease();
         void saveProgress();
       }
       if (state === states.ENDED) {
@@ -887,27 +922,43 @@ export function ProtectedYouTubePlayer({
       playerRef.current?.destroy();
       playerRef.current = null;
     };
-  }, [createPlayer]);
+  }, [createPlayer, loadAttempt]);
 
   // While blocked, check right away and then keep checking whether the
   // other device has stopped, so the student never has to reload.
   const blockKind = watchBlock?.kind;
   useEffect(() => {
     if (!blockKind || blockKind === "signed-out") return;
-    const firstCheck = setTimeout(() => void recheckBlock(), 0);
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible") void recheckBlock();
-    }, BLOCK_RECHECK_INTERVAL_MS);
+    const blockedAt = Date.now();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const check = (first: boolean) => {
+      if (first || document.visibilityState === "visible") void recheckBlock();
+      const fast = Date.now() - blockedAt < BLOCK_RECHECK_FAST_FOR_MS;
+      timer = setTimeout(
+        () => check(false),
+        fast ? BLOCK_RECHECK_INTERVAL_MS : BLOCK_RECHECK_SLOW_MS,
+      );
+    };
+    timer = setTimeout(() => check(true), 0);
     return () => {
-      clearTimeout(firstCheck);
-      clearInterval(timer);
+      if (timer) clearTimeout(timer);
     };
   }, [blockKind, recheckBlock]);
 
   async function toggleFullscreen() {
-    if (!wrapperRef.current) return;
-    if (document.fullscreenElement) await document.exitFullscreen();
-    else await wrapperRef.current.requestFullscreen();
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await wrapper.requestFullscreen();
+    } catch {
+      // The browser refused; the player simply stays as it is.
+    }
+  }
+
+  function retryLoad() {
+    setPlayerError("");
+    setLoadAttempt((attempt) => attempt + 1);
   }
 
   function togglePlayback() {
@@ -934,7 +985,8 @@ export function ProtectedYouTubePlayer({
   function toggleMute() {
     const player = playerRef.current;
     if (!player || !ready) return;
-    if (muted) {
+    // Volume 0 shows as muted, so the button must unmute it too.
+    if (muted || volume === 0) {
       userMutedRef.current = false;
       player.unMute();
       if (volume === 0) {
@@ -1027,7 +1079,7 @@ export function ProtectedYouTubePlayer({
         : "Your account is playing on another device";
   const blockHint =
     watchBlock?.kind === "busy"
-      ? "Tap Play here to watch on this device instead (the other device will pause), or wait and this video will start by itself once the other device stops."
+      ? "Tap Play here to watch on this device instead. The other device will pause."
       : watchBlock?.kind === "taken-over"
         ? "Tap Play here to keep watching on this device."
         : "";
@@ -1082,6 +1134,13 @@ export function ProtectedYouTubePlayer({
               <LockKeyhole className="mx-auto h-8 w-8 text-[#83e8ca]" />
               <p className="mt-3 font-semibold">Video player unavailable</p>
               <p className="mt-1 text-sm text-white/55">{playerError}</p>
+              <button
+                type="button"
+                onClick={retryLoad}
+                className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-[#83e8ca] px-4 text-sm font-bold text-navy transition hover:bg-[#6fe0bb]"
+              >
+                Try again
+              </button>
             </div>
           </div>
         ) : null}
@@ -1094,10 +1153,11 @@ export function ProtectedYouTubePlayer({
                 ) : (
                   <MonitorSmartphone className="mx-auto hidden h-8 w-8 text-[#83e8ca] sm:block" />
                 )}
-                <p className="text-base font-semibold sm:mt-3 sm:text-lg">{blockTitle}</p>
-                <p className="mt-1 text-xs leading-5 text-white/60 sm:mt-2 sm:text-sm sm:leading-6">
+                <p className="text-sm font-semibold sm:mt-3 sm:text-lg">{blockTitle}</p>
+                {/* Phones: the 16:9 box is too short for all the text and the buttons. */}
+                <p className="mt-1 text-xs leading-5 text-white/60 max-[360px]:hidden sm:mt-2 sm:text-sm sm:leading-6">
                   {watchBlock.message}
-                  {blockHint ? ` ${blockHint}` : ""}
+                  {blockHint ? <span className="hidden sm:inline"> {blockHint}</span> : null}
                 </p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:mt-5">
                   {watchBlock.kind === "signed-out" ? (
@@ -1122,7 +1182,8 @@ export function ProtectedYouTubePlayer({
                         href="/dashboard?tab=security"
                         className="inline-flex h-10 items-center justify-center rounded-xl border border-white/20 px-4 text-sm font-bold text-white transition hover:bg-white/10"
                       >
-                        Manage signed-in devices
+                        <span className="sm:hidden">My devices</span>
+                        <span className="hidden sm:inline">Manage signed-in devices</span>
                       </Link>
                     </>
                   )}
@@ -1165,7 +1226,7 @@ export function ProtectedYouTubePlayer({
               />
             </label>
 
-            <div className="mt-2 flex items-center gap-1.5 sm:gap-2">
+            <div className="mt-2 flex items-center gap-1 sm:gap-2">
               <button
                 type="button"
                 onClick={togglePlayback}
@@ -1201,12 +1262,14 @@ export function ProtectedYouTubePlayer({
                 ) : null}
               </div>
 
-              <span className="min-w-[84px] text-xs font-medium text-white/75">
-                {formatClock(position)} / {formatClock(duration)}
+              {/* Shrinks (with "…") before anything is pushed off a narrow screen. */}
+              <span className="min-w-0 truncate text-[11px] font-medium tabular-nums text-white/75 sm:text-xs">
+                {formatClock(position)}
+                <span className="max-[360px]:hidden"> / {formatClock(duration)}</span>
               </span>
 
               <div
-                className="ml-auto flex items-center gap-1 rounded-xl border border-white/15 bg-black/35 p-1 backdrop-blur-md"
+                className="ml-auto flex shrink-0 items-center gap-0.5 rounded-xl border border-white/15 bg-black/35 p-0.5 backdrop-blur-md sm:gap-1 sm:p-1"
                 aria-label="Playback speed"
               >
                 {[1, 1.5, 2].map((rate) => (
@@ -1214,7 +1277,7 @@ export function ProtectedYouTubePlayer({
                     key={rate}
                     type="button"
                     onClick={() => changePlaybackRate(rate)}
-                    className={`h-7 rounded-lg px-2 text-xs font-bold transition ${
+                    className={`h-7 rounded-lg px-1.5 text-xs font-bold transition sm:px-2 ${
                       playbackRate === rate
                         ? "bg-[#83e8ca] text-navy"
                         : "text-white/70 hover:bg-white/10 hover:text-white"
@@ -1231,6 +1294,7 @@ export function ProtectedYouTubePlayer({
                 onClick={onToggleTheater}
                 className="hidden h-9 items-center gap-2 rounded-xl border border-white/15 bg-black/35 px-3 text-xs font-bold text-white backdrop-blur-md transition hover:bg-white/15 sm:inline-flex"
                 aria-label={theaterMode ? "Minimize video" : "Enlarge video"}
+                title={theaterMode ? "Minimize video" : "Enlarge video"}
                 aria-pressed={theaterMode}
               >
                 {theaterMode ? (
@@ -1238,17 +1302,22 @@ export function ProtectedYouTubePlayer({
                 ) : (
                   <Maximize2 className="h-4 w-4" />
                 )}
-                {theaterMode ? "Minimize" : "Enlarge"}
+                {/* Icon only beside the lesson list on laptop widths, where the row is tight. */}
+                <span className={theaterMode ? undefined : "lg:max-xl:hidden"}>
+                  {theaterMode ? "Minimize" : "Enlarge"}
+                </span>
               </button>
 
-              <button
-                type="button"
-                onClick={toggleFullscreen}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-black/35 text-white backdrop-blur-md transition hover:bg-white/15"
-                aria-label="Toggle fullscreen"
-              >
-                <Expand className="h-4 w-4" />
-              </button>
+              {canFullscreen ? (
+                <button
+                  type="button"
+                  onClick={() => void toggleFullscreen()}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-black/35 text-white backdrop-blur-md transition hover:bg-white/15"
+                  aria-label="Toggle fullscreen"
+                >
+                  <Expand className="h-4 w-4" />
+                </button>
+              ) : null}
             </div>
           </div>
         ) : null}
