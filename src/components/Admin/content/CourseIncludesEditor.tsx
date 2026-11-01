@@ -74,8 +74,9 @@ export function CourseIncludesEditor({
         <div>
           <p className="text-sm font-medium text-navy">This course includes</p>
           <p className="mt-0.5 text-xs leading-5 text-slate-500">
-            Shown as “এই কোর্সে যা থাকছে” on the course page, one point per line.
-            Leave empty to show the auto-generated list.
+            Shown as “এই কোর্সে যা থাকছে” on the course page, one point per
+            line. Leave empty to hide this list. Lesson and exam counts are
+            never generated here.
           </p>
         </div>
         <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">
@@ -105,7 +106,10 @@ export function CourseIncludesEditor({
                     onChange={(event) => update(index, event.target.value)}
                     onKeyDown={(event) => {
                       // Enter adds the next point instead of submitting the form.
-                      if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                      if (
+                        event.key === "Enter" &&
+                        !event.nativeEvent.isComposing
+                      ) {
                         event.preventDefault();
                         insertAt(index + 1);
                       }
@@ -160,7 +164,8 @@ export function CourseIncludesEditor({
         <div className="mt-4 flex flex-col items-center rounded-xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center">
           <ListChecks className="h-6 w-6 text-slate-300" />
           <p className="mt-2 text-sm text-slate-500">
-            No points yet. Add what students get, e.g. live classes, lecture notes, exams.
+            No points yet. Add what students get, e.g. live classes, lecture
+            notes, exams.
           </p>
         </div>
       )}

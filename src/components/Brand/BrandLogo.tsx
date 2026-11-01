@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import logo from "../../../public/logo.png";
 
 import { cn } from "@/lib/utils";
 
@@ -24,7 +25,7 @@ export default function BrandLogo({
     >
       <span className="relative h-14 w-14 shrink-0 overflow-hidden">
         <Image
-          src="/logo.png"
+          src={logo}
           alt=""
           fill
           sizes="56px"

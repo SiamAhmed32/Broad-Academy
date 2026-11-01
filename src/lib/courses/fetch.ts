@@ -12,6 +12,7 @@ import {
   hasTrigramSearch,
 } from "./search";
 import { getEnrollmentGuideVideo } from "@/lib/site/config";
+import { extractYouTubeVideoId } from "@/lib/video/youtube";
 import type {
   CourseDetailData,
   CourseFacet,
@@ -53,7 +54,7 @@ export async function fetchCourseBySlug(
 
 const fetchCachedCourseBySlug = unstable_cache(
   async (slug: string) => fetchCourseBySlugFromDatabase(slug),
-  ["course-detail-v2"],
+  ["course-detail-v4"],
   {
     revalidate: 60,
     tags: ["courses", "instructors", "site-config"],
@@ -63,37 +64,54 @@ const fetchCachedCourseBySlug = unstable_cache(
 async function fetchCourseBySlugFromDatabase(
   slug: string,
 ): Promise<CourseDetailData | null> {
-  const course = await db.course.findFirst({
-    where: { slug, status: "PUBLISHED" },
-    select: {
-      id: true,
-      slug: true,
-      title: true,
-      shortDescription: true,
-      category: true,
-      level: true,
-      subject: true,
-      instructorName: true,
-      thumbnailUrl: true,
-      price: true,
-      originalPrice: true,
-      durationMinutes: true,
-      lessonCount: true,
-      rating: true,
-      reviewCount: true,
-      studentsCount: true,
-      examCount: true,
-      featured: true,
-      badge: true,
-      publishedAt: true,
-      description: true,
-      includes: true,
-    },
-  });
+  const [course, enrollmentGuideVideo, instructorProfiles] = await Promise.all([
+    db.course.findFirst({
+      where: { slug, status: "PUBLISHED" },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        shortDescription: true,
+        category: true,
+        level: true,
+        subject: true,
+        instructorName: true,
+        thumbnailUrl: true,
+        price: true,
+        originalPrice: true,
+        durationMinutes: true,
+        lessonCount: true,
+        rating: true,
+        reviewCount: true,
+        studentsCount: true,
+        examCount: true,
+        featured: true,
+        badge: true,
+        publishedAt: true,
+        description: true,
+        detailsHeading: true,
+        aboutHeading: true,
+        includesHeading: true,
+        includes: true,
+        enrollmentGuideYoutubeUrl: true,
+      },
+    }),
+    getEnrollmentGuideVideo(),
+    db.instructor.findMany({
+      where: { status: "ACTIVE" },
+      select: {
+        slug: true,
+        fullName: true,
+        avatarUrl: true,
+        subjects: true,
+        specialty: true,
+      },
+    }),
+  ]);
 
   if (!course) return null;
 
-  const [modules, related, enrollmentGuideVideo, instructorProfiles] = await Promise.all([
+  const [modules, related] = await Promise.all([
     db.courseModule.findMany({
       where: { courseId: course.id },
       orderBy: { displayOrder: "asc" },
@@ -141,40 +159,50 @@ async function fetchCourseBySlugFromDatabase(
       orderBy: [{ featured: "desc" }, { rating: "desc" }, { studentsCount: "desc" }],
       take: 3,
     }),
-    getEnrollmentGuideVideo(),
-    db.instructor.findMany({
-      where: { status: "ACTIVE" },
-      select: {
-        slug: true,
-        fullName: true,
-        avatarUrl: true,
-        subjects: true,
-        specialty: true,
-      },
-    }),
   ]);
 
   const stats = computeCourseContentStats(modules);
-  const { description, includes, ...courseFields } = course;
+  const {
+    description,
+    detailsHeading,
+    aboutHeading,
+    includesHeading,
+    includes,
+    enrollmentGuideYoutubeUrl,
+    ...courseFields
+  } = course;
   const publicCourse = serializeCourse({
     ...courseFields,
     lessonCount: stats.lessonCount,
     durationMinutes: stats.durationMinutes,
   });
   const customIncludes = includes.map((item) => item.trim()).filter(Boolean);
+  const courseGuideId = enrollmentGuideYoutubeUrl
+    ? extractYouTubeVideoId(enrollmentGuideYoutubeUrl)
+    : null;
 
   return {
-    course: { ...publicCourse, description: description?.trim() || null },
-    includes: customIncludes.length
-      ? customIncludes
-      : buildGeneratedIncludes(stats),
+    course: {
+      ...publicCourse,
+      description: description?.trim() || null,
+      detailsHeading: detailsHeading?.trim() || "কোর্স ডিটেইলস",
+      aboutHeading: aboutHeading?.trim() || "কোর্স সম্পর্কে:",
+      includesHeading: includesHeading?.trim() || "এই কোর্সে যা থাকছে",
+    },
+    includes: customIncludes,
     instructors: matchCourseInstructors(
       course.instructorName,
       instructorProfiles,
       course.subject,
     ),
     related: related.map(serializeCourse),
-    enrollmentGuideVideo,
+    enrollmentGuideVideo: courseGuideId
+      ? {
+          videoId: courseGuideId,
+          watchUrl: `https://www.youtube.com/watch?v=${courseGuideId}`,
+          embedUrl: `https://www.youtube.com/embed/${courseGuideId}`,
+        }
+      : enrollmentGuideVideo,
   };
 }
 
@@ -371,7 +399,7 @@ function serializeCourse(
 }
 
 /** Fallback "This course includes" list, used until Admin adds its own lines. */
-function buildGeneratedIncludes(
+export function buildGeneratedIncludes(
   stats: ReturnType<typeof computeCourseContentStats>,
 ) {
   const includes = [

@@ -11,31 +11,16 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
+import { FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 import { cn } from "@/lib/utils";
-import {
-  isEnrollmentRequestOpen,
-  type EnrollmentRequestStatus,
-} from "@/lib/enrollments/status";
+import { isEnrollmentRequestOpen } from "@/lib/enrollments/status";
+import type {
+  EnrollmentState,
+  InitialEnrollmentProps,
+} from "@/lib/enrollments/state";
 import { notify } from "@/lib/toast";
-
-type EnrollmentState = {
-  course: { id: string; slug: string; title: string; price: number };
-  hasAccess: boolean;
-  enrollmentStatus: string | null;
-  request: {
-    id: string;
-    status: EnrollmentRequestStatus;
-    submittedAt: string;
-    reviewNote: string | null;
-  } | null;
-  bkashNumber: string | null;
-  paymentConfigured: boolean;
-  profilePhone: string | null;
-  profileClassLevel: number | null;
-};
 
 type Fields = Record<string, string[] | undefined>;
 
@@ -47,16 +32,38 @@ export default function EnrollmentCTA({
   courseTitle,
   coursePrice,
   compact = false,
+  initialEnrollment,
 }: {
   courseId: string;
   courseSlug: string;
   courseTitle: string;
   coursePrice: number;
   compact?: boolean;
+  initialEnrollment?: InitialEnrollmentProps;
 }) {
-  const [state, setState] = useState<EnrollmentState | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [authenticated, setAuthenticated] = useState(true);
+  const [prevCourseId, setPrevCourseId] = useState(courseId);
+  const [prevInitialEnrollment, setPrevInitialEnrollment] = useState(initialEnrollment);
+  const [state, setState] = useState<EnrollmentState | null>(
+    initialEnrollment ? initialEnrollment.state : null,
+  );
+  const [loading, setLoading] = useState(initialEnrollment === undefined);
+  const [authenticated, setAuthenticated] = useState(
+    initialEnrollment ? initialEnrollment.authenticated : true,
+  );
+
+  if (prevCourseId !== courseId || prevInitialEnrollment !== initialEnrollment) {
+    setPrevCourseId(courseId);
+    setPrevInitialEnrollment(initialEnrollment);
+    setState(initialEnrollment ? initialEnrollment.state : null);
+    setLoading(initialEnrollment === undefined);
+    setAuthenticated(initialEnrollment ? initialEnrollment.authenticated : true);
+  }
+
+  const hasAccessRef = useRef(state?.hasAccess);
+  hasAccessRef.current = state?.hasAccess;
+  const authenticatedRef = useRef(authenticated);
+  authenticatedRef.current = authenticated;
+
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [fields, setFields] = useState<Fields>({});
@@ -90,23 +97,43 @@ export default function EnrollmentCTA({
           `/api/enrollment-requests?courseId=${encodeURIComponent(courseId)}`,
           { cache: "no-store" },
         );
-        const payload = await response.json();
         if (cancelled) return;
         if (response.status === 401) {
           setAuthenticated(false);
           return;
         }
-        if (response.ok) setState(payload.data);
+        if (response.ok) {
+          const payload = await response.json();
+          if (cancelled) return;
+          setAuthenticated(true);
+          setState(payload.data);
+        }
+      } catch {
+        // Network or JSON parsing failure, ignore and keep existing state
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
-    void loadEnrollmentState();
+    if (!initialEnrollment) {
+      void loadEnrollmentState();
+    }
+
     const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") void loadEnrollmentState();
+      if (
+        document.visibilityState === "visible" &&
+        authenticatedRef.current &&
+        !hasAccessRef.current
+      ) {
+        void loadEnrollmentState();
+      }
     }, 30_000);
-    const handleFocus = () => void loadEnrollmentState();
+
+    const handleFocus = () => {
+      if (authenticatedRef.current && !hasAccessRef.current) {
+        void loadEnrollmentState();
+      }
+    };
     window.addEventListener("focus", handleFocus);
 
     return () => {
@@ -114,7 +141,7 @@ export default function EnrollmentCTA({
       window.clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
     };
-  }, [courseId]);
+  }, [courseId, initialEnrollment]);
 
   function openModal() {
     setFields({});

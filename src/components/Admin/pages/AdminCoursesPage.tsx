@@ -1,10 +1,12 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   Archive,
+  BookOpen,
   Eye,
   FileText,
   Globe,
@@ -34,9 +36,14 @@ import {
 } from "@/components/Admin";
 import { useAdminCan } from "@/components/Admin/AdminPermissionsContext";
 import { ADMIN_PERMISSIONS } from "@/lib/admin/permissions";
+import { CourseIncludesEditor } from "@/components/Admin/content/CourseIncludesEditor";
+import { CourseInstructorPicker } from "@/components/Admin/content/CourseInstructorPicker";
 import Modal from "@/components/reusables/Modal";
 import { adminFetch, formatAdminDate, slugifyInput } from "@/lib/admin/client";
-import { courseLevelLabels } from "@/lib/courses/constants";
+import {
+  COURSE_DESCRIPTION_MAX_LENGTH,
+  courseLevelLabels,
+} from "@/lib/courses/constants";
 import type { CourseLevel } from "@/generated/prisma/client";
 
 type CourseStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
@@ -74,12 +81,19 @@ const statusLabel = {
 const emptyForm = {
   title: "",
   shortDescription: "",
+  description: "",
+  detailsHeading: "কোর্স ডিটেইলস",
+  aboutHeading: "কোর্স সম্পর্কে:",
+  includesHeading: "এই কোর্সে যা থাকছে",
+  includes: [] as string[],
+  enrollmentGuideYoutubeUrl: "",
   category: "Mathematics",
   level: "CLASS_6" as CourseLevel,
   subject: "",
   instructorName: "",
   thumbnailUrl: "",
   price: 0,
+  originalPrice: null as number | null,
   durationMinutes: 60,
   status: "DRAFT" as const,
 };
@@ -156,17 +170,24 @@ export default function AdminCoursesPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.instructorName.trim()) {
+      setFormError("Select at least one teacher.");
+      return;
+    }
     if (!form.thumbnailUrl) {
       setFormError("Upload a course thumbnail before saving.");
       return;
     }
     setSaving(true);
     setFormError("");
+    const titleSlug = slugifyInput(form.title);
     const res = await adminFetch<Course>("/api/admin/courses", {
       method: "POST",
       body: JSON.stringify({
         ...form,
-        slug: slugifyInput(form.title),
+        description: form.description.trim() || null,
+        includes: form.includes.map((line) => line.trim()).filter(Boolean),
+        ...(titleSlug.length >= 2 ? { slug: titleSlug } : {}),
         lessonCount: 0,
         featured: false,
       }),
@@ -186,9 +207,12 @@ export default function AdminCoursesPage() {
     setActionLoading(true);
 
     if (confirmAction.type === "delete") {
-      const res = await adminFetch(`/api/admin/courses/${confirmAction.course.id}`, {
-        method: "DELETE",
-      });
+      const res = await adminFetch(
+        `/api/admin/courses/${confirmAction.course.id}`,
+        {
+          method: "DELETE",
+        },
+      );
       setActionLoading(false);
       if (res.success) {
         setConfirmAction(null);
@@ -197,14 +221,15 @@ export default function AdminCoursesPage() {
       }
     } else {
       const nextStatus =
-        confirmAction.type === "archive"
-          ? "ARCHIVED"
-          : "DRAFT"; // unarchive → back to draft
+        confirmAction.type === "archive" ? "ARCHIVED" : "DRAFT"; // unarchive → back to draft
 
-      const res = await adminFetch(`/api/admin/courses/${confirmAction.course.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: nextStatus }),
-      });
+      const res = await adminFetch(
+        `/api/admin/courses/${confirmAction.course.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: nextStatus }),
+        },
+      );
       setActionLoading(false);
       if (res.success) {
         setConfirmAction(null);
@@ -224,8 +249,7 @@ export default function AdminCoursesPage() {
           description:
             "The course will be hidden from students and the website. You can restore it at any time from the Archived filter.",
           confirmLabel: "Archive",
-          confirmClass:
-            "bg-amber-500 hover:bg-amber-600 text-white",
+          confirmClass: "bg-amber-500 hover:bg-amber-600 text-white",
         },
         unarchive: {
           icon: <RotateCcw className="h-10 w-10 text-sky-500" />,
@@ -233,8 +257,7 @@ export default function AdminCoursesPage() {
           description:
             "The course will be moved back to Draft status. You can then edit and republish it.",
           confirmLabel: "Restore to Draft",
-          confirmClass:
-            "bg-sky-600 hover:bg-sky-700 text-white",
+          confirmClass: "bg-sky-600 hover:bg-sky-700 text-white",
         },
         delete: {
           icon: <Trash2 className="h-10 w-10 text-red-500" />,
@@ -242,8 +265,7 @@ export default function AdminCoursesPage() {
           description:
             "This will delete the course and ALL its modules, lessons, and quizzes forever. This action cannot be undone.",
           confirmLabel: "Delete permanently",
-          confirmClass:
-            "bg-red-600 hover:bg-red-700 text-white",
+          confirmClass: "bg-red-600 hover:bg-red-700 text-white",
         },
       }[confirmAction.type]
     : null;
@@ -265,9 +287,24 @@ export default function AdminCoursesPage() {
 
       {/* Stat cards */}
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
-        <StatCard label="Published" value={counts.PUBLISHED} icon={Globe} accent="text-emerald-600" />
-        <StatCard label="Drafts" value={counts.DRAFT} icon={FileText} accent="text-slate-500" />
-        <StatCard label="Archived" value={counts.ARCHIVED} icon={Archive} accent="text-amber-600" />
+        <StatCard
+          label="Published"
+          value={counts.PUBLISHED}
+          icon={Globe}
+          accent="text-emerald-600"
+        />
+        <StatCard
+          label="Drafts"
+          value={counts.DRAFT}
+          icon={FileText}
+          accent="text-slate-500"
+        />
+        <StatCard
+          label="Archived"
+          value={counts.ARCHIVED}
+          icon={Archive}
+          accent="text-amber-600"
+        />
       </div>
 
       {/* Filters */}
@@ -324,9 +361,22 @@ export default function AdminCoursesPage() {
           animate={{ opacity: 1, y: 0 }}
         >
           <AdminCard className="mb-6">
-            <h2 className="mb-4 text-lg font-semibold text-navy">New course</h2>
+            <h2 className="text-lg font-semibold text-navy">New course</h2>
+            <p className="mb-6 mt-1 text-sm text-slate-500">
+              Write the course page before uploading lessons. Save as a draft
+              until it is ready to publish.
+            </p>
             <form onSubmit={handleCreate} className="grid gap-4 sm:grid-cols-2">
-              <AdminField label="Course title" hint="The name students will see">
+              <div className="sm:col-span-2 border-b border-slate-100 pb-3">
+                <h3 className="font-semibold text-navy">1. Course basics</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Help students find and recognise this course.
+                </p>
+              </div>
+              <AdminField
+                label="Course title"
+                hint="The name students will see"
+              >
                 <AdminInput
                   required
                   value={form.title}
@@ -337,20 +387,26 @@ export default function AdminCoursesPage() {
                 <AdminInput
                   required
                   value={form.subject}
-                  onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, subject: e.target.value })
+                  }
                 />
               </AdminField>
               <AdminField label="Category">
                 <AdminInput
                   required
                   value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, category: e.target.value })
+                  }
                 />
               </AdminField>
               <AdminField label="Class level">
                 <AdminSelect
                   value={form.level}
-                  onChange={(e) => setForm({ ...form, level: e.target.value as CourseLevel })}
+                  onChange={(e) =>
+                    setForm({ ...form, level: e.target.value as CourseLevel })
+                  }
                 >
                   {Object.entries(courseLevelLabels).map(([value, label]) => (
                     <option key={value} value={value}>
@@ -359,38 +415,21 @@ export default function AdminCoursesPage() {
                   ))}
                 </AdminSelect>
               </AdminField>
-              <AdminField label="Instructor name">
-                <AdminInput
-                  required
-                  value={form.instructorName}
-                  onChange={(e) => setForm({ ...form, instructorName: e.target.value })}
-                />
-              </AdminField>
-              <AdminField label="Price (BDT)">
-                <AdminInput
-                  type="number"
-                  min={0}
-                  required
-                  value={form.price}
-                  onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
-                />
-              </AdminField>
-              <AdminField label="Duration (minutes)">
-                <AdminInput
-                  type="number"
-                  min={1}
-                  required
-                  value={form.durationMinutes}
-                  onChange={(e) =>
-                    setForm({ ...form, durationMinutes: Number(e.target.value) })
-                  }
-                />
-              </AdminField>
+              <CourseInstructorPicker
+                value={form.instructorName}
+                onChange={(instructorName) => {
+                  setForm({ ...form, instructorName });
+                  setFormError("");
+                }}
+                error={formError === "Select at least one teacher." ? formError : undefined}
+              />
               <div className="sm:col-span-2">
                 <AdminImageUpload
                   label="Course thumbnail"
                   value={form.thumbnailUrl}
-                  onChange={(thumbnailUrl) => setForm({ ...form, thumbnailUrl })}
+                  onChange={(thumbnailUrl) =>
+                    setForm({ ...form, thumbnailUrl })
+                  }
                   onUploadingChange={setImageUploading}
                   purpose="course-thumbnail"
                   aspect="video"
@@ -398,19 +437,126 @@ export default function AdminCoursesPage() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <AdminField label="Short description">
+                <div className="mb-4 mt-4 border-b border-slate-100 pb-3">
+                  <h3 className="font-semibold text-navy">
+                    2. Course page content
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Your own copy for this course, including combo courses.
+                    Class and exam totals are not required.
+                  </p>
+                </div>
+                <AdminField
+                  label="Short description"
+                  hint="Shown below the course title. 10–300 characters."
+                >
                   <AdminTextarea
                     required
+                    minLength={10}
+                    maxLength={300}
                     value={form.shortDescription}
-                    onChange={(e) => setForm({ ...form, shortDescription: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, shortDescription: e.target.value })
+                    }
                   />
                 </AdminField>
               </div>
+              <div className="sm:col-span-2">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <AdminField label="Details section heading" hint="Shown above the full description.">
+                    <AdminInput value={form.detailsHeading} onChange={(e) => setForm({ ...form, detailsHeading: e.target.value })} />
+                  </AdminField>
+                  <AdminField label="About heading" hint="Shown inside the description card.">
+                    <AdminInput value={form.aboutHeading} onChange={(e) => setForm({ ...form, aboutHeading: e.target.value })} />
+                  </AdminField>
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <AdminField
+                  label="Full course description"
+                  hint="Shown in course details. Line breaks are preserved; you can update this after creating the course."
+                >
+                  <AdminTextarea
+                    rows={8}
+                    maxLength={COURSE_DESCRIPTION_MAX_LENGTH}
+                    value={form.description}
+                    placeholder="Explain who the course is for, what students will learn, the schedule and any important instructions."
+                    onChange={(e) =>
+                      setForm({ ...form, description: e.target.value })
+                    }
+                  />
+                </AdminField>
+              </div>
+              <div className="sm:col-span-2">
+                <AdminField label="Includes heading" hint="Shown above the feature list on this course’s purchase card.">
+                  <AdminInput value={form.includesHeading} onChange={(e) => setForm({ ...form, includesHeading: e.target.value })} />
+                </AdminField>
+              </div>
+              <div className="sm:col-span-2">
+                <CourseIncludesEditor
+                  value={form.includes}
+                  onChange={(includes) => setForm({ ...form, includes })}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <AdminField
+                  label="Enrollment guide YouTube link (optional)"
+                  hint="Paste the video explaining how to buy this course. It appears in the purchase card on this course page."
+                >
+                  <AdminInput
+                    type="url"
+                    inputMode="url"
+                    value={form.enrollmentGuideYoutubeUrl}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    onChange={(e) => setForm({ ...form, enrollmentGuideYoutubeUrl: e.target.value })}
+                  />
+                </AdminField>
+              </div>
+              <div className="sm:col-span-2 mt-4 border-b border-slate-100 pb-3">
+                <h3 className="font-semibold text-navy">
+                  3. Pricing & publishing
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Published courses are visible to students. Use Draft while
+                  preparing the page.
+                </p>
+              </div>
+              <AdminField label="Price (BDT)">
+                <AdminInput
+                  type="number"
+                  min={0}
+                  required
+                  value={form.price}
+                  onChange={(e) =>
+                    setForm({ ...form, price: Number(e.target.value) })
+                  }
+                />
+              </AdminField>
+              <AdminField
+                label="Original price (optional)"
+                hint="A higher original price displays the discount."
+              >
+                <AdminInput
+                  type="number"
+                  min={0}
+                  value={form.originalPrice ?? ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      originalPrice:
+                        e.target.value === "" ? null : Number(e.target.value),
+                    })
+                  }
+                />
+              </AdminField>
               <AdminField label="Status">
                 <AdminSelect
                   value={form.status}
                   onChange={(e) =>
-                    setForm({ ...form, status: e.target.value as typeof form.status })
+                    setForm({
+                      ...form,
+                      status: e.target.value as typeof form.status,
+                    })
                   }
                 >
                   <option value="DRAFT">Draft</option>
@@ -418,7 +564,9 @@ export default function AdminCoursesPage() {
                 </AdminSelect>
               </AdminField>
               {formError ? (
-                <p className="text-sm text-red-600 sm:col-span-2">{formError}</p>
+                <p className="text-sm text-red-600 sm:col-span-2">
+                  {formError}
+                </p>
               ) : null}
               <div className="flex gap-2 sm:col-span-2">
                 <AdminButton
@@ -428,7 +576,11 @@ export default function AdminCoursesPage() {
                 >
                   Save course
                 </AdminButton>
-                <AdminButton type="button" variant="ghost" onClick={() => setShowForm(false)}>
+                <AdminButton
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowForm(false)}
+                >
                   Cancel
                 </AdminButton>
               </div>
@@ -462,7 +614,9 @@ export default function AdminCoursesPage() {
                   <th className="px-5 py-3 font-semibold text-navy">Level</th>
                   <th className="px-5 py-3 font-semibold text-navy">Status</th>
                   <th className="px-5 py-3 font-semibold text-navy">Updated</th>
-                  <th className="px-5 py-3 text-right font-semibold text-navy">Actions</th>
+                  <th className="px-5 py-3 text-right font-semibold text-navy">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -477,19 +631,44 @@ export default function AdminCoursesPage() {
                     }`}
                   >
                     <td className="px-5 py-4">
-                      <div className="font-semibold text-navy max-w-[220px] truncate">
-                        {course.title}
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100 text-slate-400">
+                          {course.thumbnailUrl ? (
+                            <Image
+                              src={course.thumbnailUrl}
+                              alt=""
+                              fill
+                              sizes="44px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <BookOpen aria-hidden="true" className="h-5 w-5" />
+                          )}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="max-w-[220px] truncate font-semibold text-navy" title={course.title}>
+                            {course.title}
+                          </div>
+                          <div className="mt-0.5 text-xs text-slate-500">
+                            ৳{course.price.toLocaleString()}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5">৳{course.price.toLocaleString()}</div>
                     </td>
-                    <td className="px-5 py-4 text-slate-600">{course.subject}</td>
-                    <td className="px-5 py-4 text-slate-600">{courseLevelLabels[course.level]}</td>
+                    <td className="px-5 py-4 text-slate-600">
+                      {course.subject}
+                    </td>
+                    <td className="px-5 py-4 text-slate-600">
+                      {courseLevelLabels[course.level]}
+                    </td>
                     <td className="px-5 py-4">
                       <AdminBadge variant={statusVariant[course.status]}>
                         {statusLabel[course.status]}
                       </AdminBadge>
                     </td>
-                    <td className="px-5 py-4 text-slate-500">{formatAdminDate(course.updatedAt)}</td>
+                    <td className="px-5 py-4 text-slate-500">
+                      {formatAdminDate(course.updatedAt)}
+                    </td>
                     <td className="px-5 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         {/* View */}
@@ -591,17 +770,27 @@ export default function AdminCoursesPage() {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="text-xl font-bold text-navy leading-tight">{previewCourse.title}</h2>
-                <p className="text-xs text-slate-400 mt-0.5 mb-4 font-mono">{previewCourse.slug}</p>
+                <h2 className="text-xl font-bold text-navy leading-tight">
+                  {previewCourse.title}
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5 mb-4 font-mono">
+                  {previewCourse.slug}
+                </p>
                 <div className="grid grid-cols-2 gap-3">
-                  <InfoTile label="Price" value={`৳${previewCourse.price.toLocaleString()}`} />
+                  <InfoTile
+                    label="Price"
+                    value={`৳${previewCourse.price.toLocaleString()}`}
+                  />
                   <InfoTile
                     label="Level"
                     value={courseLevelLabels[previewCourse.level]}
                   />
                   <InfoTile label="Subject" value={previewCourse.subject} />
                   <InfoTile label="Category" value={previewCourse.category} />
-                  <InfoTile label="Instructor" value={previewCourse.instructorName} />
+                  <InfoTile
+                    label="Instructor"
+                    value={previewCourse.instructorName}
+                  />
                   <InfoTile
                     label="Lessons / Duration"
                     value={`${previewCourse.lessonCount} lessons · ${previewCourse.durationMinutes} min`}
@@ -619,7 +808,10 @@ export default function AdminCoursesPage() {
                     type="button"
                     onClick={() => {
                       setPreviewCourse(null);
-                      setConfirmAction({ type: "archive", course: previewCourse });
+                      setConfirmAction({
+                        type: "archive",
+                        course: previewCourse,
+                      });
                     }}
                     className="inline-flex items-center gap-2 h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-amber-600 transition hover:bg-amber-50 hover:border-amber-300"
                   >
@@ -632,7 +824,10 @@ export default function AdminCoursesPage() {
                       type="button"
                       onClick={() => {
                         setPreviewCourse(null);
-                        setConfirmAction({ type: "unarchive", course: previewCourse });
+                        setConfirmAction({
+                          type: "unarchive",
+                          course: previewCourse,
+                        });
                       }}
                       className="inline-flex items-center gap-2 h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-sky-600 transition hover:bg-sky-50 hover:border-sky-300"
                     >
@@ -643,7 +838,10 @@ export default function AdminCoursesPage() {
                       type="button"
                       onClick={() => {
                         setPreviewCourse(null);
-                        setConfirmAction({ type: "delete", course: previewCourse });
+                        setConfirmAction({
+                          type: "delete",
+                          course: previewCourse,
+                        });
                       }}
                       className="inline-flex items-center gap-2 h-10 rounded-xl border border-red-200 bg-white px-4 text-sm font-medium text-red-600 transition hover:bg-red-50"
                     >
@@ -677,8 +875,12 @@ export default function AdminCoursesPage() {
             <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-slate-50">
               {confirmConfig.icon}
             </div>
-            <h2 className="text-lg font-bold text-navy mb-2">{confirmConfig.title}</h2>
-            <p className="text-sm text-slate-500 leading-relaxed mb-1">{confirmConfig.description}</p>
+            <h2 className="text-lg font-bold text-navy mb-2">
+              {confirmConfig.title}
+            </h2>
+            <p className="text-sm text-slate-500 leading-relaxed mb-1">
+              {confirmConfig.description}
+            </p>
             <p className="text-sm font-semibold text-navy mt-3 mb-6 truncate px-4">
               &ldquo;{confirmAction.course.title}&rdquo;
             </p>
@@ -754,8 +956,12 @@ function StatCard({
         <Icon className="h-5 w-5" />
       </span>
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-        <p className="mt-0.5 text-xl font-bold text-navy">{value.toLocaleString()}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          {label}
+        </p>
+        <p className="mt-0.5 text-xl font-bold text-navy">
+          {value.toLocaleString()}
+        </p>
       </div>
     </div>
   );
@@ -764,8 +970,13 @@ function StatCard({
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-slate-50 p-3">
-      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
-      <p className="mt-0.5 text-sm font-medium text-navy truncate" title={value}>
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+        {label}
+      </p>
+      <p
+        className="mt-0.5 text-sm font-medium text-navy truncate"
+        title={value}
+      >
         {value}
       </p>
     </div>

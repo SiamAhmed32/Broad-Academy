@@ -1,4 +1,3 @@
-import { ClipboardList, GraduationCap } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -20,8 +19,6 @@ export default function CourseCard({
     course.originalPrice && course.originalPrice > course.price
       ? Math.round((1 - course.price / course.originalPrice) * 100)
       : null;
-  const classCount = course.lessonCount ?? 0;
-  const examCount = course.examCount ?? 0;
 
   return (
     <article
@@ -71,17 +68,6 @@ export default function CourseCard({
           </span>
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-navy/10 pt-3.5">
-          <CourseMetric
-            icon={GraduationCap}
-            label={`${classCount} ${classCount === 1 ? "Class" : "Classes"}`}
-          />
-          <CourseMetric
-            icon={ClipboardList}
-            label={`${examCount} ${examCount === 1 ? "Exam" : "Exams"}`}
-          />
-        </div>
-
         <div className="mt-auto pt-5">
           <CourseCardAction slug={course.slug} title={course.title} />
         </div>
@@ -97,17 +83,3 @@ export default function CourseCard({
   );
 }
 
-function CourseMetric({
-  icon: Icon,
-  label,
-}: {
-  icon: typeof GraduationCap;
-  label: string;
-}) {
-  return (
-    <span className="flex items-center gap-1.5 text-sm font-semibold text-navy">
-      <Icon className="h-4 w-4 shrink-0 text-navy" />
-      {label}
-    </span>
-  );
-}

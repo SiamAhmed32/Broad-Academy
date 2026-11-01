@@ -17,6 +17,7 @@ const sessionUserSelect = {
   status: true,
   studentId: true,
   avatarUrl: true,
+  classLevel: true,
 } as const;
 
 export type AuthenticatedUser = {
@@ -30,6 +31,7 @@ export type AuthenticatedUser = {
   status: "ACTIVE" | "SUSPENDED";
   studentId: string | null;
   avatarUrl: string | null;
+  classLevel: number | null;
 };
 
 export type AuthenticatedSession = {

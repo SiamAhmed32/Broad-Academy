@@ -1,7 +1,7 @@
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "@/generated/prisma/client";
 
-const PRISMA_CLIENT_VERSION = 12;
+const PRISMA_CLIENT_VERSION = 14;
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -43,7 +43,14 @@ function isStalePrismaClient(client: PrismaClient) {
     return true;
   }
 
-  if (!courseFields.includes("homepageOrder") || !courseFields.includes("examCount")) {
+  if (
+    !courseFields.includes("homepageOrder") ||
+    !courseFields.includes("examCount") ||
+    !courseFields.includes("detailsHeading") ||
+    !courseFields.includes("aboutHeading") ||
+    !courseFields.includes("includesHeading") ||
+    !courseFields.includes("enrollmentGuideYoutubeUrl")
+  ) {
     return true;
   }
 

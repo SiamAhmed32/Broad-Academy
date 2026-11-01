@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
 
   // ── Create booking ──
   const activeBookingWhere = {
-    status: { in: ["PENDING", "CONFIRMED"] as ("PENDING" | "CONFIRMED")[] },
+    status: "PENDING" as const,
     archivedAt: null,
     OR: [{ userId: user.id }, { email: normalizedEmail }],
   };
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
 
   if (existingActiveBooking) {
     return errorResponse(
-      "You already have an active counselling request. Complete or cancel it before booking another session.",
+      "You already have a pending counselling request. Please wait for the team to review it before sending another.",
       409,
     );
   }
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
       error.message === "ACTIVE_COUNSELLING_BOOKING_EXISTS"
     ) {
       return errorResponse(
-        "You already have an active counselling request. Complete or cancel it before booking another session.",
+        "You already have a pending counselling request. Please wait for the team to review it before sending another.",
         409,
       );
     }

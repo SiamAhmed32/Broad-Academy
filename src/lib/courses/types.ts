@@ -71,6 +71,9 @@ export type EnrollmentGuideVideo = {
 export type PublicCourseDetail = PublicCourse & {
   /** Long "about the course" text from Admin; line breaks are preserved. */
   description: string | null;
+  detailsHeading: string;
+  aboutHeading: string;
+  includesHeading: string;
 };
 
 /**
@@ -87,7 +90,7 @@ export type CourseInstructor = {
 
 export type CourseDetailData = {
   course: PublicCourseDetail;
-  /** Admin-defined "এই কোর্সে যা থাকছে" lines, or generated ones when none are set. */
+  /** Admin-defined "এই কোর্সে যা থাকছে" lines; empty hides this section. */
   includes: string[];
   instructors: CourseInstructor[];
   related: PublicCourse[];

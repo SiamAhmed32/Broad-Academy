@@ -6,25 +6,48 @@ import { useEffect, useState } from "react";
 
 // Shared across every card on the page so the list is fetched once, and
 // refreshed after a short while so a new enrollment shows up quickly.
-const CACHE_MS = 30_000;
+const CACHE_MS = 60_000;
+let cachedSlugs: Set<string> | null = null;
 let enrolledSlugsRequest: Promise<Set<string>> | null = null;
 let requestedAt = 0;
 
-function loadEnrolledSlugs() {
-  if (enrolledSlugsRequest && Date.now() - requestedAt < CACHE_MS) {
+export function invalidateEnrolledCoursesCache() {
+  cachedSlugs = null;
+  enrolledSlugsRequest = null;
+  requestedAt = 0;
+}
+
+export function getCachedSlugs(): Set<string> | null {
+  return cachedSlugs;
+}
+
+export function loadEnrolledSlugs(): Promise<Set<string>> {
+  if (cachedSlugs && Date.now() - requestedAt < CACHE_MS) {
+    return Promise.resolve(cachedSlugs);
+  }
+  if (enrolledSlugsRequest) {
     return enrolledSlugsRequest;
   }
-  requestedAt = Date.now();
+  const fetchTime = Date.now();
   enrolledSlugsRequest = fetch("/api/student/enrolled-courses", {
     credentials: "same-origin",
-    cache: "no-store",
   })
-    .then((response) => (response.ok ? response.json() : null))
-    .then(
-      (payload: { data?: { slugs?: string[] } } | null) =>
-        new Set(payload?.data?.slugs ?? []),
-    )
-    .catch(() => new Set<string>());
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Failed to load enrolled courses: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((payload: { data?: { slugs?: string[] } } | null) => {
+      const set = new Set(payload?.data?.slugs ?? []);
+      cachedSlugs = set;
+      requestedAt = fetchTime;
+      return set;
+    })
+    .catch(() => cachedSlugs ?? new Set<string>())
+    .finally(() => {
+      enrolledSlugsRequest = null;
+    });
   return enrolledSlugsRequest;
 }
 
@@ -35,7 +58,9 @@ export default function CourseCardAction({
   slug: string;
   title: string;
 }) {
-  const [enrolled, setEnrolled] = useState(false);
+  const [enrolled, setEnrolled] = useState(() =>
+    cachedSlugs ? cachedSlugs.has(slug) : false,
+  );
 
   useEffect(() => {
     let cancelled = false;

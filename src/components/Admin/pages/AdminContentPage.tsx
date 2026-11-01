@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ExternalLink,
   FolderPlus,
   Layers,
   ListChecks,
@@ -270,24 +269,13 @@ export default function AdminContentPage() {
         }
         actions={
           course ? (
-            <>
-              <Link
-                href={`/admin/courses/${course.id}`}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-navy transition hover:bg-slate-50"
-              >
-                <Settings2 className="h-4 w-4" />
-                Course details
-              </Link>
-              <a
-                href={`/courses/${course.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-navy transition hover:bg-slate-50"
-              >
-                <ExternalLink className="h-4 w-4" />
-                View on website
-              </a>
-            </>
+            <Link
+              href={`/admin/courses/${course.id}`}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-navy transition hover:bg-slate-50"
+            >
+              <Settings2 className="h-4 w-4" />
+              Course details
+            </Link>
           ) : null
         }
       />

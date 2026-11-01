@@ -24,6 +24,7 @@ import { Container } from "@/components/reusables";
 import { courseLevelLabels } from "@/lib/courses/constants";
 import { formatBanglaTaka, toBanglaDigits } from "@/lib/courses/content-format";
 import type { CourseDetailData } from "@/lib/courses/types";
+import type { InitialEnrollmentProps } from "@/lib/enrollments/state";
 import { cn } from "@/lib/utils";
 
 import CourseAbout from "./CourseAbout";
@@ -37,7 +38,13 @@ import EnrollmentGuideButton from "./EnrollmentGuideButton";
  * details, helpline + a purchase card): classes are uploaded gradually, so
  * auto-generated lesson counts / curriculum confused students and parents.
  */
-export default function CourseDetailPage({ data }: { data: CourseDetailData }) {
+export default function CourseDetailPage({
+  data,
+  initialEnrollment,
+}: {
+  data: CourseDetailData;
+  initialEnrollment?: InitialEnrollmentProps;
+}) {
   const { course } = data;
   const savings =
     course.originalPrice && course.originalPrice > course.price
@@ -49,6 +56,7 @@ export default function CourseDetailPage({ data }: { data: CourseDetailData }) {
     courseSlug: course.slug,
     courseTitle: course.title,
     coursePrice: course.price,
+    initialEnrollment,
   };
 
   return (
@@ -105,43 +113,55 @@ export default function CourseDetailPage({ data }: { data: CourseDetailData }) {
                 <div className="px-5 pt-5 sm:px-6 sm:pt-6 md:pb-5 md:pt-0 lg:pb-0 lg:pt-6">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                     <span className="sr-only font-bangla">কোর্স ফি:</span>
-                    <span className="text-[2rem] font-bold leading-none tracking-tight text-navy">
+                    <span className="text-[2rem] font-bold leading-none text-navy">
                       {priceLabel}
                     </span>
                     {savings && course.originalPrice ? (
                       <>
                         <del className="text-lg font-medium text-navy/45">
-                          <span className="sr-only font-bangla">আগের মূল্য </span>
+                          <span className="sr-only font-bangla">
+                            আগের মূল্য{" "}
+                          </span>
                           {formatBanglaTaka(course.originalPrice)}
                         </del>
                         <span className="font-bangla rounded-full bg-[#e7f7ee] px-2.5 py-1 text-xs font-bold text-[#0d7039]">
-                          {toBanglaDigits(savings.toLocaleString("en-US"))} ৳ ছাড়
+                          {toBanglaDigits(savings.toLocaleString("en-US"))} ৳
+                          ছাড়
                         </span>
                       </>
                     ) : null}
                   </div>
-                  <EnrollmentCTA {...enrollmentProps} />
+                  <EnrollmentCTA key={course.id} {...enrollmentProps} />
                 </div>
               </div>
 
               <div className="px-5 pb-6 pt-6 sm:px-6 md:pt-1 lg:pt-6">
                 <div className="mb-6 h-px bg-navy/8" />
-                <h2 className="font-bangla text-lg font-bold text-navy">এই কোর্সে যা থাকছে</h2>
-                <ul className="mt-4 grid gap-3.5 md:grid-cols-2 md:gap-x-6 lg:grid-cols-1">
-                  {data.includes.map((item, index) => {
-                    const Icon = includeIcon(item);
-                    return (
-                      <li key={`${index}-${item}`} className="flex items-start gap-3">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-heroBg text-accent">
-                          <Icon className="h-4 w-4" />
-                        </span>
-                        <span className="font-bangla pt-1 text-[15px] leading-6 text-navy/85">
-                          {item}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
+                {data.includes.length > 0 ? (
+                  <>
+                    <h2 className="font-bangla text-lg font-bold text-navy">
+                      {course.includesHeading}
+                    </h2>
+                    <ul className="mt-4 grid gap-3.5 md:grid-cols-2 md:gap-x-6 lg:grid-cols-1">
+                      {data.includes.map((item, index) => {
+                        const Icon = includeIcon(item);
+                        return (
+                          <li
+                            key={`${index}-${item}`}
+                            className="flex items-start gap-3"
+                          >
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-heroBg text-accent">
+                              <Icon className="h-4 w-4" />
+                            </span>
+                            <span className="font-bangla pt-1 text-[15px] leading-6 text-navy/85">
+                              {item}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                ) : null}
                 <div className="mt-6">
                   <EnrollmentGuideButton video={data.enrollmentGuideVideo} />
                 </div>
@@ -159,9 +179,11 @@ export default function CourseDetailPage({ data }: { data: CourseDetailData }) {
 
             {course.description ? (
               <section>
-                <SectionTitle>কোর্স ডিটেইলস</SectionTitle>
+                <SectionTitle>{course.detailsHeading}</SectionTitle>
                 <div className={cn(cardClass, "mt-5 p-5 sm:p-7")}>
-                  <h3 className="font-bangla text-lg font-bold text-navy">কোর্স সম্পর্কে:</h3>
+                  <h3 className="font-bangla text-lg font-bold text-navy">
+                    {course.aboutHeading}
+                  </h3>
                   <div className="mt-3">
                     <CourseAbout text={course.description} />
                   </div>
@@ -189,7 +211,9 @@ export default function CourseDetailPage({ data }: { data: CourseDetailData }) {
                     >
                       {contactDetails.phone}
                     </a>{" "}
-                    <span className="whitespace-nowrap">(সকাল ১০টা থেকে রাত ১১টা)</span>
+                    <span className="whitespace-nowrap">
+                      (সকাল ১০টা থেকে রাত ১১টা)
+                    </span>
                   </p>
                 </div>
                 <div className="flex gap-2.5 xl:shrink-0">
@@ -239,7 +263,9 @@ export default function CourseDetailPage({ data }: { data: CourseDetailData }) {
       <div className="fixed inset-x-0 bottom-0 z-50 border-t border-navy/10 bg-white/95 p-3 shadow-[0_-10px_35px_rgba(22,51,81,.12)] backdrop-blur lg:hidden">
         <Container className="flex items-center justify-between gap-4 px-1 sm:px-4">
           <div className="min-w-0">
-            <span className="font-bangla block text-xs text-body">কোর্স ফি</span>
+            <span className="font-bangla block text-xs text-body">
+              কোর্স ফি
+            </span>
             <span className="flex items-baseline gap-2">
               <strong className="text-xl text-navy">{priceLabel}</strong>
               {savings && course.originalPrice ? (
@@ -249,7 +275,7 @@ export default function CourseDetailPage({ data }: { data: CourseDetailData }) {
               ) : null}
             </span>
           </div>
-          <EnrollmentCTA {...enrollmentProps} compact />
+          <EnrollmentCTA key={course.id} {...enrollmentProps} compact />
         </Container>
       </div>
     </div>
@@ -298,16 +324,34 @@ function Pill({
 const includeIconRules: Array<[RegExp, LucideIcon]> = [
   [/লাইভ|\blive\b|zoom|জুম/i, Radio],
   [/গ্রুপ|group|ফেসবুক|facebook|কমিউনিটি|community/i, UsersRound],
-  [/পরীক্ষা|এক্সাম|exam|টেস্ট|\btest|কুইজ|quiz|mcq|assessment/i, ClipboardCheck],
-  [/নোট|\bnote|pdf|পিডিএফ|শিট|sheet|বই|\bbook|ম্যাটেরিয়াল|material|reading|resource|ডাউনলোড|download|ব্যাংক|\bbank/i, FileText],
+  [
+    /পরীক্ষা|এক্সাম|exam|টেস্ট|\btest|কুইজ|quiz|mcq|assessment/i,
+    ClipboardCheck,
+  ],
+  [
+    /নোট|\bnote|pdf|পিডিএফ|শিট|sheet|বই|\bbook|ম্যাটেরিয়াল|material|reading|resource|ডাউনলোড|download|ব্যাংক|\bbank/i,
+    FileText,
+  ],
   [/ভিডিও|video|রেকর্ড|record|ক্লাস|class|লেকচার|lecture|lesson/i, PlayCircle],
-  [/সাপোর্ট|support|সমাধান|solution|ডাউট|doubt|প্রশ্ন|question|মেন্টর|mentor/i, MessagesSquare],
+  [
+    /সাপোর্ট|support|সমাধান|solution|ডাউট|doubt|প্রশ্ন|question|মেন্টর|mentor/i,
+    MessagesSquare,
+  ],
   [/সার্টিফিকেট|certificate|সনদ/i, Award],
-  [/মোবাইল|mobile|ডিভাইস|device|কম্পিউটার|computer|desktop|অ্যাপ|app\b|access/i, MonitorSmartphone],
-  [/মাস|month|সপ্তাহ|সাপ্তাহিক|week|ঘণ্টা|ঘন্টা|hour|রুটিন|routine|schedule|শিডিউল/i, CalendarClock],
+  [
+    /মোবাইল|mobile|ডিভাইস|device|কম্পিউটার|computer|desktop|অ্যাপ|app\b|access/i,
+    MonitorSmartphone,
+  ],
+  [
+    /মাস|month|সপ্তাহ|সাপ্তাহিক|week|ঘণ্টা|ঘন্টা|hour|রুটিন|routine|schedule|শিডিউল/i,
+    CalendarClock,
+  ],
   [/প্রগ্রেস|progress|ট্র্যাক|track|রিপোর্ট|report/i, TrendingUp],
 ];
 
 function includeIcon(text: string): LucideIcon {
-  return includeIconRules.find(([pattern]) => pattern.test(text))?.[1] ?? CheckCircle2;
+  return (
+    includeIconRules.find(([pattern]) => pattern.test(text))?.[1] ??
+    CheckCircle2
+  );
 }

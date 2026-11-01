@@ -126,7 +126,19 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       ...(data.description !== undefined
         ? { description: data.description || null }
         : {}),
+      ...(data.detailsHeading !== undefined
+        ? { detailsHeading: data.detailsHeading || null }
+        : {}),
+      ...(data.aboutHeading !== undefined
+        ? { aboutHeading: data.aboutHeading || null }
+        : {}),
+      ...(data.includesHeading !== undefined
+        ? { includesHeading: data.includesHeading || null }
+        : {}),
       ...(data.includes !== undefined ? { includes: data.includes } : {}),
+      ...(data.enrollmentGuideYoutubeUrl !== undefined
+        ? { enrollmentGuideYoutubeUrl: data.enrollmentGuideYoutubeUrl || null }
+        : {}),
       ...(data.facebookGroupUrl !== undefined
         ? { facebookGroupUrl: data.facebookGroupUrl || null }
         : {}),

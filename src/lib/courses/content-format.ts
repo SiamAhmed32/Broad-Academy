@@ -38,5 +38,5 @@ export function toBanglaDigits(value: string | number) {
 
 /** Course fee in Bangla digits, e.g. "৳১,৫০০". */
 export function formatBanglaTaka(amount: number) {
-  return `৳${toBanglaDigits(amount.toLocaleString("en-US"))}`;
+  return `৳ ${toBanglaDigits(amount.toLocaleString("en-US"))}`;
 }

@@ -13,7 +13,7 @@ export function NavNotificationBell({
   navSession,
   placement,
 }: NavNotificationBellProps) {
-  const isDesktop = useMediaQuery("(min-width: 768px)", placement === "desktop");
+  const isDesktop = useMediaQuery("(min-width: 1024px)", placement === "desktop");
 
   if (!navSession.canViewNotifications) return null;
   if (placement === "desktop" && !isDesktop) return null;

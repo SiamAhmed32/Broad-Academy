@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   images: {
+    // Reuse optimized images across visits instead of reprocessing them frequently.
+    // Replaced remote images should use a new/versioned URL.
+    minimumCacheTTL: 86400,
     remotePatterns: [
       {
         protocol: "https",
@@ -63,6 +66,26 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: securityHeaders,
+      },
+      {
+        // Only bundled public artwork is shareable. Pages and API responses can
+        // contain account data and must retain Next.js's own cache policy.
+        source: "/:folder(consultation|contact|courses|hero|images|newsletter|testimonials|owner%20image)/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, s-maxage=86400, stale-while-revalidate=3600",
+          },
+        ],
+      },
+      {
+        source: "/:asset(logo\\.png|logo\\.jpeg|image\\.png)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, s-maxage=86400, stale-while-revalidate=3600",
+          },
+        ],
       },
     ];
   },

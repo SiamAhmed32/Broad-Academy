@@ -4,12 +4,17 @@ import { z } from "zod";
 import { errorResponse } from "@/lib/auth/response";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { calendarMonthRange } from "@/lib/counselling/calendar";
 
 const querySchema = z.object({
   page: z.coerce.number().int().min(1).max(500).default(1),
   limit: z.coerce.number().int().min(1).max(20).default(8),
   search: z.string().trim().max(80).optional(),
   status: z.enum(["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"]).optional(),
+  month: z
+    .string()
+    .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+    .optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -25,7 +30,8 @@ export async function GET(request: NextRequest) {
     return errorResponse("Invalid query parameters.", 422);
   }
 
-  const { page, limit, search, status } = parsed.data;
+  const { page, limit, search, status, month } = parsed.data;
+  const range = month ? calendarMonthRange(month) : null;
   const skip = (page - 1) * limit;
 
   const ownershipFilter = {
@@ -35,14 +41,36 @@ export async function GET(request: NextRequest) {
   const where = {
     AND: [
       ownershipFilter,
+      ...(range
+        ? [
+            {
+              OR: [
+                { scheduledAt: { gte: range.start, lt: range.end } },
+                { scheduledAt: null },
+              ],
+            },
+          ]
+        : []),
       ...(status ? [{ status }] : []),
       ...(search
         ? [
             {
               OR: [
-                { fullName: { contains: search, mode: "insensitive" as const } },
-                { schoolName: { contains: search, mode: "insensitive" as const } },
-                { educationLevel: { contains: search, mode: "insensitive" as const } },
+                {
+                  fullName: { contains: search, mode: "insensitive" as const },
+                },
+                {
+                  schoolName: {
+                    contains: search,
+                    mode: "insensitive" as const,
+                  },
+                },
+                {
+                  educationLevel: {
+                    contains: search,
+                    mode: "insensitive" as const,
+                  },
+                },
                 { message: { contains: search, mode: "insensitive" as const } },
               ],
             },
@@ -51,6 +79,11 @@ export async function GET(request: NextRequest) {
     ],
   };
 
+  const countsPromise = db.counsellingBooking.groupBy({
+    by: ["status"],
+    where: ownershipFilter,
+    _count: { status: true },
+  });
   const [bookings, total, countsArray] = await Promise.all([
     db.counsellingBooking.findMany({
       where,
@@ -71,12 +104,16 @@ export async function GET(request: NextRequest) {
         },
       },
     }),
-    db.counsellingBooking.count({ where }),
-    db.counsellingBooking.groupBy({
-      by: ["status"],
-      where: ownershipFilter,
-      _count: { status: true },
-    }),
+    search || month
+      ? db.counsellingBooking.count({ where })
+      : countsPromise.then((rows) =>
+          rows.reduce(
+            (sum, row) =>
+              sum + (!status || row.status === status ? row._count.status : 0),
+            0,
+          ),
+        ),
+    countsPromise,
   ]);
 
   const counts = {
@@ -89,51 +126,54 @@ export async function GET(request: NextRequest) {
     counts[row.status] = row._count.status;
   }
 
-  return NextResponse.json({
-    success: true,
-    data: {
-      bookings: bookings.map((booking) => ({
-        id: booking.id,
-        fullName: booking.fullName,
-        schoolName: booking.schoolName,
-        classRoll: booking.classRoll,
-        studentGroup: booking.studentGroup,
-        educationLevel: booking.educationLevel,
-        subjectInterest: booking.subjectInterest,
-        preferredDate: booking.preferredDate.toISOString(),
-        preferredTime: booking.preferredTime,
-        scheduledAt: booking.scheduledAt?.toISOString() ?? null,
-        archived: Boolean(booking.archivedAt),
-        message: booking.message,
-        status: booking.status,
-        meetingLink: booking.meetingLink,
-        counsellorNotes: booking.counsellorNotes,
-        sessionFee: booking.sessionFee,
-        feeQuotedAt: booking.feeQuotedAt?.toISOString() ?? null,
-        paymentStatus: booking.paymentStatus,
-        bkashSenderNumber: booking.bkashSenderNumber,
-        bkashTransactionId: booking.bkashTransactionId,
-        paymentSubmittedAt: booking.paymentSubmittedAt?.toISOString() ?? null,
-        paidAt: booking.paidAt?.toISOString() ?? null,
-        hasPaymentProof: Boolean(booking.paymentProofPublicId),
-        createdAt: booking.createdAt.toISOString(),
-        files: booking.files.map(({ uploadedById, ...file }) => ({
-          ...file,
-          uploadedByMe: uploadedById === user.id,
-          createdAt: file.createdAt.toISOString(),
+  return NextResponse.json(
+    {
+      success: true,
+      data: {
+        bookings: bookings.map((booking) => ({
+          id: booking.id,
+          fullName: booking.fullName,
+          schoolName: booking.schoolName,
+          classRoll: booking.classRoll,
+          studentGroup: booking.studentGroup,
+          educationLevel: booking.educationLevel,
+          subjectInterest: booking.subjectInterest,
+          preferredDate: booking.preferredDate.toISOString(),
+          preferredTime: booking.preferredTime,
+          scheduledAt: booking.scheduledAt?.toISOString() ?? null,
+          archived: Boolean(booking.archivedAt),
+          message: booking.message,
+          status: booking.status,
+          meetingLink: booking.meetingLink,
+          counsellorNotes: booking.counsellorNotes,
+          sessionFee: booking.sessionFee,
+          feeQuotedAt: booking.feeQuotedAt?.toISOString() ?? null,
+          paymentStatus: booking.paymentStatus,
+          bkashSenderNumber: booking.bkashSenderNumber,
+          bkashTransactionId: booking.bkashTransactionId,
+          paymentSubmittedAt: booking.paymentSubmittedAt?.toISOString() ?? null,
+          paidAt: booking.paidAt?.toISOString() ?? null,
+          hasPaymentProof: Boolean(booking.paymentProofPublicId),
+          createdAt: booking.createdAt.toISOString(),
+          files: booking.files.map(({ uploadedById, ...file }) => ({
+            ...file,
+            uploadedByMe: uploadedById === user.id,
+            createdAt: file.createdAt.toISOString(),
+          })),
         })),
-      })),
-      paymentConfig: {
-        bkashNumber: process.env.BKASH_PAYMENT_NUMBER?.trim() || null,
-        paymentConfigured: Boolean(process.env.BKASH_PAYMENT_NUMBER?.trim()),
-      },
-      counts,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.max(1, Math.ceil(total / limit)),
+        paymentConfig: {
+          bkashNumber: process.env.BKASH_PAYMENT_NUMBER?.trim() || null,
+          paymentConfigured: Boolean(process.env.BKASH_PAYMENT_NUMBER?.trim()),
+        },
+        counts,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+        },
       },
     },
-  });
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }

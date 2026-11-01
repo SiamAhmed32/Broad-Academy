@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 
 import { errorResponse } from "@/lib/auth/response";
 import { getClientIp, hashValue, isTrustedOrigin } from "@/lib/auth/security";
@@ -9,6 +9,7 @@ import {
 } from "@/lib/newsletter/rate-limit";
 import { sendNewsletterWelcomeEmail } from "@/lib/newsletter/email";
 import { newsletterSchema } from "@/lib/newsletter/validation";
+import { notifyActiveAdmins } from "@/lib/notifications/service";
 
 const SUCCESS_MESSAGE =
   "Thanks for subscribing. Check your inbox for updates from Broad Academy.";
@@ -49,7 +50,13 @@ export async function POST(request: NextRequest) {
 
   const ipHash = hashValue(getClientIp(request));
   const rateKey = hashValue(`newsletter:${ipHash}:${data.email}`);
-  const rateLimit = await checkNewsletterRateLimit(rateKey);
+  const [rateLimit, existing] = await Promise.all([
+    checkNewsletterRateLimit(rateKey),
+    db.newsletterSubscriber.findUnique({
+      where: { email: data.email },
+      select: { id: true, status: true },
+    }),
+  ]);
 
   if (!rateLimit.allowed) {
     return NextResponse.json(
@@ -69,14 +76,9 @@ export async function POST(request: NextRequest) {
 
   const userAgent = request.headers.get("user-agent")?.slice(0, 512) || null;
 
-  const existing = await db.newsletterSubscriber.findUnique({
-    where: { email: data.email },
-    select: { id: true, status: true },
-  });
-
   if (existing) {
     if (existing.status === "UNSUBSCRIBED") {
-      await db.newsletterSubscriber.update({
+      await Promise.all([db.newsletterSubscriber.update({
         where: { id: existing.id },
         data: {
           status: "ACTIVE",
@@ -84,7 +86,7 @@ export async function POST(request: NextRequest) {
           ipHash,
           userAgent,
         },
-      });
+      }), recordNewsletterAttempt(rateKey)]);
 
       void sendNewsletterWelcomeEmail({
         subscriberId: existing.id,
@@ -93,9 +95,13 @@ export async function POST(request: NextRequest) {
       }).catch((error) => {
         console.error("Newsletter resubscribe email failed:", error);
       });
+    } else {
+      after(async () => { await recordNewsletterAttempt(rateKey); });
+      return NextResponse.json(
+        { success: true, message: "আপনি ইতোমধ্যে এই ইমেইল দিয়ে সাবস্ক্রাইব করেছেন।" },
+        { headers: { "Cache-Control": "no-store" } },
+      );
     }
-
-    await recordNewsletterAttempt(rateKey);
 
     return NextResponse.json(
       { success: true, message: SUCCESS_MESSAGE },
@@ -112,18 +118,30 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  await recordNewsletterAttempt(rateKey);
+  after(async () => { await Promise.all([
+    recordNewsletterAttempt(rateKey),
+    notifyActiveAdmins({
+      title: "New newsletter subscriber",
+      content: `${data.email} subscribed to the newsletter.`,
+      type: "NEWSLETTER_SUBSCRIBED",
+      category: "UPDATE",
+      link: "/admin/newsletter",
+    }).catch((error) => {
+      console.error("Newsletter admin notification failed:", error);
+    }),
+  ]); });
 
-  void sendNewsletterWelcomeEmail({
+  after(async () => { await sendNewsletterWelcomeEmail({
     subscriberId: subscriber.id,
     email: data.email,
     source: data.source,
   }).catch((error) => {
     console.error("Newsletter welcome email failed:", error);
-  });
+  }); });
 
   return NextResponse.json(
     { success: true, message: SUCCESS_MESSAGE },
     { status: 201, headers: { "Cache-Control": "no-store" } },
   );
 }
+

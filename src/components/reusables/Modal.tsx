@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
+
+const emptySubscribe = () => () => {};
 
 interface ModalProps {
   isOpen: boolean;
@@ -11,6 +13,7 @@ interface ModalProps {
   children: React.ReactNode;
   title?: string;
   size?: "sm" | "md" | "lg" | "xl";
+  insetOnMobile?: boolean;
 }
 
 const overlayVariants = {
@@ -48,9 +51,10 @@ export default function Modal({
   children,
   title,
   size = "md",
+  insetOnMobile = false,
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {
@@ -60,17 +64,19 @@ export default function Modal({
   );
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (!isOpen) return;
 
-  useEffect(() => {
-    if (isOpen) {
-      document.addEventListener("keydown", handleEscape);
-      document.body.style.overflow = "hidden";
-    }
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousRootOverflow = document.documentElement.style.overflow;
+    document.addEventListener("keydown", handleEscape);
+    // Lock the root as well as the body: mobile browsers can otherwise pan
+    // the document horizontally behind a fixed, portalled dialog.
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", handleEscape);
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousRootOverflow;
     };
   }, [isOpen, handleEscape]);
 
@@ -80,7 +86,7 @@ export default function Modal({
     <AnimatePresence>
       {isOpen ? (
         <motion.div
-          className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-4"
+          className={`fixed inset-0 z-[100] flex min-w-0 justify-center sm:items-center sm:p-4 ${insetOnMobile ? "items-center px-0 py-3" : "items-end p-0"}`}
           variants={overlayVariants}
           initial="hidden"
           animate="visible"
@@ -98,7 +104,7 @@ export default function Modal({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className={`relative z-10 max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-2xl ${modalSizes[size]}`}
+            className={`relative z-10 min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-2xl ${insetOnMobile ? "w-[calc(100%-1rem)] max-h-[calc(100dvh-1.5rem)] rounded-2xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:w-full" : "w-full max-h-[92vh] rounded-t-2xl"} ${modalSizes[size]}`}
             role="dialog"
             aria-modal="true"
             aria-label={title}
@@ -106,11 +112,11 @@ export default function Modal({
           >
             <button
               onClick={onClose}
-              className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-all hover:bg-gray-200 hover:text-gray-800"
+              className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-red-100 bg-red-50 text-red-600 transition-all hover:border-red-600 hover:bg-red-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 active:scale-95"
               aria-label="Close dialog"
               type="button"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4 stroke-[2.5]" />
             </button>
 
             {children}

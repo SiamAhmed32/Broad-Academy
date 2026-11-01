@@ -49,7 +49,7 @@ export const adminCourseSchema = z.object({
     "CLASS_12",
   ]),
   subject: z.string().trim().min(2).max(80),
-  instructorName: z.string().trim().min(2).max(80),
+  instructorName: z.string().trim().min(2).max(500),
   thumbnailUrl: z
     .string()
     .trim()
@@ -74,6 +74,9 @@ export const adminCourseSchema = z.object({
     )
     .optional()
     .nullable(),
+  detailsHeading: z.string().trim().max(120).optional().nullable(),
+  aboutHeading: z.string().trim().max(120).optional().nullable(),
+  includesHeading: z.string().trim().max(120).optional().nullable(),
   // "এই কোর্সে যা থাকছে" lines, in display order. Blank lines are dropped.
   includes: z
     .array(
@@ -88,6 +91,16 @@ export const adminCourseSchema = z.object({
     .max(COURSE_INCLUDES_MAX_ITEMS, `Add up to ${COURSE_INCLUDES_MAX_ITEMS} lines.`)
     .transform((lines) => lines.filter(Boolean))
     .optional(),
+  enrollmentGuideYoutubeUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .refine(
+      (value) => value === "" || extractYouTubeVideoId(value) !== null,
+      "Enter a valid YouTube video link.",
+    )
+    .optional()
+    .nullable(),
   // Private group for enrolled students only — never exposed on the public page.
   facebookGroupUrl: z
     .string()

@@ -19,7 +19,7 @@ import {
   UserRound,
   XCircle,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   AdminBadge,
@@ -141,6 +141,10 @@ export default function AdminCounsellingPage() {
   const [counts, setCounts] = useState<Counts>(emptyCounts);
   const [view, setView] = useState<ListView>("active");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const requestVersion = useRef(0);
+  const pendingQuery = useRef<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [status, setStatus] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("");
   const [subject, setSubject] = useState("");
@@ -157,14 +161,13 @@ export default function AdminCounsellingPage() {
   const [deleting, setDeleting] = useState(false);
 
   const loadBookings = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
     const params = new URLSearchParams({
       page: String(page),
       limit: String(emptyPagination.limit),
       view,
       sort,
     });
-    if (search.trim()) params.set("search", search.trim());
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     if (status) params.set("status", status);
     if (paymentStatus) params.set("paymentStatus", paymentStatus);
     if (subject) params.set("subject", subject);
@@ -172,16 +175,25 @@ export default function AdminCounsellingPage() {
     if (dateFrom) params.set("dateFrom", new Date(`${dateFrom}T00:00:00`).toISOString());
     if (dateTo) params.set("dateTo", new Date(`${dateTo}T23:59:59`).toISOString());
 
+    const query = params.toString();
+    if (pendingQuery.current === query) return;
+    pendingQuery.current = query;
+    const version = ++requestVersion.current;
+    if (!silent) setLoading(true);
     const response = await adminFetch<{
       bookings: Booking[];
       counts: Counts;
       pagination: AdminPaginationMeta;
       filters: { subjects: string[]; educationLevels: string[] };
       capabilities: { canPermanentlyDelete: boolean };
-    }>(`/api/admin/counselling?${params.toString()}`);
+    }>(`/api/admin/counselling?${query}`);
+
+    if (version !== requestVersion.current) return;
+    pendingQuery.current = null;
 
     if (response.success && response.data) {
       setBookings(response.data.bookings);
+      setHasLoaded(true);
       setCounts(response.data.counts);
       setPagination(response.data.pagination);
       setFilters(response.data.filters);
@@ -200,7 +212,7 @@ export default function AdminCounsellingPage() {
     educationLevel,
     page,
     paymentStatus,
-    search,
+    debouncedSearch,
     showToast,
     sort,
     status,
@@ -209,8 +221,12 @@ export default function AdminCounsellingPage() {
   ]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void loadBookings(), 250);
+    const timer = window.setTimeout(() => setDebouncedSearch(search), 250);
     return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    void loadBookings();
   }, [loadBookings]);
 
   useEffect(() => {
@@ -366,7 +382,7 @@ export default function AdminCounsellingPage() {
       </AdminCard>
 
       <AdminCard className="overflow-hidden p-0">
-        {loading ? (
+        {loading && !hasLoaded ? (
           <AdminLoading label="Loading counselling sessions..." />
         ) : bookings.length === 0 ? (
           <AdminEmpty

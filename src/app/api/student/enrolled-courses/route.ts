@@ -9,7 +9,12 @@ export async function GET() {
   if (!user) {
     return NextResponse.json(
       { success: true, data: { slugs: [] } },
-      { headers: { "Cache-Control": "no-store" } },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=120",
+          Vary: "Cookie",
+        },
+      },
     );
   }
 
@@ -20,6 +25,11 @@ export async function GET() {
 
   return NextResponse.json(
     { success: true, data: { slugs: enrollments.map((item) => item.course.slug) } },
-    { headers: { "Cache-Control": "no-store" } },
+    {
+      headers: {
+        "Cache-Control": "private, max-age=30, stale-while-revalidate=60",
+        Vary: "Cookie",
+      },
+    },
   );
 }

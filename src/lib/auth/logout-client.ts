@@ -1,4 +1,7 @@
+import { invalidateEnrolledCoursesCache } from "@/components/Courses/CourseCardAction";
+
 export async function logoutAndRedirect() {
+  invalidateEnrolledCoursesCache();
   try {
     await fetch("/api/auth/logout", {
       method: "POST",

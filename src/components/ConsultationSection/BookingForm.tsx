@@ -30,6 +30,7 @@ type BookingFormProps = {
   defaultValues?: Partial<CounsellingBookingInput>;
   onSuccess?: (bookingId?: string) => void;
   compact?: boolean;
+  initialAccount?: { email: string; phone: string | null } | null;
 };
 
 type AuthState = "checking" | "guest" | "signed-in";
@@ -39,12 +40,13 @@ export default function BookingForm({
   defaultValues,
   onSuccess,
   compact = false,
+  initialAccount,
 }: BookingFormProps) {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const isDashboard = mode === "dashboard";
   // The dashboard is only reachable when signed in, so skip the check there.
   const [authState, setAuthState] = useState<AuthState>(
-    isDashboard ? "signed-in" : "checking",
+    isDashboard || initialAccount ? "signed-in" : initialAccount === null ? "guest" : "checking",
   );
 
   const {
@@ -58,11 +60,11 @@ export default function BookingForm({
     resolver: zodResolver(counsellingBookingSchema),
     defaultValues: {
       fullName: defaultValues?.fullName ?? "",
-      phone: defaultValues?.phone ?? "",
+      phone: defaultValues?.phone ?? initialAccount?.phone ?? "",
       schoolName: "",
       educationLevel: defaultValues?.educationLevel,
       classRoll: "",
-      email: defaultValues?.email ?? "",
+      email: defaultValues?.email ?? initialAccount?.email ?? "",
       studentGroup: "",
       message: "",
       pricingAcknowledged: undefined,
@@ -70,6 +72,7 @@ export default function BookingForm({
   });
 
   useEffect(() => {
+    if (initialAccount !== undefined) return;
     let cancelled = false;
 
     async function loadAccount() {
@@ -99,7 +102,7 @@ export default function BookingForm({
     return () => {
       cancelled = true;
     };
-  }, [getValues, isDashboard, setValue]);
+  }, [getValues, initialAccount, isDashboard, setValue]);
 
   const onSubmit = async (data: CounsellingBookingInput) => {
     const result = await apiFetch<{ bookingId?: string }>("/api/counselling/book", {

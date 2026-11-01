@@ -8,7 +8,6 @@ import {
   getClientIp,
   hashValue,
   isTrustedOrigin,
-  recordFailedAttempt,
 } from "@/lib/auth/security";
 import { errorResponse } from "@/lib/auth/response";
 import { db } from "@/lib/db";
@@ -16,6 +15,7 @@ import {
   deletePaymentProof,
   uploadPaymentProof,
 } from "@/lib/enrollments/cloudinary";
+import { getCourseEnrollmentState } from "@/lib/enrollments/state";
 import { enrollmentRequestSchema } from "@/lib/enrollments/validation";
 import { sendEnrollmentSubmittedEmails } from "@/lib/enrollments/email";
 import { notifyActiveAdmins } from "@/lib/notifications/service";
@@ -27,15 +27,15 @@ const MAX_REQUEST_BYTES = MAX_IMAGE_BYTES + 256 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export async function GET(request: NextRequest) {
+  const courseId = request.nextUrl.searchParams.get("courseId")?.trim();
+  if (!courseId) return errorResponse("Course is required.", 422);
+
   const user = await getCurrentUser();
   if (!user || user.role !== "STUDENT") {
     return errorResponse("Sign in with a student account to enroll.", 401);
   }
 
-  const courseId = request.nextUrl.searchParams.get("courseId")?.trim();
-  if (!courseId) return errorResponse("Course is required.", 422);
-
-  const [course, enrollment, enrollmentRequest, studentProfile] = await Promise.all([
+  const [course, enrollment, enrollmentRequest] = await Promise.all([
     db.course.findFirst({
       where: { id: courseId, status: "PUBLISHED" },
       select: { id: true, slug: true, title: true, price: true },
@@ -51,35 +51,23 @@ export async function GET(request: NextRequest) {
         status: true,
         submittedAt: true,
         reviewNote: true,
-        classLevel: true,
       },
-    }),
-    db.user.findUnique({
-      where: { id: user.id },
-      select: { classLevel: true },
     }),
   ]);
 
   if (!course) return errorResponse("Course not found.", 404);
 
+  const enrollmentData = await getCourseEnrollmentState({
+    user,
+    course,
+    enrollment,
+    enrollmentRequest,
+  });
+
   return NextResponse.json(
     {
       success: true,
-      data: {
-        course,
-        hasAccess: enrollment?.status === "ACTIVE",
-        enrollmentStatus: enrollment?.status ?? null,
-        request: enrollmentRequest
-          ? {
-              ...enrollmentRequest,
-              submittedAt: enrollmentRequest.submittedAt.toISOString(),
-            }
-          : null,
-        bkashNumber: process.env.BKASH_PAYMENT_NUMBER?.trim() || null,
-        paymentConfigured: Boolean(process.env.BKASH_PAYMENT_NUMBER?.trim()),
-        profilePhone: user.phone,
-        profileClassLevel: studentProfile?.classLevel ?? null,
-      },
+      data: enrollmentData.state,
     },
     { headers: { "Cache-Control": "no-store" } },
   );

@@ -8,7 +8,7 @@ import Link from "next/link";
 import BookingModal from "./BookingModal";
 import { FamilyIcon } from "@/components/icons/BrandIcons";
 
-const ConsultationInfo = () => {
+const ConsultationInfo = ({ account }: { account: { email: string; phone: string | null } | null }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
@@ -90,6 +90,7 @@ const ConsultationInfo = () => {
       <BookingModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        account={account}
       />
     </>
   );

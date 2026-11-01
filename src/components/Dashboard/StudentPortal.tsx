@@ -7,12 +7,15 @@ import {
   BookOpenCheck,
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Eye,
   EyeOff,
   GraduationCap,
   KeyRound,
   LayoutDashboard,
+  List,
   LoaderCircle,
   LockKeyhole,
   Mail,
@@ -31,7 +34,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import { CounsellingTab } from "./CounsellingTab";
 import { NotificationBell } from "@/components/Layout/Navbar/NotificationBell";
@@ -43,11 +46,9 @@ import {
   enrollmentRequestStatusLabel,
   isEnrollmentRequestOpen,
 } from "@/lib/enrollments/status";
-import type {
-  StudentPortalData,
-  StudentProfile,
-} from "@/lib/student/types";
+import type { StudentPortalData, StudentProfile } from "@/lib/student/types";
 import { notify } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 
 const tabs = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -78,7 +79,9 @@ export default function StudentPortal({
     ? (initialTab as PortalTab)
     : "overview";
   const [activeTab, setActiveTab] = useState<PortalTab>(validInitial);
+  const [counsellingView, setCounsellingView] = useState<"list" | "calendar">("calendar");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [profile, setProfile] = useState(data.profile);
   const hasEnrollment = data.courses.length > 0;
   const portalNavSession: NavSession = {
@@ -133,10 +136,10 @@ export default function StudentPortal({
     };
   }, [drawerOpen]);
 
-  function showToast(message: string, error = false) {
+  const showToast = useCallback((message: string, error = false) => {
     if (error) notify.error(message);
     else notify.success(message);
-  }
+  }, []);
 
   function selectTab(tab: PortalTab) {
     setActiveTab(tab);
@@ -144,7 +147,6 @@ export default function StudentPortal({
     const url = tab === "overview" ? "/dashboard" : `/dashboard?tab=${tab}`;
     window.history.replaceState(null, "", url);
   }
-
 
   return (
     <main className="min-h-screen overflow-x-clip bg-[#f3f7fb] text-navy">
@@ -166,10 +168,10 @@ export default function StudentPortal({
               role="dialog"
               aria-modal="true"
               aria-label="Dashboard menu"
-              className="absolute inset-y-0 right-0 flex w-[min(20rem,86vw)] flex-col bg-white shadow-[0_24px_60px_rgba(22,51,81,.25)]"
-              initial={{ x: "100%" }}
+              className="absolute inset-y-0 left-0 flex w-[min(20rem,86vw)] flex-col bg-white shadow-[0_24px_60px_rgba(22,51,81,.25)]"
+              initial={{ x: "-100%" }}
               animate={{ x: 0 }}
-              exit={{ x: "100%" }}
+              exit={{ x: "-100%" }}
               transition={
                 reduceMotion
                   ? { duration: 0 }
@@ -216,29 +218,69 @@ export default function StudentPortal({
 
       <header className="sticky top-0 z-40 border-b border-navy/8 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex h-15 max-w-[96rem] items-center justify-between px-4 sm:px-6 lg:h-17">
-          <BrandLogo className="origin-left scale-[0.82] lg:scale-100" />
-          <div className="hidden items-center gap-1 lg:flex">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-navy transition hover:bg-navy/5 lg:hidden"
+              aria-label="Open dashboard menu"
+              aria-expanded={drawerOpen}
+              aria-controls="student-portal-drawer"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
+            <BrandLogo className="origin-left scale-[0.82] lg:scale-100" />
+          </div>
+          <div className="flex items-center gap-1 sm:gap-2">
+            {activeTab === "counselling" ? (
+              <div
+                className="mr-1 inline-flex items-center rounded-xl border border-slate-200 bg-slate-100/90 p-1 shadow-2xs sm:mr-2"
+                role="group"
+                aria-label="Counselling view switcher"
+              >
+                <button
+                  type="button"
+                  onClick={() => setCounsellingView("list")}
+                  aria-pressed={counsellingView === "list"}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+                    counsellingView === "list"
+                      ? "bg-white text-navy shadow-xs"
+                      : "text-slate-500 hover:text-navy"
+                  }`}
+                >
+                  <List className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">List</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCounsellingView("calendar")}
+                  aria-pressed={counsellingView === "calendar"}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+                    counsellingView === "calendar"
+                      ? "bg-white text-navy shadow-xs"
+                      : "text-slate-500 hover:text-navy"
+                  }`}
+                >
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Calendar</span>
+                </button>
+              </div>
+            ) : null}
             {hasEnrollment ? (
-              <NotificationBell variant="light" enabled initialUnreadCount={0} />
+              <NotificationBell
+                variant="light"
+                enabled
+                initialUnreadCount={0}
+              />
             ) : null}
             <UserNavMenu session={portalNavSession} variant="light" />
             <Link
               href="/"
-              className="rounded-xl px-3 py-2 text-sm font-semibold text-navy/55 transition hover:bg-navy/5 hover:text-navy"
+              className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-navy/55 transition hover:bg-navy/5 hover:text-navy sm:block"
             >
               Visit website
             </Link>
           </div>
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-navy transition hover:bg-navy/5 lg:hidden"
-            aria-label="Open dashboard menu"
-            aria-expanded={drawerOpen}
-            aria-controls="student-portal-drawer"
-          >
-            <Menu className="h-6 w-6" />
-          </button>
         </div>
       </header>
 
@@ -246,7 +288,8 @@ export default function StudentPortal({
         <div className="border-b border-amber-200 bg-amber-50">
           <div className="mx-auto flex max-w-[96rem] flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p className="text-sm text-amber-900">
-              Please verify your email to secure your account and receive enrollment updates.
+              Please verify your email to secure your account and receive
+              enrollment updates.
             </p>
             <Link
               href="/verify-email"
@@ -258,10 +301,39 @@ export default function StudentPortal({
         </div>
       ) : null}
 
-      <div className="mx-auto w-full max-w-[96rem] px-4 py-5 sm:px-6 sm:py-7">
-        <div className="grid w-full min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
-          <aside className="sticky top-24 hidden overflow-hidden rounded-[1.65rem] border border-navy/8 bg-white p-3 shadow-[0_16px_45px_rgba(22,51,81,.07)] lg:block">
-            <StudentIdentity profile={profile} />
+      <div
+        className={`mx-auto w-full max-w-[96rem] px-4 pt-5 sm:px-6 sm:pt-7 ${
+          activeTab === "counselling" ? "pb-3 sm:pb-4" : "pb-5 sm:pb-7"
+        }`}
+      >
+        <div
+          className={cn(
+            "grid w-full min-w-0 grid-cols-1 items-start gap-6 transition-all duration-300",
+            collapsed
+              ? "lg:grid-cols-[76px_minmax(0,1fr)]"
+              : "lg:grid-cols-[250px_minmax(0,1fr)]"
+          )}
+        >
+          <aside
+            className={cn(
+              "relative sticky top-24 hidden rounded-[1.65rem] border border-navy/8 bg-white p-3 shadow-[0_16px_45px_rgba(22,51,81,.07)] transition-all duration-300 lg:block",
+              collapsed && "px-2"
+            )}
+          >
+            <button
+              type="button"
+              onClick={() => setCollapsed((value) => !value)}
+              className="absolute -right-3 top-6 z-10 hidden h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-navy shadow-sm transition hover:bg-slate-50 lg:flex"
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {collapsed ? (
+                <ChevronRight className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronLeft className="h-3.5 w-3.5" />
+              )}
+            </button>
+            <StudentIdentity profile={profile} collapsed={collapsed} />
             <nav className="mt-3 space-y-1 border-t border-navy/8 pt-3">
               {tabs.map((tab) => (
                 <NavButton
@@ -269,6 +341,7 @@ export default function StudentPortal({
                   tab={tab}
                   active={activeTab === tab.id}
                   onClick={() => selectTab(tab.id)}
+                  collapsed={collapsed}
                 />
               ))}
             </nav>
@@ -285,13 +358,22 @@ export default function StudentPortal({
                 transition={{ duration: 0.28 }}
               >
                 {activeTab === "overview" ? (
-                  <Overview data={data} profile={profile} selectTab={selectTab} />
+                  <Overview
+                    data={data}
+                    profile={profile}
+                    selectTab={selectTab}
+                  />
                 ) : activeTab === "courses" ? (
                   <Courses data={data} />
                 ) : activeTab === "enrollments" ? (
                   <EnrollmentRequests data={data} />
                 ) : activeTab === "counselling" ? (
-                  <CounsellingTab profile={profile} notify={showToast} />
+                  <CounsellingTab
+                    profile={profile}
+                    notify={showToast}
+                    view={counsellingView}
+                    onViewChange={setCounsellingView}
+                  />
                 ) : activeTab === "progress" ? (
                   <Progress data={data} />
                 ) : activeTab === "quizzes" ? (
@@ -304,10 +386,7 @@ export default function StudentPortal({
                     notify={showToast}
                   />
                 ) : (
-                  <Security
-                    data={data}
-                    notify={showToast}
-                  />
+                  <Security data={data} notify={showToast} />
                 )}
               </motion.div>
             </AnimatePresence>
@@ -344,8 +423,8 @@ function Overview({
             Welcome back, {firstName}.
           </h1>
           <p className="mt-3 max-w-xl text-sm leading-6 text-white/65 sm:mt-4 sm:text-base sm:leading-7">
-            Everything you need to learn, measure progress, and manage your account
-            is now in one calm workspace.
+            Everything you need to learn, measure progress, and manage your
+            account is now in one calm workspace.
           </p>
           {nextCourse?.continueLessonSlug ? (
             <Link
@@ -359,13 +438,35 @@ function Overview({
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={BookOpenCheck} label="Active courses" value={data.stats.activeCourses} color="blue" />
-        <StatCard icon={CheckCircle2} label="Lessons completed" value={data.stats.completedLessons} color="green" />
-        <StatCard icon={BarChart3} label="Overall progress" value={`${data.stats.averageProgress}%`} color="navy" />
-        <StatCard icon={Trophy} label="Average quiz score" value={`${data.stats.averageQuizScore}%`} color="amber" />
+        <StatCard
+          icon={BookOpenCheck}
+          label="Active courses"
+          value={data.stats.activeCourses}
+          color="blue"
+        />
+        <StatCard
+          icon={CheckCircle2}
+          label="Lessons completed"
+          value={data.stats.completedLessons}
+          color="green"
+        />
+        <StatCard
+          icon={BarChart3}
+          label="Overall progress"
+          value={`${data.stats.averageProgress}%`}
+          color="navy"
+        />
+        <StatCard
+          icon={Trophy}
+          label="Average quiz score"
+          value={`${data.stats.averageQuizScore}%`}
+          color="amber"
+        />
       </div>
 
-      <div className={`grid gap-4 ${data.courses.length > 0 ? "sm:grid-cols-2" : ""}`}>
+      <div
+        className={`grid gap-4 ${data.courses.length > 0 ? "sm:grid-cols-2" : ""}`}
+      >
         {data.courses.length > 0 ? (
           <Link
             href="/submit-documents"
@@ -376,7 +477,9 @@ function Overview({
             </span>
             <div>
               <p className="font-semibold text-navy">Submit documents</p>
-              <p className="mt-1 text-sm text-navy/50">Upload files and track replies from our team.</p>
+              <p className="mt-1 text-sm text-navy/50">
+                Upload files and track replies from our team.
+              </p>
             </div>
           </Link>
         ) : null}
@@ -389,7 +492,9 @@ function Overview({
           </span>
           <div>
             <p className="font-semibold text-navy">Academy notices</p>
-            <p className="mt-1 text-sm text-navy/50">Read official updates from Broad Academy.</p>
+            <p className="mt-1 text-sm text-navy/50">
+              Read official updates from Broad Academy.
+            </p>
           </div>
         </Link>
       </div>
@@ -398,7 +503,14 @@ function Overview({
         <Panel
           title="Continue your courses"
           eyebrow="My learning"
-          action={<button onClick={() => selectTab("courses")} className="text-sm font-bold text-btnBg">View all</button>}
+          action={
+            <button
+              onClick={() => selectTab("courses")}
+              className="text-sm font-bold text-btnBg"
+            >
+              View all
+            </button>
+          }
         >
           {data.courses.length ? (
             <div className="space-y-4">
@@ -407,24 +519,43 @@ function Overview({
               ))}
             </div>
           ) : (
-            <EmptyState icon={GraduationCap} title="No active courses yet" text="Your courses will appear after enrollment is confirmed." />
+            <EmptyState
+              icon={GraduationCap}
+              title="No active courses yet"
+              text="Your courses will appear after enrollment is confirmed."
+            />
           )}
         </Panel>
         <Panel title="Recent quiz activity" eyebrow="Performance">
           {data.quizAttempts.length ? (
             <div className="space-y-3">
               {data.quizAttempts.slice(0, 4).map((attempt) => (
-                <div key={attempt.id} className="flex items-center justify-between gap-4 rounded-2xl bg-[#f7f9fc] p-4">
+                <div
+                  key={attempt.id}
+                  className="flex items-center justify-between gap-4 rounded-2xl bg-[#f7f9fc] p-4"
+                >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{attempt.title}</p>
-                    <p className="mt-1 text-xs text-navy/40">{formatDate(attempt.submittedAt)}</p>
+                    <p className="truncate text-sm font-semibold">
+                      {attempt.title}
+                    </p>
+                    <p className="mt-1 text-xs text-navy/40">
+                      {formatDate(attempt.submittedAt)}
+                    </p>
                   </div>
-                  <strong className={attempt.passed ? "text-accent" : "text-red-600"}>{attempt.percentage}%</strong>
+                  <strong
+                    className={attempt.passed ? "text-accent" : "text-red-600"}
+                  >
+                    {attempt.percentage}%
+                  </strong>
                 </div>
               ))}
             </div>
           ) : (
-            <EmptyState icon={Trophy} title="No quizzes taken" text="Your scores and attempts will appear here." />
+            <EmptyState
+              icon={Trophy}
+              title="No quizzes taken"
+              text="Your scores and attempts will appear here."
+            />
           )}
         </Panel>
       </div>
@@ -435,23 +566,51 @@ function Overview({
 function Courses({ data }: { data: StudentPortalData }) {
   return (
     <div>
-      <PageHeading eyebrow="Learning library" title="My enrolled courses" description="Continue lessons and see progress for every active enrollment." />
+      <PageHeading
+        eyebrow="Learning library"
+        title="My enrolled courses"
+        description="Continue lessons and see progress for every active enrollment."
+      />
       {data.courses.length ? (
         <div className="mt-7 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {data.courses.map((course) => (
-            <article key={course.id} className="group overflow-hidden rounded-[1.75rem] border border-navy/8 bg-white shadow-[0_16px_45px_rgba(22,51,81,.07)]">
+            <article
+              key={course.id}
+              className="group overflow-hidden rounded-[1.75rem] border border-navy/8 bg-white shadow-[0_16px_45px_rgba(22,51,81,.07)]"
+            >
               <div className="relative aspect-[16/8] overflow-hidden">
-                <Image src={course.thumbnailUrl} alt="" fill sizes="(max-width:768px) 100vw, 33vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" />
+                <Image
+                  src={course.thumbnailUrl}
+                  alt=""
+                  fill
+                  sizes="(max-width:768px) 100vw, 33vw"
+                  className="object-cover transition duration-500 group-hover:scale-[1.03]"
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-navy/75 to-transparent" />
-                <span className="absolute bottom-4 left-4 rounded-full bg-white/92 px-3 py-1.5 text-xs font-bold">{course.subject}</span>
+                <span className="absolute bottom-4 left-4 rounded-full bg-white/92 px-3 py-1.5 text-xs font-bold">
+                  {course.subject}
+                </span>
               </div>
               <div className="p-6">
-                <h2 className="text-xl font-semibold tracking-[-0.025em]">{course.title}</h2>
-                <p className="mt-2 text-sm text-navy/45">With {course.instructorName}</p>
-                <ProgressBar value={course.progressPercent} label={`${course.completedLessons} of ${course.totalLessons} lessons`} />
+                <h2 className="text-xl font-semibold tracking-[-0.025em]">
+                  {course.title}
+                </h2>
+                <p className="mt-2 text-sm text-navy/45">
+                  With {course.instructorName}
+                </p>
+                <ProgressBar
+                  value={course.progressPercent}
+                  label={`${course.completedLessons} of ${course.totalLessons} lessons`}
+                />
                 {course.continueLessonSlug ? (
-                  <Link href={`/learn/${course.slug}/${course.continueLessonSlug}`} className="mt-5 flex h-11 items-center justify-center gap-2 rounded-xl bg-btnBg px-5 text-sm font-bold text-white">
-                    {course.progressPercent ? "Continue course" : "Start course"} <ArrowRight className="h-4 w-4" />
+                  <Link
+                    href={`/learn/${course.slug}/${course.continueLessonSlug}`}
+                    className="mt-5 flex h-11 items-center justify-center gap-2 rounded-xl bg-btnBg px-5 text-sm font-bold text-white"
+                  >
+                    {course.progressPercent
+                      ? "Continue course"
+                      : "Start course"}{" "}
+                    <ArrowRight className="h-4 w-4" />
                   </Link>
                 ) : null}
               </div>
@@ -460,7 +619,11 @@ function Courses({ data }: { data: StudentPortalData }) {
         </div>
       ) : (
         <div className="mt-7 rounded-[2rem] border border-dashed border-navy/15 bg-white py-16">
-          <EmptyState icon={GraduationCap} title="No active enrollments yet" text="Explore our course catalogue or contact support about your enrollment." />
+          <EmptyState
+            icon={GraduationCap}
+            title="No active enrollments yet"
+            text="Explore our course catalogue or contact support about your enrollment."
+          />
         </div>
       )}
     </div>
@@ -496,7 +659,9 @@ function EnrollmentRequests({ data }: { data: StudentPortalData }) {
                 </div>
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-semibold text-navy">{request.course.title}</h2>
+                    <h2 className="font-semibold text-navy">
+                      {request.course.title}
+                    </h2>
                     <span
                       className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] ${
                         active
@@ -504,8 +669,8 @@ function EnrollmentRequests({ data }: { data: StudentPortalData }) {
                           : request.status === "REVIEWING"
                             ? "bg-blue-50 text-blue-700"
                             : pending
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-red-50 text-red-700"
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-red-50 text-red-700"
                       }`}
                     >
                       {enrollmentRequestStatusLabel[request.status]}
@@ -573,29 +738,71 @@ function EnrollmentRequests({ data }: { data: StudentPortalData }) {
 function Progress({ data }: { data: StudentPortalData }) {
   return (
     <div>
-      <PageHeading eyebrow="Learning analytics" title="Your progress" description="A straightforward view of completed lessons and course momentum." />
+      <PageHeading
+        eyebrow="Learning analytics"
+        title="Your progress"
+        description="A straightforward view of completed lessons and course momentum."
+      />
       <div className="mt-7 grid gap-5 sm:grid-cols-3">
-        <StatCard icon={CheckCircle2} label="Completed lessons" value={data.stats.completedLessons} color="green" />
-        <StatCard icon={Clock3} label="Lessons remaining" value={Math.max(0, data.stats.totalLessons - data.stats.completedLessons)} color="blue" />
-        <StatCard icon={BarChart3} label="Overall completion" value={`${data.stats.averageProgress}%`} color="navy" />
+        <StatCard
+          icon={CheckCircle2}
+          label="Completed lessons"
+          value={data.stats.completedLessons}
+          color="green"
+        />
+        <StatCard
+          icon={Clock3}
+          label="Lessons remaining"
+          value={Math.max(
+            0,
+            data.stats.totalLessons - data.stats.completedLessons,
+          )}
+          color="blue"
+        />
+        <StatCard
+          icon={BarChart3}
+          label="Overall completion"
+          value={`${data.stats.averageProgress}%`}
+          color="navy"
+        />
       </div>
-      <Panel title="Course-by-course progress" eyebrow="Breakdown" className="mt-6">
+      <Panel
+        title="Course-by-course progress"
+        eyebrow="Breakdown"
+        className="mt-6"
+      >
         {data.courses.length ? (
           <div className="space-y-5">
             {data.courses.map((course) => (
-              <div key={course.id} className="rounded-2xl border border-navy/8 p-5">
+              <div
+                key={course.id}
+                className="rounded-2xl border border-navy/8 p-5"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="font-semibold">{course.title}</h3>
-                    <p className="mt-1 text-xs text-navy/45">{course.subject} · {course.instructorName}</p>
+                    <p className="mt-1 text-xs text-navy/45">
+                      {course.subject} · {course.instructorName}
+                    </p>
                   </div>
-                  <strong className="text-xl text-btnBg">{course.progressPercent}%</strong>
+                  <strong className="text-xl text-btnBg">
+                    {course.progressPercent}%
+                  </strong>
                 </div>
-                <ProgressBar value={course.progressPercent} label={`${course.completedLessons} completed · ${Math.max(0, course.totalLessons - course.completedLessons)} remaining`} />
+                <ProgressBar
+                  value={course.progressPercent}
+                  label={`${course.completedLessons} completed · ${Math.max(0, course.totalLessons - course.completedLessons)} remaining`}
+                />
               </div>
             ))}
           </div>
-        ) : <EmptyState icon={BarChart3} title="No progress to show" text="Progress starts when you begin an enrolled course." />}
+        ) : (
+          <EmptyState
+            icon={BarChart3}
+            title="No progress to show"
+            text="Progress starts when you begin an enrolled course."
+          />
+        )}
       </Panel>
     </div>
   );
@@ -604,33 +811,73 @@ function Progress({ data }: { data: StudentPortalData }) {
 function QuizResults({ data }: { data: StudentPortalData }) {
   return (
     <div>
-      <PageHeading eyebrow="Assessment history" title="Quiz results" description="Review your latest attempts and watch your scores improve." />
+      <PageHeading
+        eyebrow="Assessment history"
+        title="Quiz results"
+        description="Review your latest attempts and watch your scores improve."
+      />
       <div className="mt-7 grid gap-5 sm:grid-cols-3">
-        <StatCard icon={Trophy} label="Quizzes taken" value={data.stats.quizzesTaken} color="amber" />
-        <StatCard icon={BarChart3} label="Average score" value={`${data.stats.averageQuizScore}%`} color="blue" />
-        <StatCard icon={CheckCircle2} label="Passed attempts" value={data.quizAttempts.filter((item) => item.passed).length} color="green" />
+        <StatCard
+          icon={Trophy}
+          label="Quizzes taken"
+          value={data.stats.quizzesTaken}
+          color="amber"
+        />
+        <StatCard
+          icon={BarChart3}
+          label="Average score"
+          value={`${data.stats.averageQuizScore}%`}
+          color="blue"
+        />
+        <StatCard
+          icon={CheckCircle2}
+          label="Passed attempts"
+          value={data.quizAttempts.filter((item) => item.passed).length}
+          color="green"
+        />
       </div>
       <Panel title="Attempt history" eyebrow="Recent results" className="mt-6">
         {data.quizAttempts.length ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[650px] text-left text-sm">
               <thead className="border-b border-navy/8 text-xs uppercase tracking-[0.12em] text-navy/40">
-                <tr><th className="pb-4">Quiz</th><th className="pb-4">Course</th><th className="pb-4">Score</th><th className="pb-4">Result</th><th className="pb-4 text-right">Date</th></tr>
+                <tr>
+                  <th className="pb-4">Quiz</th>
+                  <th className="pb-4">Course</th>
+                  <th className="pb-4">Score</th>
+                  <th className="pb-4">Result</th>
+                  <th className="pb-4 text-right">Date</th>
+                </tr>
               </thead>
               <tbody className="divide-y divide-navy/7">
                 {data.quizAttempts.map((attempt) => (
                   <tr key={attempt.id}>
                     <td className="py-4 font-semibold">{attempt.title}</td>
                     <td className="py-4 text-navy/55">{attempt.courseTitle}</td>
-                    <td className="py-4">{attempt.score}/{attempt.total} <strong className="ml-2 text-btnBg">{attempt.percentage}%</strong></td>
-                    <td className="py-4"><StatusBadge passed={attempt.passed} /></td>
-                    <td className="py-4 text-right text-navy/45">{formatDate(attempt.submittedAt)}</td>
+                    <td className="py-4">
+                      {attempt.score}/{attempt.total}{" "}
+                      <strong className="ml-2 text-btnBg">
+                        {attempt.percentage}%
+                      </strong>
+                    </td>
+                    <td className="py-4">
+                      <StatusBadge passed={attempt.passed} />
+                    </td>
+                    <td className="py-4 text-right text-navy/45">
+                      {formatDate(attempt.submittedAt)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        ) : <EmptyState icon={Trophy} title="No quiz attempts yet" text="Complete a lesson quiz and its result will be saved here." />}
+        ) : (
+          <EmptyState
+            icon={Trophy}
+            title="No quiz attempts yet"
+            text="Complete a lesson quiz and its result will be saved here."
+          />
+        )}
       </Panel>
     </div>
   );
@@ -658,7 +905,10 @@ function ProfileForm({
       const response = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName: form.get("fullName"), phone: form.get("phone") }),
+        body: JSON.stringify({
+          fullName: form.get("fullName"),
+          phone: form.get("phone"),
+        }),
       });
       const result = await response.json();
       if (!response.ok) {
@@ -678,13 +928,18 @@ function ProfileForm({
     }
   }
 
-  async function handleAvatarChange(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleAvatarChange(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
 
     if (!hasEnrollment) {
-      notify("Profile photo is available after your first enrollment is approved.", true);
+      notify(
+        "Profile photo is available after your first enrollment is approved.",
+        true,
+      );
       return;
     }
 
@@ -712,13 +967,23 @@ function ProfileForm({
 
   return (
     <div>
-      <PageHeading eyebrow="Account settings" title="Personal profile" description="Keep your student information accurate and up to date." />
+      <PageHeading
+        eyebrow="Account settings"
+        title="Personal profile"
+        description="Keep your student information accurate and up to date."
+      />
       <div className="mt-7 grid gap-6 xl:grid-cols-[1.35fr_1fr]">
         <Panel title="Personal information" eyebrow="Editable details">
           <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-navy/8 bg-[#f7f9fc] p-4 sm:flex-row sm:items-center">
             <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-btnBg to-accent shadow-md">
               {profile.avatarUrl ? (
-                <Image src={profile.avatarUrl} alt="" fill sizes="80px" className="object-cover" />
+                <Image
+                  src={profile.avatarUrl}
+                  alt=""
+                  fill
+                  sizes="80px"
+                  className="object-cover"
+                />
               ) : (
                 <span className="flex h-full w-full items-center justify-center text-2xl font-bold text-white">
                   {initials(profile.fullName)}
@@ -753,41 +1018,92 @@ function ProfileForm({
           </div>
           <form onSubmit={submit} className="space-y-5">
             <Field label="Full name" icon={UserRound}>
-              <input name="fullName" defaultValue={profile.fullName} required maxLength={80} autoComplete="name" className={inputClass} />
+              <input
+                name="fullName"
+                defaultValue={profile.fullName}
+                required
+                maxLength={80}
+                autoComplete="name"
+                className={inputClass}
+              />
             </Field>
             <Field label="Email address" icon={Mail}>
               <input value={profile.email} disabled className={inputClass} />
             </Field>
             <Field label="Phone number" icon={Phone}>
-              <input name="phone" defaultValue={profile.phone ?? ""} maxLength={20} autoComplete="tel" className={inputClass} />
+              <input
+                name="phone"
+                defaultValue={profile.phone ?? ""}
+                maxLength={20}
+                autoComplete="tel"
+                className={inputClass}
+              />
             </Field>
-            <button disabled={pending} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-btnBg px-6 text-sm font-bold text-white disabled:opacity-60">
-              {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save changes
+            <button
+              disabled={pending}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-btnBg px-6 text-sm font-bold text-white disabled:opacity-60"
+            >
+              {pending ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}{" "}
+              Save changes
             </button>
           </form>
         </Panel>
         <Panel title="Account details" eyebrow="Student record">
           <dl className="space-y-4">
             {profile.studentId ? (
-              <Info label="Student ID" value={profile.studentId} icon={GraduationCap} />
+              <Info
+                label="Student ID"
+                value={profile.studentId}
+                icon={GraduationCap}
+              />
             ) : (
               <div className="rounded-xl border border-dashed border-navy/12 bg-[#f7f9fc] px-4 py-3 text-sm text-navy/55">
-                Your student ID is issued after your first enrollment is approved.
+                Your student ID is issued after your first enrollment is
+                approved.
               </div>
             )}
             {profile.classLevel ? (
-              <Info label="Class" value={`Class ${profile.classLevel}`} icon={BookOpenCheck} />
+              <Info
+                label="Class"
+                value={`Class ${profile.classLevel}`}
+                icon={BookOpenCheck}
+              />
             ) : null}
             {profile.sscBatch ? (
-              <Info label="SSC batch" value={`SSC ${profile.sscBatch}`} icon={CalendarDays} />
+              <Info
+                label="SSC batch"
+                value={`SSC ${profile.sscBatch}`}
+                icon={CalendarDays}
+              />
             ) : null}
             <Info label="Account role" value="Student" icon={GraduationCap} />
-            <Info label="Account status" value={profile.status === "ACTIVE" ? "Active" : "Suspended"} icon={ShieldCheck} />
-            <Info label="Member since" value={formatDate(profile.createdAt)} icon={CalendarDays} />
-            <Info label="Last login" value={profile.lastLoginAt ? formatDate(profile.lastLoginAt) : "Not recorded"} icon={Clock3} />
+            <Info
+              label="Account status"
+              value={profile.status === "ACTIVE" ? "Active" : "Suspended"}
+              icon={ShieldCheck}
+            />
+            <Info
+              label="Member since"
+              value={formatDate(profile.createdAt)}
+              icon={CalendarDays}
+            />
+            <Info
+              label="Last login"
+              value={
+                profile.lastLoginAt
+                  ? formatDate(profile.lastLoginAt)
+                  : "Not recorded"
+              }
+              icon={Clock3}
+            />
           </dl>
           <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
-            Your email is your login identity and cannot be changed here. Contact support if it needs correction.
+            Your email is your login identity and cannot be changed here.
+            Contact support if it needs correction.
           </div>
         </Panel>
       </div>
@@ -833,7 +1149,9 @@ function Security({
   async function revokeOtherSessions() {
     setRevokingOthers(true);
     try {
-      const response = await fetch("/api/profile/sessions", { method: "DELETE" });
+      const response = await fetch("/api/profile/sessions", {
+        method: "DELETE",
+      });
       const result = await response.json();
       if (!response.ok) {
         notify(result.message ?? "Could not sign out other devices.", true);
@@ -894,31 +1212,71 @@ function Security({
             ].map(([name, label]) => (
               <Field key={name} label={label} icon={LockKeyhole}>
                 <div className="relative">
-                  <input name={name} type={show[name] ? "text" : "password"} required maxLength={72} autoComplete={name === "currentPassword" ? "current-password" : "new-password"} className={`${inputClass} pr-11`} />
-                  <button type="button" onClick={() => setShow((value) => ({ ...value, [name]: !value[name] }))} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-navy/35" aria-label={show[name] ? "Hide password" : "Show password"}>
-                    {show[name] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  <input
+                    name={name}
+                    type={show[name] ? "text" : "password"}
+                    required
+                    maxLength={72}
+                    autoComplete={
+                      name === "currentPassword"
+                        ? "current-password"
+                        : "new-password"
+                    }
+                    className={`${inputClass} pr-11`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShow((value) => ({ ...value, [name]: !value[name] }))
+                    }
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-navy/35"
+                    aria-label={show[name] ? "Hide password" : "Show password"}
+                  >
+                    {show[name] ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </Field>
             ))}
-            <button disabled={pending} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-navy px-6 text-sm font-bold text-white disabled:opacity-60">
-              {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />} Update password
+            <button
+              disabled={pending}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-navy px-6 text-sm font-bold text-white disabled:opacity-60"
+            >
+              {pending ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <KeyRound className="h-4 w-4" />
+              )}{" "}
+              Update password
             </button>
           </form>
         </Panel>
         <Panel title="Active sessions" eyebrow="Signed-in devices">
           <div className="space-y-3">
             {data.sessions.map((session) => (
-              <div key={session.id} className="flex gap-3 rounded-2xl border border-navy/8 p-4">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-heroBg text-accent"><MonitorSmartphone className="h-5 w-5" /></span>
+              <div
+                key={session.id}
+                className="flex gap-3 rounded-2xl border border-navy/8 p-4"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-heroBg text-accent">
+                  <MonitorSmartphone className="h-5 w-5" />
+                </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-semibold">{session.device}</p>
                     {session.isCurrent ? (
-                      <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold uppercase text-accent">This device</span>
+                      <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold uppercase text-accent">
+                        This device
+                      </span>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-xs text-navy/40">Last active {formatDate(session.lastUsedAt)} · Expires {formatDate(session.expiresAt)}</p>
+                  <p className="mt-1 text-xs text-navy/40">
+                    Last active {formatDate(session.lastUsedAt)} · Expires{" "}
+                    {formatDate(session.expiresAt)}
+                  </p>
                 </div>
                 {!session.isCurrent ? (
                   <button
@@ -927,7 +1285,11 @@ function Security({
                     onClick={() => void revokeSession(session.id)}
                     className="inline-flex h-9 shrink-0 items-center gap-1.5 self-center rounded-xl border border-navy/10 px-3 text-xs font-semibold text-navy/70 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:opacity-60"
                   >
-                    {revokingId === session.id ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
+                    {revokingId === session.id ? (
+                      <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <LogOut className="h-3.5 w-3.5" />
+                    )}
                     Sign out
                   </button>
                 ) : null}
@@ -941,19 +1303,29 @@ function Security({
               onClick={() => void revokeOtherSessions()}
               className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl border border-navy/10 px-4 text-xs font-bold text-navy/70 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:opacity-60"
             >
-              {revokingOthers ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
+              {revokingOthers ? (
+                <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <LogOut className="h-3.5 w-3.5" />
+              )}
               Sign out all other devices
             </button>
           ) : null}
           <div className="mt-5 space-y-3">
             <div className="font-bangla rounded-2xl bg-[#f7f9fc] p-4 text-sm leading-7 text-navy/65">
-              তুমি একই সময়ে সর্বোচ্চ {toBanglaDigits(data.devicePolicy.maxSessions)}টি ডিভাইসে লগইন করে থাকতে পারবে। নতুন কোনো ডিভাইসে লগইন করলে, স্বয়ংক্রিয়ভাবে সবচেয়ে আগে লগইন করা ডিভাইসটি থেকে লগআউট হয়ে যাবে।
+              তুমি একই সময়ে সর্বোচ্চ{" "}
+              {toBanglaDigits(data.devicePolicy.maxSessions)}টি ডিভাইসে লগইন করে
+              থাকতে পারবে। নতুন কোনো ডিভাইসে লগইন করলে, স্বয়ংক্রিয়ভাবে সবচেয়ে
+              আগে লগইন করা ডিভাইসটি থেকে লগআউট হয়ে যাবে।
             </div>
             <div className="font-bangla rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900">
-              একই সময়ে শুধু ১টি ডিভাইসে ভিডিও চালানো যাবে। ভিডিও চালাতে সমস্যা হলে অন্য ডিভাইস থেকে লগআউট করো অথবা সেখানে ভিডিও বন্ধ করার পর প্রায় ১ মিনিট অপেক্ষা করো বা রিলোড করো।
+              একই সময়ে শুধু ১টি ডিভাইসে ভিডিও চালানো যাবে। ভিডিও চালাতে সমস্যা
+              হলে অন্য ডিভাইস থেকে লগআউট করো অথবা সেখানে ভিডিও বন্ধ করার পর
+              প্রায় ১ মিনিট অপেক্ষা করো বা রিলোড করো।
             </div>
             <div className="font-bangla rounded-2xl bg-[#f7f9fc] p-4 text-sm leading-7 text-navy/65">
-              পাসওয়ার্ড পরিবর্তন করলে, বর্তমানে ব্যবহার করা এই ডিভাইসটি লগইন থাকবে, তবে অন্য সব ডিভাইস স্বয়ংক্রিয়ভাবে লগআউট হয়ে যাবে।
+              পাসওয়ার্ড পরিবর্তন করলে, বর্তমানে ব্যবহার করা এই ডিভাইসটি লগইন
+              থাকবে, তবে অন্য সব ডিভাইস স্বয়ংক্রিয়ভাবে লগআউট হয়ে যাবে।
             </div>
           </div>
         </Panel>
@@ -962,12 +1334,49 @@ function Security({
   );
 }
 
-function StudentIdentity({ profile }: { profile: StudentProfile }) {
+function StudentIdentity({
+  profile,
+  collapsed = false,
+}: {
+  profile: StudentProfile;
+  collapsed?: boolean;
+}) {
+  if (collapsed) {
+    return (
+      <div
+        className="flex justify-center rounded-2xl bg-navy p-2.5 text-white shadow-sm"
+        title={profile.fullName}
+      >
+        <div className="relative h-10 w-10 overflow-hidden rounded-xl bg-gradient-to-br from-[#8cf0d0] to-accent shadow-sm">
+          {profile.avatarUrl ? (
+            <Image
+              src={profile.avatarUrl}
+              alt=""
+              fill
+              sizes="40px"
+              className="object-cover"
+            />
+          ) : (
+            <span className="flex h-full w-full items-center justify-center text-xs font-bold text-navy">
+              {initials(profile.fullName)}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-2xl bg-navy p-4 text-white">
       <div className="relative h-12 w-12 overflow-hidden rounded-2xl bg-gradient-to-br from-[#8cf0d0] to-accent shadow-sm">
         {profile.avatarUrl ? (
-          <Image src={profile.avatarUrl} alt="" fill sizes="48px" className="object-cover" />
+          <Image
+            src={profile.avatarUrl}
+            alt=""
+            fill
+            sizes="48px"
+            className="object-cover"
+          />
         ) : (
           <span className="flex h-full w-full items-center justify-center text-sm font-bold text-navy">
             {initials(profile.fullName)}
@@ -980,7 +1389,10 @@ function StudentIdentity({ profile }: { profile: StudentProfile }) {
         <p className="mt-2 text-[11px] font-bold tracking-wide text-[#8cf0d0]">
           ID {profile.studentId}
           {profile.sscBatch ? (
-            <span className="font-semibold text-white/55"> · SSC {profile.sscBatch}</span>
+            <span className="font-semibold text-white/55">
+              {" "}
+              · SSC {profile.sscBatch}
+            </span>
           ) : null}
         </p>
       ) : null}
@@ -996,65 +1408,275 @@ function NavButton({
   active,
   onClick,
   compact = false,
+  collapsed = false,
 }: {
   tab: (typeof tabs)[number];
   active: boolean;
   onClick: () => void;
   compact?: boolean;
+  collapsed?: boolean;
 }) {
   const Icon = tab.icon;
   return (
-    <button type="button" onClick={onClick} className={`relative flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition w-full ${active ? "bg-btnBg/8 text-btnBg" : "text-navy/55 hover:bg-navy/4 hover:text-navy"}`}>
-      {active ? <motion.span layoutId={compact ? "mobile-portal-tab" : "portal-tab"} className="absolute inset-0 rounded-xl bg-btnBg/8" /> : null}
-      <Icon className="relative h-4.5 w-4.5" />
-      <span className="relative">{tab.label}</span>
+    <button
+      type="button"
+      onClick={onClick}
+      title={collapsed ? tab.label : undefined}
+      className={`relative flex items-center gap-3 rounded-xl py-3 text-sm font-semibold transition w-full ${
+        collapsed ? "justify-center px-2" : "px-3.5"
+      } ${
+        active
+          ? "bg-btnBg/8 text-btnBg"
+          : "text-navy/55 hover:bg-navy/4 hover:text-navy"
+      }`}
+    >
+      {active ? (
+        <motion.span
+          layoutId={compact ? "mobile-portal-tab" : "portal-tab"}
+          className="absolute inset-0 rounded-xl bg-btnBg/8"
+        />
+      ) : null}
+      <Icon className="relative h-4.5 w-4.5 shrink-0" />
+      {!collapsed ? <span className="relative">{tab.label}</span> : null}
     </button>
   );
 }
 
-function StatCard({ icon: Icon, label, value, color }: { icon: typeof Trophy; label: string; value: string | number; color: "blue" | "green" | "navy" | "amber" }) {
-  const colors = { blue: "bg-btnBg/8 text-btnBg", green: "bg-accent/8 text-accent", navy: "bg-navy/8 text-navy", amber: "bg-amber-50 text-amber-600" };
-  return <article className="rounded-3xl border border-navy/8 bg-white p-5 shadow-sm"><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${colors[color]}`}><Icon className="h-5 w-5" /></span><p className="mt-5 text-3xl font-bold tracking-[-0.04em]">{value}</p><p className="mt-1 text-sm text-navy/45">{label}</p></article>;
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+}: {
+  icon: typeof Trophy;
+  label: string;
+  value: string | number;
+  color: "blue" | "green" | "navy" | "amber";
+}) {
+  const colors = {
+    blue: "bg-btnBg/8 text-btnBg",
+    green: "bg-accent/8 text-accent",
+    navy: "bg-navy/8 text-navy",
+    amber: "bg-amber-50 text-amber-600",
+  };
+  return (
+    <article className="rounded-3xl border border-navy/8 bg-white p-5 shadow-sm">
+      <span
+        className={`flex h-10 w-10 items-center justify-center rounded-xl ${colors[color]}`}
+      >
+        <Icon className="h-5 w-5" />
+      </span>
+      <p className="mt-5 text-3xl font-bold tracking-[-0.04em]">{value}</p>
+      <p className="mt-1 text-sm text-navy/45">{label}</p>
+    </article>
+  );
 }
 
-function Panel({ title, eyebrow, children, action, className = "" }: { title: string; eyebrow: string; children: React.ReactNode; action?: React.ReactNode; className?: string }) {
-  return <section className={`rounded-[1.75rem] border border-navy/8 bg-white p-5 shadow-[0_14px_40px_rgba(22,51,81,.05)] sm:p-7 ${className}`}><div className="mb-6 flex items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">{eyebrow}</p><h2 className="mt-2 text-xl font-semibold tracking-[-0.025em] sm:text-2xl">{title}</h2></div>{action}</div>{children}</section>;
+function Panel({
+  title,
+  eyebrow,
+  children,
+  action,
+  className = "",
+}: {
+  title: string;
+  eyebrow: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={`rounded-[1.75rem] border border-navy/8 bg-white p-5 shadow-[0_14px_40px_rgba(22,51,81,.05)] sm:p-7 ${className}`}
+    >
+      <div className="mb-6 flex items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">
+            {eyebrow}
+          </p>
+          <h2 className="mt-2 text-xl font-semibold tracking-[-0.025em] sm:text-2xl">
+            {title}
+          </h2>
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
 }
 
-function CompactCourse({ course }: { course: StudentPortalData["courses"][number] }) {
-  return <div className="flex items-center gap-4 rounded-2xl border border-navy/8 p-3"><div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-xl"><Image src={course.thumbnailUrl} alt="" fill sizes="80px" className="object-cover" /></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{course.title}</p><ProgressBar value={course.progressPercent} label={`${course.completedLessons}/${course.totalLessons} lessons`} compact /></div>{course.continueLessonSlug ? <Link href={`/learn/${course.slug}/${course.continueLessonSlug}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-navy text-white"><ArrowRight className="h-4 w-4" /></Link> : null}</div>;
+function CompactCourse({
+  course,
+}: {
+  course: StudentPortalData["courses"][number];
+}) {
+  return (
+    <div className="flex items-center gap-4 rounded-2xl border border-navy/8 p-3">
+      <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-xl">
+        <Image
+          src={course.thumbnailUrl}
+          alt=""
+          fill
+          sizes="80px"
+          className="object-cover"
+        />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold">{course.title}</p>
+        <ProgressBar
+          value={course.progressPercent}
+          label={`${course.completedLessons}/${course.totalLessons} lessons`}
+          compact
+        />
+      </div>
+      {course.continueLessonSlug ? (
+        <Link
+          href={`/learn/${course.slug}/${course.continueLessonSlug}`}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-navy text-white"
+        >
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      ) : null}
+    </div>
+  );
 }
 
-function ProgressBar({ value, label, compact = false }: { value: number; label: string; compact?: boolean }) {
-  return <div className={compact ? "mt-2" : "mt-5"}><div className="flex items-center justify-between text-xs font-semibold text-navy/45"><span>{label}</span><span className="text-btnBg">{value}%</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-navy/8"><motion.div initial={{ width: 0 }} animate={{ width: `${value}%` }} className="h-full rounded-full bg-gradient-to-r from-accent to-btnBg" /></div></div>;
+function ProgressBar({
+  value,
+  label,
+  compact = false,
+}: {
+  value: number;
+  label: string;
+  compact?: boolean;
+}) {
+  return (
+    <div className={compact ? "mt-2" : "mt-5"}>
+      <div className="flex items-center justify-between text-xs font-semibold text-navy/45">
+        <span>{label}</span>
+        <span className="text-btnBg">{value}%</span>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-navy/8">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${value}%` }}
+          className="h-full rounded-full bg-gradient-to-r from-accent to-btnBg"
+        />
+      </div>
+    </div>
+  );
 }
 
-function PageHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
-  return <div><p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">{eyebrow}</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{title}</h1><p className="mt-3 max-w-2xl leading-7 text-navy/50">{description}</p></div>;
+function PageHeading({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">
+        {eyebrow}
+      </p>
+      <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
+        {title}
+      </h1>
+      <p className="mt-3 max-w-2xl leading-7 text-navy/50">{description}</p>
+    </div>
+  );
 }
 
-function EmptyState({ icon: Icon, title, text }: { icon: typeof Trophy; title: string; text: string }) {
-  return <div className="px-4 py-9 text-center"><span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-heroBg text-accent"><Icon className="h-7 w-7" /></span><h3 className="mt-4 font-semibold">{title}</h3><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-navy/45">{text}</p></div>;
+function EmptyState({
+  icon: Icon,
+  title,
+  text,
+}: {
+  icon: typeof Trophy;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="px-4 py-9 text-center">
+      <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-heroBg text-accent">
+        <Icon className="h-7 w-7" />
+      </span>
+      <h3 className="mt-4 font-semibold">{title}</h3>
+      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-navy/45">
+        {text}
+      </p>
+    </div>
+  );
 }
 
 function StatusBadge({ passed }: { passed: boolean }) {
-  return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${passed ? "bg-accent/10 text-accent" : "bg-red-50 text-red-600"}`}>{passed ? "Passed" : "Try again"}</span>;
+  return (
+    <span
+      className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${passed ? "bg-accent/10 text-accent" : "bg-red-50 text-red-600"}`}
+    >
+      {passed ? "Passed" : "Try again"}
+    </span>
+  );
 }
 
-const inputClass = "h-12 w-full rounded-xl border border-navy/10 bg-[#f8fafc] px-4 text-sm text-navy outline-none transition focus:border-btnBg focus:ring-4 focus:ring-btnBg/10 disabled:cursor-not-allowed disabled:text-navy/40";
+const inputClass =
+  "h-12 w-full rounded-xl border border-navy/10 bg-[#f8fafc] px-4 text-sm text-navy outline-none transition focus:border-btnBg focus:ring-4 focus:ring-btnBg/10 disabled:cursor-not-allowed disabled:text-navy/40";
 
-function Field({ label, icon: Icon, children }: { label: string; icon: typeof UserRound; children: React.ReactNode }) {
-  return <label className="block"><span className="mb-2 flex items-center gap-2 text-sm font-semibold"><Icon className="h-4 w-4 text-navy/35" />{label}</span>{children}</label>;
+function Field({
+  label,
+  icon: Icon,
+  children,
+}: {
+  label: string;
+  icon: typeof UserRound;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 flex items-center gap-2 text-sm font-semibold">
+        <Icon className="h-4 w-4 text-navy/35" />
+        {label}
+      </span>
+      {children}
+    </label>
+  );
 }
 
-function Info({ label, value, icon: Icon }: { label: string; value: string; icon: typeof UserRound }) {
-  return <div className="flex items-center justify-between gap-4 border-b border-navy/7 pb-4 last:border-0"><dt className="flex items-center gap-3 text-sm text-navy/50"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-heroBg text-accent"><Icon className="h-4 w-4" /></span>{label}</dt><dd className="text-right text-sm font-semibold">{value}</dd></div>;
+function Info({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon: typeof UserRound;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-navy/7 pb-4 last:border-0">
+      <dt className="flex items-center gap-3 text-sm text-navy/50">
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-heroBg text-accent">
+          <Icon className="h-4 w-4" />
+        </span>
+        {label}
+      </dt>
+      <dd className="text-right text-sm font-semibold">{value}</dd>
+    </div>
+  );
 }
 
 function initials(name: string) {
-  return name.split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase();
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(value));
+  return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(
+    new Date(value),
+  );
 }

@@ -19,6 +19,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import { BrandLogo } from "@/components/Brand";
+import { invalidateEnrolledCoursesCache } from "@/components/Courses/CourseCardAction";
 import { notify } from "@/lib/toast";
 
 type AuthMode = "login" | "signup";
@@ -97,6 +98,7 @@ export default function AuthPage({
         return;
       }
 
+      invalidateEnrolledCoursesCache();
       router.replace(nextPath);
       router.refresh();
     } catch {
@@ -107,7 +109,7 @@ export default function AuthPage({
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#f3f7fb] p-3 sm:p-5 lg:p-6">
+    <main className="relative min-h-[calc(100dvh-1px)] overflow-hidden bg-[#f3f7fb] p-3 sm:p-5 lg:p-6">
       <div className="pointer-events-none absolute -left-24 top-16 h-64 w-64 rounded-full bg-btnBg/10 blur-3xl" />
       <div className="pointer-events-none absolute -right-20 bottom-0 h-72 w-72 rounded-full bg-accent/10 blur-3xl" />
 
@@ -115,9 +117,9 @@ export default function AuthPage({
         initial={reduceMotion ? false : { opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.55, ease: "easeOut" }}
-        className="relative mx-auto grid min-h-[calc(100vh-1.5rem)] max-w-[90rem] overflow-hidden rounded-[1.75rem] border border-white/80 bg-white shadow-[0_30px_100px_rgba(22,51,81,0.14)] sm:min-h-[calc(100vh-2.5rem)] lg:min-h-[calc(100vh-3rem)] lg:grid-cols-[0.9fr_1.1fr]"
+        className="relative mx-auto grid min-h-[calc(100dvh-1.5rem-1px)] max-w-[90rem] overflow-hidden rounded-[1.75rem] border border-white/80 bg-white shadow-[0_30px_100px_rgba(22,51,81,0.14)] sm:min-h-[calc(100dvh-2.5rem-1px)] lg:min-h-[calc(100dvh-3rem-1px)] lg:grid-cols-[0.9fr_1.1fr]"
       >
-        <section className="flex items-center justify-center px-5 py-8 sm:px-10 lg:px-14 xl:px-20">
+        <section className={`flex items-center justify-center px-5 ${isSignup ? "py-8" : "py-6"} sm:px-10 lg:px-14 xl:px-20`}>
           <div className="w-full max-w-md">
             <div className="flex items-center justify-between">
               <BrandLogo />
@@ -134,7 +136,7 @@ export default function AuthPage({
               initial={reduceMotion ? false : { opacity: 0, x: -14 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.45, delay: 0.08 }}
-              className="mt-9 sm:mt-12"
+              className={isSignup ? "mt-9 sm:mt-12" : "mt-6 sm:mt-8"}
             >
               <div className="inline-flex items-center gap-2 rounded-full bg-accent/8 px-3 py-1.5 text-xs font-semibold text-accent">
                 <ShieldCheck className="h-3.5 w-3.5" />

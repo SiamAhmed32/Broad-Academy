@@ -11,7 +11,7 @@ const ContactSection = () => {
       <Container>
         <ContactSectionHeader />
 
-        <div className="mt-8 grid min-w-0 grid-cols-1 items-start gap-6 sm:mt-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
+        <div className="mt-8 grid min-w-0 grid-cols-1 items-stretch gap-6 sm:mt-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
           <ContactFormCard />
 
           <div className="flex flex-col gap-6">

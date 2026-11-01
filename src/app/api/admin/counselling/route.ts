@@ -192,7 +192,7 @@ export async function GET(request: NextRequest) {
             : { createdAt: "desc" };
 
   const { skip, take } = paginate(page, limit);
-  const [bookings, total, countsArray, archivedCount, subjects, educationLevels] =
+  const [bookings, total, countsArray, filterValues] =
     await Promise.all([
     db.counsellingBooking.findMany({
       where,
@@ -216,19 +216,10 @@ export async function GET(request: NextRequest) {
     db.counsellingBooking.count({ where }),
     db.counsellingBooking.groupBy({
       by: ["status"],
-      where: { archivedAt: null },
-      _count: true,
+      _count: { _all: true, archivedAt: true },
     }),
-    db.counsellingBooking.count({ where: { archivedAt: { not: null } } }),
-    db.counsellingBooking.findMany({
-      distinct: ["subjectInterest"],
-      select: { subjectInterest: true },
-      orderBy: { subjectInterest: "asc" },
-    }),
-    db.counsellingBooking.findMany({
-      distinct: ["educationLevel"],
-      select: { educationLevel: true },
-      orderBy: { educationLevel: "asc" },
+    db.counsellingBooking.groupBy({
+      by: ["subjectInterest", "educationLevel"],
     }),
   ]);
 
@@ -238,8 +229,10 @@ export async function GET(request: NextRequest) {
     COMPLETED: 0,
     CANCELLED: 0,
   };
+  let archivedCount = 0;
   for (const c of countsArray) {
-    counts[c.status] = c._count;
+    archivedCount += c._count.archivedAt;
+    counts[c.status] = c._count._all - c._count.archivedAt;
   }
 
   return NextResponse.json({
@@ -249,8 +242,8 @@ export async function GET(request: NextRequest) {
       pagination: paginationMeta(total, page, limit),
       counts: { ...counts, ARCHIVED: archivedCount },
       filters: {
-        subjects: subjects.map((item) => item.subjectInterest),
-        educationLevels: educationLevels.map((item) => item.educationLevel),
+        subjects: [...new Set(filterValues.map((item) => item.subjectInterest))].sort(),
+        educationLevels: [...new Set(filterValues.map((item) => item.educationLevel))].sort(),
       },
       capabilities: {
         canPermanentlyDelete:

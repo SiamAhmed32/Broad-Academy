@@ -141,7 +141,10 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const slug = data.slug ?? slugify(data.title);
+  const titleSlug = slugify(data.title);
+  const slug =
+    data.slug ??
+    (titleSlug.length >= 2 ? titleSlug : `course-${crypto.randomUUID()}`);
 
   const existing = await db.course.findUnique({ where: { slug } });
   if (existing) return errorResponse("A course with this slug already exists.", 409);
@@ -165,7 +168,11 @@ export async function POST(request: NextRequest) {
       homepageOrder: data.homepageOrder,
       badge: data.badge ?? null,
       description: data.description || null,
+      detailsHeading: data.detailsHeading || null,
+      aboutHeading: data.aboutHeading || null,
+      includesHeading: data.includesHeading || null,
       includes: data.includes ?? [],
+      enrollmentGuideYoutubeUrl: data.enrollmentGuideYoutubeUrl || null,
       facebookGroupUrl: data.facebookGroupUrl || null,
       status: data.status,
       publishedAt: data.status === "PUBLISHED" ? new Date() : null,

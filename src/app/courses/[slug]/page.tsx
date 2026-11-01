@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 
 import { CourseDetailPage } from "@/components/Courses";
 import { Layout } from "@/components/Layout";
+import { getCurrentUser } from "@/lib/auth/session";
 import { fetchCourseBySlug, fetchCourseSlugs } from "@/lib/courses/fetch";
 import { courseSlugSchema } from "@/lib/courses/validation";
+import { getCourseEnrollmentState } from "@/lib/enrollments/state";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -43,8 +45,16 @@ export default async function CourseRoute({ params }: PageProps) {
   const parsed = courseSlugSchema.safeParse((await params).slug);
   if (!parsed.success) notFound();
 
-  const data = await fetchCourseBySlug(parsed.data);
+  const [data, user] = await Promise.all([
+    fetchCourseBySlug(parsed.data),
+    getCurrentUser(),
+  ]);
   if (!data) notFound();
+
+  const initialEnrollment = await getCourseEnrollmentState({
+    user,
+    course: data.course,
+  });
 
   const structuredData = {
     "@context": "https://schema.org",
@@ -69,7 +79,7 @@ export default async function CourseRoute({ params }: PageProps) {
           __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
         }}
       />
-      <CourseDetailPage data={data} />
+      <CourseDetailPage data={data} initialEnrollment={initialEnrollment} />
     </Layout>
   );
 }

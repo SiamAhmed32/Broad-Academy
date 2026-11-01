@@ -316,19 +316,19 @@ export default function MobileBottomNav({
       {/* Spacer lives with the bar, so reserved space and bar visibility can
           never drift apart; height comes from the same --bnav-* values as the
           bar's own padding. */}
-      <div aria-hidden="true" className="bnav-spacer md:hidden" />
+      <div aria-hidden="true" className="bnav-spacer lg:hidden" />
 
       {/* Scrim is a SIBLING of the bar's wrapper and sits below it, so
           backdrop-filter blurs the page rather than the drawer. Kept mounted
           and toggled by data-open so it can animate out as well as in. */}
       <div
-        className="bnav__scrim z-[59] md:hidden"
+        className="bnav__scrim z-[59] lg:hidden"
         data-open={moreOpen}
         onClick={closeMore}
         aria-hidden="true"
       />
 
-      <div className="fixed inset-x-0 bottom-0 z-[60] md:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-[60] lg:hidden">
         {/* DOM order matters: the bar comes first for tab order, the panel
             second so it paints underneath at a lower z-index. */}
         <nav className="bnav" aria-label="Quick links">

@@ -396,7 +396,11 @@ model Course {
   homepageOrder      Int                 @default(0)
   badge              String?
   description        String?
+  detailsHeading     String?
+  aboutHeading       String?
+  includesHeading    String?
   includes           String[]            @default([])
+  enrollmentGuideYoutubeUrl String?
   facebookGroupUrl   String?
   status             CourseStatus        @default(DRAFT)
   publishedAt        DateTime?

@@ -21,9 +21,9 @@ export default function CounsellingPageContent() {
                 সর্তকতার সাথে ফরমটি ফিলাপ করুন, খুব অল্প কথায় শিক্ষার্থীর সমস্যাগুলো
                 জানান পরবর্তীতে আমাদের টিম আপনার সাথে যোগাযোগ করবে।
               </p>
-              <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Fees confirmed before the session
+              <p lang="bn" className="font-bangla mt-2 inline-flex items-start gap-1.5 rounded-2xl bg-amber-50 px-2.5 py-1 text-[11px] font-medium leading-relaxed text-amber-800">
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                স্টাডি প্ল্যান/কাউন্সেলিং বুক করার পূর্বে নির্ধারিত সম্মানী প্রদান করতে হবে।
               </p>
             </div>
           </div>
